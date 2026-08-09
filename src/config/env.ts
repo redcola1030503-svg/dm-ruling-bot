@@ -28,7 +28,10 @@ const envSchema = z.object({
     .string()
     .default("https://dm.takaratomy.co.jp/rule/rulechange/"),
 
-  ENABLE_DEBUG_ROUTES: z.coerce.boolean().default(false),
+  ENABLE_DEBUG_ROUTES: z
+    .string()
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 export const env = envSchema.parse(process.env);
