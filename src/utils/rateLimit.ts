@@ -1,0 +1,19 @@
+import rateLimit from "express-rate-limit";
+
+// LLM/公式サイトアクセスを伴う裁定APIは、1分あたりの呼び出し回数を厳しめに制限する。
+export const rulingRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "rate_limited", detail: "リクエストが多すぎます。しばらく待ってから再度お試しください。" },
+});
+
+// LINE Webhookはプラットフォーム側からの再送もあるため、やや緩めに制限する。
+export const webhookRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "rate_limited" },
+});

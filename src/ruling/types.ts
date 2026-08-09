@@ -1,0 +1,41 @@
+export type Confidence = "high" | "medium" | "low";
+
+export type EvidenceSource = {
+  title: string;
+  text: string;
+  url: string;
+  sourceType: "card" | "qa" | "ruleChange" | "generalRule" | "correction";
+};
+
+export type ParsedQuestion = {
+  originalText: string;
+  cardNames: string[];
+  keywords: string[];
+  ruleConcepts: string[];
+  situation: string;
+  question: string;
+};
+
+export type ScoredEvidenceSource = EvidenceSource & { score: number };
+
+export type RulingEvidence = {
+  cards: EvidenceSource[];
+  qa: ScoredEvidenceSource[];
+  ruleChanges: ScoredEvidenceSource[];
+  generalRules: ScoredEvidenceSource[];
+  pastCorrections: ScoredEvidenceSource[];
+};
+
+export type RulingSourceRef = {
+  title: string;
+  url: string;
+};
+
+export type RulingResult = {
+  conclusion: string;
+  explanation: string;
+  steps: string[];
+  confidence: Confidence;
+  cards: string[];
+  sources: RulingSourceRef[];
+};

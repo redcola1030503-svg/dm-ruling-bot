@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.*
+!.env.example
+dist
+*.db
+APIKey.txt
+*.key
+*secret*
+*.pem
