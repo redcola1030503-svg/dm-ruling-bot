@@ -13,7 +13,7 @@
 - [x] Phase 3: 公式Q&A検索(`POST /api/debug/search`)
 - [x] Phase 4: ルール変更検索(`POST /api/debug/search`)
 - [x] Phase 5: LLM裁定(Claude API) — 実機確認済み
-- [x] Phase 6: LINE Bot — 実機確認済み(ngrok経由でWebhook動作確認)
+- [x] Phase 6: LINE Bot — 実機確認済み(ngrok経由でWebhook動作確認 → 現在は本番Webhookで運用中)
 - [x] 総合ルールPDF検索 — 実機確認済み。裁定の優先順位を「総合ルールへの当てはめ最優先→類似Q&A事例→ルール変更→カードテキスト」に変更
 - [x] Phase 7: 品質改善(一部) — レート制限・ログ整備・カード読み仮名検索を実装。Q&A rerank(LLM)は既存のスコアリングで十分な精度が出ているため見送り
 - [x] カード専用Q&A一覧の活用 — 実際の誤答事例から発見。カード詳細ページに埋め込まれた「このカードのよくある質問」への直接リンクを活用し、キーワード検索で漏れていたQ&Aを拾えるように改善(実機確認済み)
@@ -21,6 +21,15 @@
 - [x] JSON出力順序の変更 — conclusionとexplanationが矛盾する出力(結論見出しと理由説明で逆のことを言う)を実際の誤答事例で発見。JSON出力順を steps→explanation→conclusion に変更し、推論してから結論を書く構造にして矛盾を防止
 - [x] ジャッジ訂正の蓄積・参照機能 — LINEで`/訂正 <正しい裁定>`コマンドにより、ログイン中のジャッジが直前のBot回答への訂正を記録できる。蓄積された訂正は「非公式な過去の誤答実績」として、以降の類似質問でLLMに参考提示され、同じ誤りの再発を防ぐ(公式情報の根拠としては使わない設計)
 - [x] 公認ジャッジのログイン機能 — `/login <ジャッジID>`で`VALID_JUDGE_IDS`に登録済みのジャッジIDのみログインでき、ログイン中のLINEユーザーのみ`/訂正`コマンドを実行できる。ログイン状態はDBにセッションとして保存し、`/logout`で解除できる
+- [x] **本番リリース** — Render(Starterプラン)にデプロイ済み。LINE Webhookを本番URLに切り替え、実機での質問応答を確認済み
+
+## 本番稼働状況
+
+- 本番URL: `https://dm-ruling-bot.onrender.com`
+- ホスティング: [Render](https://render.com)(`render.yaml` によるBlueprint定義をリポジトリに同梱)
+- masterブランチへのPushで自動デプロイ(Auto-Deploy: On Commit)
+- 永続ディスク(`/app/data`、1GB)をマウントし、SQLiteのキャッシュ・会話履歴・ジャッジ訂正データを永続化
+- LINE Webhook URLは `https://dm-ruling-bot.onrender.com/webhook/line` を設定・検証済み
 
 ## 必要環境
 
@@ -117,7 +126,15 @@ npm test
 
 ## デプロイ
 
-`Dockerfile`(Node.js 22 alpineベース、マルチステージビルド、非rootユーザー実行、`/health`へのHEALTHCHECK付き)を用意しています。Render / Railway / Google Cloud Runなど、Dockerイメージからの常駐デプロイに対応したサービスを想定しています。
+`Dockerfile`(Node.js 22 alpineベース、マルチステージビルド、非rootユーザー実行、`/health`へのHEALTHCHECK付き)を用意しています。**本番は`render.yaml`(Blueprint定義)を使ってRenderにデプロイ済み**です。Railway / Google Cloud Runなど、他のDockerイメージ常駐デプロイ対応サービスでも同様の構成で動作するはずです。
+
+### Renderへのデプロイ(実施済みの手順)
+
+1. Renderダッシュボードで GitHubリポジトリ(`redcola1030503-svg/dm-ruling-bot`)と連携し、Web Serviceを作成(Docker、Starterプラン以上 — 永続ディスクはFreeプラン非対応)
+2. `render.yaml`に定義済みの環境変数のうち、機密情報(`LLM_API_KEY`/`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`/`VALID_JUDGE_IDS`)をRenderダッシュボード上で入力
+3. Disk設定で`/app/data`に1GBをマウント、Health Check Pathに`/health`を設定
+4. デプロイ後、LINE Developers ConsoleのWebhook URLを`https://<Renderが割り当てたURL>/webhook/line`に変更し「検証」で成功を確認
+5. Auto-Deployは「On Commit」設定のため、以後は`master`へのPushで自動的に再デプロイされる
 
 ### ローカルでのDockerビルド確認
 
@@ -145,13 +162,14 @@ Render/Railwayでは「Persistent Disk」「Volume」機能を`/app/data`にマ�
 | `VALID_JUDGE_IDS` | 実際に運用する公認ジャッジIDのみを列挙 |
 | `ENABLE_DEBUG_ROUTES` | **必ず未設定または`false`にする**(`/api/debug/*`は本番で無効化)。なお`NODE_ENV=production`(Dockerfileで設定済み)の場合はこの値が`true`でもコード側で強制的に無効化される(多層防御) |
 | `DATABASE_URL` | 永続ボリューム上のパスを指定(例: `/app/data/cache.db`) |
-| `PORT` | デプロイ先が要求するポート番号に合わせる(Cloud Run等は`PORT`を自動注入する場合あり) |
+| `PORT` | Renderはコンテナに`PORT`環境変数を自動注入し、そのポートで待ち受ける(明示的な設定は不要。本番では10000番ポートが割り当てられている) |
 
 ### デプロイ後の確認
 
 1. `GET /health` が `{"status":"ok"}` を返すこと
 2. LINE Developers ConsoleのWebhook URLを本番URL(`https://<本番ドメイン>/webhook/line`)に更新し、「検証」が成功すること
 3. `POST /api/debug/search` 等のデバッグ系エンドポイントが404または無効化されていること(`ENABLE_DEBUG_ROUTES`未設定を確認)
+4. LINEから実際に質問を送り、裁定の返信が届くこと(本番確認済み: 2026-08-10)
 
 ## セキュリティ・品質対策
 

@@ -35,6 +35,14 @@ npm run dev
 
 (`npm run dev` は `tsx watch` を使っているため、`.env` 自体の変更検知はしません。手動での再起動が必要です。)
 
+### 本番環境(Render)での設定
+
+本番はRenderにデプロイされているため、ローカルの`.env`ではなくRenderダッシュボード側で設定します。
+
+1. Renderダッシュボード → `dm-ruling-bot` → **Environment** タブを開く
+2. `VALID_JUDGE_IDS` の値を編集し、実際に運用する公認ジャッジIDをカンマ区切りで入力
+3. 「Save, rebuild, and deploy」で保存すると、自動的に再デプロイされ設定が反映される
+
 ## 4. LINE上での使い方
 
 | コマンド | 説明 |
