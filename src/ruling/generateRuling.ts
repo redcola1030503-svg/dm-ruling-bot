@@ -163,7 +163,7 @@ export async function generateRuling(
   }
 
   const userMessage = buildUserMessage(parsed, evidence);
-  const raw = await completeJson({ system: RULING_SYSTEM_PROMPT, userMessage });
+  const raw = await completeJson({ system: RULING_SYSTEM_PROMPT, userMessage, maxTokens: 4096 });
   const validated = llmOutputSchema.parse(JSON.parse(extractJsonBlock(raw)));
 
   // Evidenceに実在するURLのみを根拠として許可する(指示書ルール9: 捏造URL防止)。
