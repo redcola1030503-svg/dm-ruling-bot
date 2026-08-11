@@ -1,7 +1,7 @@
 import { normalizeCardName } from "../utils/normalize";
 import { similarityScore } from "../utils/textSimilarity";
-import { getOfficialCard, searchOfficialCards } from "./cardSearch";
-import type { CardInfo } from "./types";
+import { extractFallbackTokens, getOfficialCard, searchOfficialCards } from "./cardSearch";
+import type { CardInfo, CardSearchHit } from "./types";
 
 export type CardMatchType = "exact" | "prefix" | "partial" | "fuzzy";
 
@@ -12,19 +12,16 @@ export type CardNameMatch = {
 };
 
 const FUZZY_MIN_SCORE = 0.5;
+// この閾値以上のスコアを「十分な一致」とみなす。公式サイト検索は0件ではなく
+// 無関係な候補を返してくることがある(例:「奇石 ミクセル / ジャミング・チャフ」
+// のようなスラッシュを含む複合カード名)ため、既存の候補がこの閾値に届かない
+// 場合はフォールバックトークンでの再検索を試みる。
+const SUFFICIENT_MATCH_SCORE = 0.75;
 
-export async function findCardCandidates(
-  inputName: string,
-  options?: { maxResults?: number },
-): Promise<CardNameMatch[]> {
-  const hits = await searchOfficialCards(inputName, options);
-  const cards = (await Promise.all(hits.map((hit) => getOfficialCard(hit)))).filter(
-    (card): card is CardInfo => card !== null,
-  );
-
+function scoreCardsAgainst(cards: CardInfo[], inputName: string): CardNameMatch[] {
   const normalizedInput = normalizeCardName(inputName);
-
   const matches: CardNameMatch[] = [];
+
   for (const card of cards) {
     const normalizedName = normalizeCardName(card.name);
 
@@ -43,6 +40,39 @@ export async function findCardCandidates(
     const similarity = similarityScore(normalizedName, normalizedInput);
     if (similarity >= FUZZY_MIN_SCORE) {
       matches.push({ card, matchType: "fuzzy", score: similarity * 0.6 });
+    }
+  }
+
+  return matches;
+}
+
+async function fetchCards(hits: CardSearchHit[]): Promise<CardInfo[]> {
+  return (await Promise.all(hits.map((hit) => getOfficialCard(hit)))).filter(
+    (card): card is CardInfo => card !== null,
+  );
+}
+
+function bestScore(matches: CardNameMatch[]): number {
+  return matches.reduce((max, m) => Math.max(max, m.score), -Infinity);
+}
+
+export async function findCardCandidates(
+  inputName: string,
+  options?: { maxResults?: number },
+): Promise<CardNameMatch[]> {
+  const hits = await searchOfficialCards(inputName, options);
+  const cards = await fetchCards(hits);
+  let matches = scoreCardsAgainst(cards, inputName);
+
+  const seenIds = new Set(cards.map((card) => card.id));
+  if (bestScore(matches) < SUFFICIENT_MATCH_SCORE) {
+    for (const token of extractFallbackTokens(inputName)) {
+      const fallbackHits = await searchOfficialCards(token, options);
+      const newCards = (await fetchCards(fallbackHits)).filter((card) => !seenIds.has(card.id));
+      for (const card of newCards) seenIds.add(card.id);
+
+      matches = matches.concat(scoreCardsAgainst(newCards, inputName));
+      if (bestScore(matches) >= SUFFICIENT_MATCH_SCORE) break;
     }
   }
 
