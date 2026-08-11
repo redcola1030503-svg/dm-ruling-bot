@@ -1,5 +1,7 @@
 import { db } from "../config/db";
-import type { GeneralRuleChunk } from "./types";
+import { bufferToFloat32Array, float32ArrayToBuffer } from "../embeddings/embeddingUtils";
+import { computeGeneralRuleContentHash } from "./contentHash";
+import type { GeneralRuleChunk, GeneralRuleChunkRow } from "./types";
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7日(総合ルールは頻繁に変わらない)
 const CRAWL_META_KEY = "general_rule";
@@ -7,6 +9,14 @@ const CRAWL_META_KEY = "general_rule";
 type ChunkRow = {
   rule_number: string;
   text: string;
+};
+
+type ChunkRowWithEmbedding = ChunkRow & {
+  id: number;
+  content_hash: string;
+  embedding: Buffer | null;
+  embedding_model: string | null;
+  embedding_text_hash: string | null;
 };
 
 export function isGeneralRuleCacheFresh(): boolean {
@@ -17,12 +27,41 @@ export function isGeneralRuleCacheFresh(): boolean {
   return Date.now() - row.crawled_at < CACHE_TTL_MS;
 }
 
+/**
+ * 内容が変わっていない行はembeddingを保持したまま残す差分更新。
+ * (単純なDELETE&INSERTだとクロールのたびにembeddingが全て失われてしまうため)
+ */
 export function saveGeneralRuleChunks(chunks: GeneralRuleChunk[]): void {
-  db.exec("DELETE FROM general_rule_chunk");
-  const stmt = db.prepare("INSERT INTO general_rule_chunk (rule_number, text) VALUES (?, ?)");
+  const existingHashes = new Set(
+    (
+      db
+        .prepare("SELECT content_hash FROM general_rule_chunk WHERE content_hash IS NOT NULL")
+        .all() as { content_hash: string }[]
+    ).map((row) => row.content_hash),
+  );
+
+  const insertStmt = db.prepare(
+    "INSERT INTO general_rule_chunk (rule_number, text, content_hash) VALUES (?, ?, ?)",
+  );
+
+  const newHashes = new Set<string>();
   for (const chunk of chunks) {
-    stmt.run(chunk.ruleNumber, chunk.text);
+    const hash = computeGeneralRuleContentHash(chunk);
+    newHashes.add(hash);
+    if (!existingHashes.has(hash)) {
+      insertStmt.run(chunk.ruleNumber, chunk.text, hash);
+    }
   }
+
+  // 新しいクロール結果に存在しなくなった行(条文の削除・統合等)を削除する。
+  const staleHashes = [...existingHashes].filter((hash) => !newHashes.has(hash));
+  if (staleHashes.length > 0) {
+    const placeholders = staleHashes.map(() => "?").join(",");
+    db.prepare(`DELETE FROM general_rule_chunk WHERE content_hash IN (${placeholders})`).run(
+      ...staleHashes,
+    );
+  }
+
   db.prepare(
     `INSERT INTO general_rule_crawl_meta (key, crawled_at) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET crawled_at = excluded.crawled_at`,
@@ -32,4 +71,46 @@ export function saveGeneralRuleChunks(chunks: GeneralRuleChunk[]): void {
 export function getAllCachedGeneralRuleChunks(): GeneralRuleChunk[] {
   const rows = db.prepare("SELECT rule_number, text FROM general_rule_chunk").all() as ChunkRow[];
   return rows.map((row) => ({ ruleNumber: row.rule_number, text: row.text }));
+}
+
+function rowToChunkRow(row: ChunkRowWithEmbedding): GeneralRuleChunkRow {
+  return {
+    id: row.id,
+    ruleNumber: row.rule_number,
+    text: row.text,
+    contentHash: row.content_hash,
+    embedding: row.embedding ? bufferToFloat32Array(row.embedding) : null,
+    embeddingModel: row.embedding_model,
+    embeddingTextHash: row.embedding_text_hash,
+  };
+}
+
+export function getAllGeneralRuleChunkRows(): GeneralRuleChunkRow[] {
+  const rows = db
+    .prepare(
+      `SELECT id, rule_number, text, content_hash, embedding, embedding_model, embedding_text_hash
+       FROM general_rule_chunk`,
+    )
+    .all() as ChunkRowWithEmbedding[];
+  return rows.map(rowToChunkRow);
+}
+
+export function saveGeneralRuleEmbedding(params: {
+  id: number;
+  embedding: number[];
+  model: string;
+  textHash: string;
+}): void {
+  db.prepare(
+    `UPDATE general_rule_chunk
+     SET embedding = ?, embedding_model = ?, embedding_dimensions = ?, embedding_text_hash = ?, embedding_updated_at = ?
+     WHERE id = ?`,
+  ).run(
+    float32ArrayToBuffer(params.embedding),
+    params.model,
+    params.embedding.length,
+    params.textHash,
+    new Date().toISOString(),
+    params.id,
+  );
 }

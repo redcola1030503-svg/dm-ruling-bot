@@ -12,7 +12,9 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "embeddings:rules": "tsx src/scripts/generateRuleEmbeddings.ts",
+    "eval:retrieval": "tsx tests/retrieval/evaluateRetrieval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

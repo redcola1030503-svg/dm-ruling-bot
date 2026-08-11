@@ -118,6 +118,42 @@ response:
 
 本番環境では `ENABLE_DEBUG_ROUTES` を未設定(false)にして無効化してください。
 
+## 総合ルール検索(キーワード検索 + Embedding意味検索のハイブリッド)
+
+総合ルール(961条文チャンク)の検索は、以下の2種類を統合したハイブリッド検索で行っています。
+
+- **キーワード検索**(常時有効): 質問文から抽出したカード名・ルール用語と条文テキストの部分文字列一致・2-gram類似度によるスコアリング(`src/rules/generalRuleRanking.ts`)。加えて、複数の保留/誘発型能力の処理順序を扱う一般原則条文(101.4系・409系・603.2〜603.3系)は、具体的なキーワードを含む条文に埋もれやすいため、スコア>0であれば別枠で必ず候補に含めています。
+- **Embedding意味検索**(Voyage AI、任意): 質問文全体をembeddingし、事前に生成した各条文のembeddingとのコサイン類似度で検索します。「相手と自分の能力が同時に発動…」のような自然な言い回しと、「ターン・プレイヤーのものから順番に処理…」のような条文の硬い表現のように、字面は一致しないが意味的に近いケースを拾うためのものです。
+
+2つの検索結果は、生スコアのスケールの違いに影響されないよう **Reciprocal Rank Fusion(RRF)** で統合しています(`src/search/hybridSearch.ts`)。`SEARCH_EMBEDDING_WEIGHT` / `SEARCH_KEYWORD_WEIGHT` で重みを調整できます。
+
+### Voyage APIキーの設定
+
+`.env` に以下を設定してください。
+
+```env
+VOYAGE_API_KEY=your-voyage-api-key
+VOYAGE_EMBEDDING_MODEL=voyage-4
+```
+
+**`VOYAGE_API_KEY` が未設定の場合、embedding検索は自動的に無効化され、キーワード検索のみで動作します。** Voyage APIがタイムアウト・レート制限・障害等で失敗した場合も同様にキーワード検索へフォールバックし、LINE Botの応答自体は止まりません。
+
+### embeddingの生成・更新
+
+```bash
+npm run embeddings:rules
+```
+
+未生成の条文・モデル変更・本文変更(SHA-256ハッシュで判定)があった条文のみを対象にVoyage APIへバッチでリクエストし、結果をSQLiteに保存します。総合ルールが7日ごとに再クロールされても、内容が変わっていない条文はembeddingを保持したまま残るため、毎回全件を再生成する必要はありません。
+
+### 検索精度の評価
+
+```bash
+npm run eval:retrieval
+```
+
+`tests/retrieval/cases.json` に定義した質問と正解条文番号のペアをもとに、キーワード検索のみ/embedding検索のみ/ハイブリッドの3方式でRecall@1・3・5・10とMRR(Mean Reciprocal Rank)を算出し、比較表として出力します。embedding導入の効果を定量的に確認するために使います。
+
 ## テスト
 
 ```bash
@@ -160,6 +196,7 @@ Render/Railwayでは「Persistent Disk」「Volume」機能を`/app/data`にマ�
 | `LLM_API_KEY` | Anthropicアカウントのクレジット残高を確認 |
 | `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN` | LINE Developers Consoleの本番チャネルの値を設定 |
 | `VALID_JUDGE_IDS` | 実際に運用する公認ジャッジIDのみを列挙 |
+| `VOYAGE_API_KEY` | 任意。未設定でもキーワード検索のみで動作する。設定する場合はデプロイ後に`npm run embeddings:rules`でembeddingを生成すること |
 | `ENABLE_DEBUG_ROUTES` | **必ず未設定または`false`にする**(`/api/debug/*`は本番で無効化)。なお`NODE_ENV=production`(Dockerfileで設定済み)の場合はこの値が`true`でもコード側で強制的に無効化される(多層防御) |
 | `DATABASE_URL` | 永続ボリューム上のパスを指定(例: `/app/data/cache.db`) |
 | `PORT` | Renderはコンテナに`PORT`環境変数を自動注入し、そのポートで待ち受ける(明示的な設定は不要。本番では10000番ポートが割り当てられている) |

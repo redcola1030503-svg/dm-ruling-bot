@@ -39,3 +39,12 @@ export type GeneralRuleChunk = {
 export type GeneralRuleEvidence = GeneralRuleChunk & {
   score: number;
 };
+
+// embedding検索・生成スクリプトで使う、DB行そのものを表す型。
+export type GeneralRuleChunkRow = GeneralRuleChunk & {
+  id: number;
+  contentHash: string;
+  embedding: Float32Array | null;
+  embeddingModel: string | null;
+  embeddingTextHash: string | null;
+};

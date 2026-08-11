@@ -2,9 +2,9 @@ import { findCardCandidates } from "../cards/cardNameMatcher";
 import { env } from "../config/env";
 import { searchAndRankQa } from "../rules/qaRanking";
 import { searchAndRankRuleChanges } from "../rules/ruleChangeRanking";
-import { searchAndRankGeneralRules } from "../rules/generalRuleRanking";
 import { extractRuleConcepts } from "../rules/ruleConceptDictionary";
 import { searchAndRankCorrections } from "../corrections/ranking";
+import { hybridSearchGeneralRules } from "../search/hybridSearch";
 import type {
   AmbiguousCard,
   EvidenceSource,
@@ -101,7 +101,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
   const [qaResults, ruleChangeResults, generalRuleResults] = await Promise.all([
     searchAndRankQa(criteria, { cardQaListUrls }),
     searchAndRankRuleChanges(criteria),
-    searchAndRankGeneralRules(criteria),
+    hybridSearchGeneralRules(parsed.originalText, criteria),
   ]);
 
   const qa: ScoredEvidenceSource[] = qaResults.map((item) => ({
@@ -125,7 +125,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     text: chunk.text,
     url: env.DM_GENERAL_RULE_PAGE_URL,
     sourceType: "generalRule",
-    score: chunk.score,
+    score: chunk.finalScore,
   }));
 
   // 過去にジャッジが訂正した実績。公式情報ではないため、URLは持たせずsourcesには

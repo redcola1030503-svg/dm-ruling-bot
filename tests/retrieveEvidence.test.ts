@@ -6,8 +6,8 @@ vi.mock("../src/rules/qaRanking", () => ({ searchAndRankQa: vi.fn().mockResolved
 vi.mock("../src/rules/ruleChangeRanking", () => ({
   searchAndRankRuleChanges: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("../src/rules/generalRuleRanking", () => ({
-  searchAndRankGeneralRules: vi.fn().mockResolvedValue([]),
+vi.mock("../src/search/hybridSearch", () => ({
+  hybridSearchGeneralRules: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../src/corrections/ranking", () => ({ searchAndRankCorrections: vi.fn().mockReturnValue([]) }));
 

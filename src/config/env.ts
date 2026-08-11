@@ -17,6 +17,16 @@ const envSchema = z.object({
 
   LLM_API_KEY: z.string().optional(),
 
+  // Voyage AI embedding(意味検索)。未設定の場合、embedding検索は無効化され
+  // 既存のキーワード検索のみで動作する。
+  VOYAGE_API_KEY: z.string().optional(),
+  VOYAGE_EMBEDDING_MODEL: z.string().default("voyage-4"),
+
+  SEARCH_EMBEDDING_WEIGHT: z.coerce.number().default(0.75),
+  SEARCH_KEYWORD_WEIGHT: z.coerce.number().default(0.25),
+  SEARCH_SEMANTIC_CANDIDATES: z.coerce.number().default(20),
+  SEARCH_FINAL_RESULTS: z.coerce.number().default(5),
+
   DATABASE_URL: z.string().default("./data/cache.db"),
 
   DM_CARD_BASE_URL: z.string().default("https://dm.takaratomy.co.jp/card/"),
