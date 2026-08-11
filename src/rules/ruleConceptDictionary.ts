@@ -2,7 +2,7 @@
  * 代表的なルール用語の辞書。質問文からの簡易抽出に使う。
  * 本格的な質問構造化(同義語・表記ゆれの吸収含む)はPhase5のanalyzeQuestionで行う。
  */
-export const RULE_CONCEPTS: readonly string[] = [
+const RULE_CONCEPTS: readonly string[] = [
   "S・トリガー",
   "S トリガー",
   "G・ストライク",

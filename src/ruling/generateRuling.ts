@@ -4,7 +4,7 @@ import { extractJsonBlock } from "../llm/jsonExtract";
 import { estimateConfidence, pickMoreCautious } from "./confidence";
 import type { Confidence, EvidenceSource, ParsedQuestion, RulingEvidence, RulingResult } from "./types";
 
-export const RULING_SYSTEM_PROMPT = `あなたはデュエル・マスターズのルール裁定を補助するAIです。
+const RULING_SYSTEM_PROMPT = `あなたはデュエル・マスターズのルール裁定を補助するAIです。
 
 あなたの役割は、ユーザーが提示したゲーム状況について、
 提供されたデュエル・マスターズ公式情報を根拠に処理を説明することです。

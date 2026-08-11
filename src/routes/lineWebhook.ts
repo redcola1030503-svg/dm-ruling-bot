@@ -8,7 +8,7 @@ import { appendMessage, getRecentHistory } from "../line/conversationRepository"
 import { produceRuling } from "../ruling/produceRuling";
 import { extractCardNameCandidates } from "../cards/extractCardNameCandidates";
 import { saveCorrection } from "../corrections/repository";
-import { addJudge, getJudge, getSession, login, logout, removeJudge } from "../judges/repository";
+import { addJudge, getJudge, getSession, listJudges, login, logout, removeJudge } from "../judges/repository";
 import { logger } from "../utils/logger";
 import { webhookRateLimiter } from "../utils/rateLimit";
 
@@ -22,6 +22,7 @@ const LOGIN_COMMAND_PREFIX = "/login ";
 const LOGOUT_COMMAND = "/logout";
 const JUDGE_ADD_COMMAND_PREFIX = "/judge_add ";
 const JUDGE_REMOVE_COMMAND_PREFIX = "/judge_remove ";
+const JUDGE_LIST_COMMAND = "/judge_list";
 
 function buildContextualQuestion(userId: string, latestMessage: string): string {
   const history = getRecentHistory(userId);
@@ -105,6 +106,24 @@ async function handleJudgeRemoveCommand(userId: string, replyToken: string, text
   );
 }
 
+async function handleJudgeListCommand(userId: string, replyToken: string): Promise<void> {
+  const session = getSession(userId);
+  if (!session || session.role !== "admin") {
+    await replyText(replyToken, "この操作には管理者権限が必要です。");
+    return;
+  }
+
+  const judges = listJudges();
+  if (judges.length === 0) {
+    await replyText(replyToken, "登録されているジャッジがいません。");
+    return;
+  }
+
+  const roleLabel = { judge: "ジャッジ", admin: "管理者" } as const;
+  const list = judges.map((judge) => `・${judge.id}(${roleLabel[judge.role]})`).join("\n");
+  await replyText(replyToken, `登録済みジャッジ一覧:\n${list}`);
+}
+
 async function handleCorrectionCommand(
   userId: string,
   replyToken: string,
@@ -180,6 +199,11 @@ async function handleTextMessageEvent(event: WebhookEvent): Promise<void> {
 
   if (text.startsWith(JUDGE_REMOVE_COMMAND_PREFIX)) {
     await handleJudgeRemoveCommand(userId, replyToken, text);
+    return;
+  }
+
+  if (text === JUDGE_LIST_COMMAND) {
+    await handleJudgeListCommand(userId, replyToken);
     return;
   }
 

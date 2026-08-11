@@ -9,7 +9,7 @@ import {
 } from "./generalRuleRepository";
 import type { GeneralRuleChunk } from "./types";
 
-export async function crawlGeneralRule(): Promise<GeneralRuleChunk[]> {
+async function crawlGeneralRule(): Promise<GeneralRuleChunk[]> {
   const pageHtml = await fetchHtml(env.DM_GENERAL_RULE_PAGE_URL);
   const pdfUrl = extractGeneralRulePdfUrl(pageHtml);
   if (!pdfUrl) {

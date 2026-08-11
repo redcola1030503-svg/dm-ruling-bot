@@ -17,7 +17,7 @@ function listPageUrl(pageNum: number): string {
   return pageNum === 1 ? env.DM_RULE_CHANGE_URL : `${env.DM_RULE_CHANGE_URL}page/${pageNum}/`;
 }
 
-export async function crawlRuleChangeList(): Promise<RuleChangeListItem[]> {
+async function crawlRuleChangeList(): Promise<RuleChangeListItem[]> {
   const allItems: RuleChangeListItem[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     const html = await fetchHtml(listPageUrl(page));

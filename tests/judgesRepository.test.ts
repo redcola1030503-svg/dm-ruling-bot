@@ -5,7 +5,7 @@ vi.mock("../src/config/db", () => ({
   db: { prepare: (...args: unknown[]) => prepareMock(...args) },
 }));
 
-const { getJudge, getSession, addJudge, removeJudge } = await import("../src/judges/repository");
+const { getJudge, getSession, addJudge, removeJudge, listJudges } = await import("../src/judges/repository");
 
 describe("judges/repository", () => {
   beforeEach(() => {
@@ -70,5 +70,20 @@ describe("judges/repository", () => {
   it("removeJudge: 削除件数が0ならfalse(未登録IDの削除)", () => {
     prepareMock.mockReturnValue({ run: vi.fn().mockReturnValue({ changes: 0 }) });
     expect(removeJudge("NOPE")).toBe(false);
+  });
+
+  it("listJudges: 登録済みジャッジ全件をJudge[]として返す", () => {
+    const allFn = vi.fn().mockReturnValue([
+      { id: "A001", role: "admin", created_at: 1000, created_by: "env:ADMIN_JUDGE_IDS" },
+      { id: "J001", role: "judge", created_at: 2000, created_by: "A001" },
+    ]);
+    prepareMock.mockReturnValue({ all: allFn });
+
+    const judges = listJudges();
+
+    expect(judges).toEqual([
+      { id: "A001", role: "admin", createdAt: 1000, createdBy: "env:ADMIN_JUDGE_IDS" },
+      { id: "J001", role: "judge", createdAt: 2000, createdBy: "A001" },
+    ]);
   });
 });
