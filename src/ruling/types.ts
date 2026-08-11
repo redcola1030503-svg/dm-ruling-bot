@@ -18,12 +18,18 @@ export type ParsedQuestion = {
 
 export type ScoredEvidenceSource = EvidenceSource & { score: number };
 
+export type AmbiguousCard = {
+  queried: string;
+  candidates: string[];
+};
+
 export type RulingEvidence = {
   cards: EvidenceSource[];
   qa: ScoredEvidenceSource[];
   ruleChanges: ScoredEvidenceSource[];
   generalRules: ScoredEvidenceSource[];
   pastCorrections: ScoredEvidenceSource[];
+  ambiguousCards: AmbiguousCard[];
 };
 
 export type RulingSourceRef = {

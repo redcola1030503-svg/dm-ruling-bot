@@ -1,13 +1,14 @@
 import { analyzeQuestion } from "./analyzeQuestion";
 import { retrieveEvidence } from "./retrieveEvidence";
 import { generateRuling } from "./generateRuling";
-import type { RulingResult } from "./types";
+import type { AmbiguousCard, RulingResult } from "./types";
 import { logger } from "../utils/logger";
 
 export type ProduceRulingOutcome =
   | { status: "ok"; result: RulingResult }
   | { status: "evidence_error"; result: RulingResult }
-  | { status: "llm_error"; result: RulingResult };
+  | { status: "llm_error"; result: RulingResult }
+  | { status: "needs_clarification"; result: RulingResult };
 
 const LOG_TEXT_MAX_LENGTH = 200;
 
@@ -16,6 +17,22 @@ function officialSiteUnreachableResult(): RulingResult {
     conclusion: "現在、公式情報を取得できませんでした。",
     explanation:
       "誤った裁定を返す可能性があるため、今回は回答を保留します。時間を置いて再度お試しください。",
+    steps: [],
+    confidence: "low",
+    cards: [],
+    sources: [],
+  };
+}
+
+function ambiguousCardResult(ambiguousCards: AmbiguousCard[]): RulingResult {
+  const lines = ambiguousCards.map(
+    (a) => `「${a.queried}」→ ${a.candidates.map((name) => `《${name}》`).join(" / ")}`,
+  );
+  return {
+    conclusion: "カード名を確定できませんでした。該当するカードを教えてください。",
+    explanation:
+      `入力いただいたカード名が公式のカード名と一致しませんでした。誤った裁定を防ぐため、` +
+      `以下の候補の中から該当するものを正式名称で教えてください(候補にない場合はその旨もお知らせください)。\n\n${lines.join("\n")}`,
     steps: [],
     confidence: "low",
     cards: [],
@@ -63,7 +80,14 @@ export async function produceRuling(question: string): Promise<ProduceRulingOutc
     ruleChangeUrls: evidence.ruleChanges.map((r) => r.url),
     generalRuleNumbers: evidence.generalRules.map((r) => r.title),
     pastCorrectionCount: evidence.pastCorrections.length,
+    ambiguousCards: evidence.ambiguousCards,
   });
+
+  // カード名を一意に確定できない場合、誤ったカードを前提に裁定を生成してしまうと
+  // かえって誤答のリスクが高まるため、LLMには回さずユーザーに確認を返す。
+  if (evidence.ambiguousCards.length > 0) {
+    return { status: "needs_clarification", result: ambiguousCardResult(evidence.ambiguousCards) };
+  }
 
   try {
     const result = await generateRuling(parsedQuestion, evidence);

@@ -1,6 +1,6 @@
 export function normalizeCardName(input: string): string {
   return input
     .normalize("NFKC")
-    .replace(/\s+/g, "")
+    .replace(/[\s・「」『』]+/g, "")
     .toLowerCase();
 }
