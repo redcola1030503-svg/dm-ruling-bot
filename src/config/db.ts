@@ -140,21 +140,19 @@ if (rowsNeedingHash.length > 0) {
   }
 }
 
-// judgeテーブルが空(初回起動)の場合のみ、環境変数からジャッジ/管理者を
-// シードする。以後の登録・削除はDB側(/judge_add, /judge_removeコマンド)で
-// 管理するため、再デプロイのたびに環境変数から上書きされることはない。
-const judgeCount = (db.prepare("SELECT COUNT(*) AS count FROM judge").get() as { count: number })
-  .count;
-if (judgeCount === 0) {
-  const insertJudge = db.prepare(
-    "INSERT INTO judge (id, role, created_at, created_by) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET role = excluded.role",
-  );
-  const seededAt = Date.now();
-  for (const id of env.VALID_JUDGE_IDS) {
-    insertJudge.run(id, "judge", seededAt, "env:VALID_JUDGE_IDS");
-  }
-  // ADMIN_JUDGE_IDSを後に処理することで、両方に同じIDが含まれる場合はadmin側を優先する。
-  for (const id of env.ADMIN_JUDGE_IDS) {
-    insertJudge.run(id, "admin", seededAt, "env:ADMIN_JUDGE_IDS");
-  }
+// 起動のたびに、環境変数のジャッジ/管理者のうちDBにまだ存在しないIDだけを
+// 追加する(INSERT OR IGNOREで既存行は上書きしない)。「judgeテーブルが空の
+// 場合のみ」という初回限定の判定にすると、環境変数を後から追加しても、DBが
+// 一度でも作られていれば反映されない問題が起きるため、起動毎の差分追加に
+// している。/judge_removeで削除したIDが環境変数に残っていると再デプロイの
+// たびに復活してしまう点には注意(削除する場合は環境変数側からも外すこと)。
+const insertJudgeIfAbsent = db.prepare(
+  "INSERT OR IGNORE INTO judge (id, role, created_at, created_by) VALUES (?, ?, ?, ?)",
+);
+const seededAt = Date.now();
+for (const id of env.VALID_JUDGE_IDS) {
+  insertJudgeIfAbsent.run(id, "judge", seededAt, "env:VALID_JUDGE_IDS");
+}
+for (const id of env.ADMIN_JUDGE_IDS) {
+  insertJudgeIfAbsent.run(id, "admin", seededAt, "env:ADMIN_JUDGE_IDS");
 }
