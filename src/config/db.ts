@@ -86,6 +86,13 @@ db.exec(`
     judge_id TEXT NOT NULL,
     logged_in_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS judge (
+    id TEXT PRIMARY KEY,
+    role TEXT NOT NULL CHECK(role IN ('judge', 'admin')),
+    created_at INTEGER NOT NULL,
+    created_by TEXT NOT NULL
+  );
 `);
 
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。
@@ -130,5 +137,24 @@ if (rowsNeedingHash.length > 0) {
   for (const row of rowsNeedingHash) {
     const hash = computeGeneralRuleContentHash({ ruleNumber: row.rule_number, text: row.text });
     updateContentHash.run(hash, row.id);
+  }
+}
+
+// judgeテーブルが空(初回起動)の場合のみ、環境変数からジャッジ/管理者を
+// シードする。以後の登録・削除はDB側(/judge_add, /judge_removeコマンド)で
+// 管理するため、再デプロイのたびに環境変数から上書きされることはない。
+const judgeCount = (db.prepare("SELECT COUNT(*) AS count FROM judge").get() as { count: number })
+  .count;
+if (judgeCount === 0) {
+  const insertJudge = db.prepare(
+    "INSERT INTO judge (id, role, created_at, created_by) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET role = excluded.role",
+  );
+  const seededAt = Date.now();
+  for (const id of env.VALID_JUDGE_IDS) {
+    insertJudge.run(id, "judge", seededAt, "env:VALID_JUDGE_IDS");
+  }
+  // ADMIN_JUDGE_IDSを後に処理することで、両方に同じIDが含まれる場合はadmin側を優先する。
+  for (const id of env.ADMIN_JUDGE_IDS) {
+    insertJudge.run(id, "admin", seededAt, "env:ADMIN_JUDGE_IDS");
   }
 }

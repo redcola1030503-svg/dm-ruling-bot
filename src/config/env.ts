@@ -8,9 +8,15 @@ const envSchema = z.object({
 
   LINE_CHANNEL_SECRET: z.string().optional(),
   LINE_CHANNEL_ACCESS_TOKEN: z.string().optional(),
-  // /login コマンドでログインを許可する、有効な公認ジャッジIDのカンマ区切りリスト。
-  // ここに登録されたジャッジIDでログインしたLINEユーザーのみ /訂正 コマンドを実行できる。
+  // 初回起動時のみ、ジャッジ/管理者としてDB(judgeテーブル)にシードするIDの
+  // カンマ区切りリスト。以後の登録・削除はDB側(/judge_add, /judge_remove
+  // コマンド)で管理するため、ここを変更しても既存DBには反映されない。
   VALID_JUDGE_IDS: z
+    .string()
+    .default("")
+    .transform((value) => new Set(value.split(",").map((id) => id.trim()).filter((id) => id.length > 0))),
+  // 管理者権限(ジャッジIDの登録・削除が可能)でシードするIDのカンマ区切りリスト。
+  ADMIN_JUDGE_IDS: z
     .string()
     .default("")
     .transform((value) => new Set(value.split(",").map((id) => id.trim()).filter((id) => id.length > 0))),

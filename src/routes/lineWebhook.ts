@@ -8,7 +8,7 @@ import { appendMessage, getRecentHistory } from "../line/conversationRepository"
 import { produceRuling } from "../ruling/produceRuling";
 import { extractCardNameCandidates } from "../cards/extractCardNameCandidates";
 import { saveCorrection } from "../corrections/repository";
-import { getSession, login, logout } from "../judges/repository";
+import { addJudge, getJudge, getSession, login, logout, removeJudge } from "../judges/repository";
 import { logger } from "../utils/logger";
 import { webhookRateLimiter } from "../utils/rateLimit";
 
@@ -20,6 +20,8 @@ const CORRECTION_HISTORY_LOOKBACK = 10;
 const WHOAMI_COMMAND = "/whoami";
 const LOGIN_COMMAND_PREFIX = "/login ";
 const LOGOUT_COMMAND = "/logout";
+const JUDGE_ADD_COMMAND_PREFIX = "/judge_add ";
+const JUDGE_REMOVE_COMMAND_PREFIX = "/judge_remove ";
 
 function buildContextualQuestion(userId: string, latestMessage: string): string {
   const history = getRecentHistory(userId);
@@ -39,19 +41,68 @@ async function handleLoginCommand(userId: string, replyToken: string, text: stri
     return;
   }
 
-  if (!env.VALID_JUDGE_IDS.has(judgeId)) {
+  const judge = getJudge(judgeId);
+  if (!judge) {
     await replyText(replyToken, "無効なジャッジIDです。");
     return;
   }
 
   login(userId, judgeId);
-  logger.info("judge_login", { judgeId });
-  await replyText(replyToken, `ジャッジID「${judgeId}」でログインしました。/訂正 コマンドが利用できます。`);
+  logger.info("judge_login", { judgeId, role: judge.role });
+  const roleLabel = judge.role === "admin" ? "管理者" : "ジャッジ";
+  await replyText(
+    replyToken,
+    `ジャッジID「${judgeId}」(${roleLabel})でログインしました。/訂正 コマンドが利用できます。`,
+  );
 }
 
 async function handleLogoutCommand(userId: string, replyToken: string): Promise<void> {
   logout(userId);
   await replyText(replyToken, "ログアウトしました。");
+}
+
+async function handleJudgeAddCommand(userId: string, replyToken: string, text: string): Promise<void> {
+  const session = getSession(userId);
+  if (!session || session.role !== "admin") {
+    await replyText(replyToken, "この操作には管理者権限が必要です。");
+    return;
+  }
+
+  const targetJudgeId = text.slice(JUDGE_ADD_COMMAND_PREFIX.length).trim();
+  if (!targetJudgeId) {
+    await replyText(replyToken, "ジャッジIDが空です。「/judge_add ジャッジID」の形式で送信してください。");
+    return;
+  }
+
+  addJudge(targetJudgeId, "judge", session.judgeId);
+  logger.info("judge_added", { targetJudgeId, addedBy: session.judgeId });
+  await replyText(replyToken, `ジャッジID「${targetJudgeId}」を登録しました。`);
+}
+
+async function handleJudgeRemoveCommand(userId: string, replyToken: string, text: string): Promise<void> {
+  const session = getSession(userId);
+  if (!session || session.role !== "admin") {
+    await replyText(replyToken, "この操作には管理者権限が必要です。");
+    return;
+  }
+
+  const targetJudgeId = text.slice(JUDGE_REMOVE_COMMAND_PREFIX.length).trim();
+  if (!targetJudgeId) {
+    await replyText(replyToken, "ジャッジIDが空です。「/judge_remove ジャッジID」の形式で送信してください。");
+    return;
+  }
+
+  if (targetJudgeId === session.judgeId) {
+    await replyText(replyToken, "自分自身を削除することはできません。");
+    return;
+  }
+
+  const removed = removeJudge(targetJudgeId);
+  logger.info("judge_removed", { targetJudgeId, removedBy: session.judgeId, removed });
+  await replyText(
+    replyToken,
+    removed ? `ジャッジID「${targetJudgeId}」を削除しました。` : `ジャッジID「${targetJudgeId}」は登録されていません。`,
+  );
 }
 
 async function handleCorrectionCommand(
@@ -119,6 +170,16 @@ async function handleTextMessageEvent(event: WebhookEvent): Promise<void> {
 
   if (text === LOGOUT_COMMAND) {
     await handleLogoutCommand(userId, replyToken);
+    return;
+  }
+
+  if (text.startsWith(JUDGE_ADD_COMMAND_PREFIX)) {
+    await handleJudgeAddCommand(userId, replyToken, text);
+    return;
+  }
+
+  if (text.startsWith(JUDGE_REMOVE_COMMAND_PREFIX)) {
+    await handleJudgeRemoveCommand(userId, replyToken, text);
     return;
   }
 
