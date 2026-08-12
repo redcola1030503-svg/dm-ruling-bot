@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardInfo } from "../src/cards/types";
 import type { CardNameMatch } from "../src/cards/cardNameMatcher";
 
@@ -14,6 +14,12 @@ vi.mock("../src/corrections/ranking", () => ({ searchAndRankCorrections: vi.fn()
 const findCardCandidates = vi.fn<(name: string) => Promise<CardNameMatch[]>>();
 vi.mock("../src/cards/cardNameMatcher", () => ({
   findCardCandidates: (name: string) => findCardCandidates(name),
+}));
+
+const resolvePopularCardName = vi.fn<(queried: string, candidates: string[]) => Promise<string | null>>();
+vi.mock("../src/cards/resolveAmbiguousCardByPopularity", () => ({
+  resolvePopularCardName: (queried: string, candidates: string[]) =>
+    resolvePopularCardName(queried, candidates),
 }));
 
 const { retrieveEvidence } = await import("../src/ruling/retrieveEvidence");
@@ -50,6 +56,11 @@ function makeParsedQuestion(cardNames: string[]) {
 }
 
 describe("retrieveEvidence のカード名あいまい判定", () => {
+  beforeEach(() => {
+    resolvePopularCardName.mockReset();
+    resolvePopularCardName.mockResolvedValue(null);
+  });
+
   it("exact一致のみの場合は確定してcardsに含める", async () => {
     findCardCandidates.mockResolvedValueOnce([
       { card: makeCard({ id: "a", name: "斬隠蒼頭龍バイケン" }), matchType: "exact", score: 1 },
@@ -82,6 +93,50 @@ describe("retrieveEvidence のカード名あいまい判定", () => {
         score: 0.75,
       },
     ]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion(["ベートーベン"]));
+
+    expect(evidence.cards).toHaveLength(0);
+    expect(evidence.ambiguousCards).toEqual([
+      {
+        queried: "ベートーベン",
+        candidates: ["ベートーベン・キューブ", "「修羅」の頂 VAN・ベートーベン"],
+      },
+    ]);
+  });
+
+  it("あいまいでもWeb検索で圧倒的に優勢な候補が判明した場合は自動確定する", async () => {
+    findCardCandidates.mockResolvedValueOnce([
+      { card: makeCard({ id: "a", name: "ベートーベン・キューブ" }), matchType: "prefix", score: 0.9 },
+      {
+        card: makeCard({ id: "b", name: "「修羅」の頂 VAN・ベートーベン" }),
+        matchType: "partial",
+        score: 0.75,
+      },
+    ]);
+    resolvePopularCardName.mockResolvedValueOnce("「修羅」の頂 VAN・ベートーベン");
+
+    const evidence = await retrieveEvidence(makeParsedQuestion(["ベートーベン"]));
+
+    expect(resolvePopularCardName).toHaveBeenCalledWith("ベートーベン", [
+      "ベートーベン・キューブ",
+      "「修羅」の頂 VAN・ベートーベン",
+    ]);
+    expect(evidence.ambiguousCards).toHaveLength(0);
+    expect(evidence.cards).toHaveLength(1);
+    expect(evidence.cards[0].title).toBe("「修羅」の頂 VAN・ベートーベン");
+  });
+
+  it("Web検索の結果が判断不能(null)の場合は従来通り候補確認にフォールバックする", async () => {
+    findCardCandidates.mockResolvedValueOnce([
+      { card: makeCard({ id: "a", name: "ベートーベン・キューブ" }), matchType: "prefix", score: 0.9 },
+      {
+        card: makeCard({ id: "b", name: "「修羅」の頂 VAN・ベートーベン" }),
+        matchType: "partial",
+        score: 0.75,
+      },
+    ]);
+    resolvePopularCardName.mockResolvedValueOnce(null);
 
     const evidence = await retrieveEvidence(makeParsedQuestion(["ベートーベン"]));
 

@@ -48,6 +48,14 @@ const envSchema = z.object({
     .string()
     .default("false")
     .transform((value) => value === "true"),
+
+  // カード名があいまいな場合にClaude APIのWeb検索ツールで環境での話題度を調査し、
+  // 圧倒的に優勢な候補があれば自動確定する機能。無効化するとWeb検索は行わず
+  // 従来通り常にユーザーへ候補確認を返す。LLM_API_KEYが必要(未設定時は自動的に無効)。
+  ENABLE_POPULARITY_CARD_RESOLUTION: z
+    .string()
+    .default("true")
+    .transform((value) => value === "true"),
 });
 
 export const env = envSchema.parse(process.env);
