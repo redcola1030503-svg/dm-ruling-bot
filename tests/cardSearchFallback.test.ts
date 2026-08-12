@@ -34,4 +34,19 @@ describe("extractFallbackTokens", () => {
     const tokens = extractFallbackTokens("A ベートーベン");
     expect(tokens).not.toContain("A");
   });
+
+  it("区切り記号・表記体系境界のどちらでも分割できない語は、先頭を短縮したprefix候補を追加する", () => {
+    const tokens = extractFallbackTokens("セイントキャッスル");
+    expect(tokens).toContain("セイント");
+    expect(tokens).toContain("セイントキャッス");
+    // 短縮しすぎた候補(2文字以下)は含めない
+    expect(tokens).not.toContain("セ");
+    expect(tokens).not.toContain("セイ");
+  });
+
+  it("表記体系境界で複数語に分割できる場合はprefix短縮を適用しない(既に分割済みのため不要)", () => {
+    const tokens = extractFallbackTokens("修羅の頂　VANベートーベン");
+    expect(tokens).not.toContain("ベートーベ");
+    expect(tokens).not.toContain("VA");
+  });
 });
