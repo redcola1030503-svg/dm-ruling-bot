@@ -22,15 +22,24 @@ const REFINE_MAX_RESULTS = 20;
 const SCRIPT_TOKEN_PATTERN =
   /[A-Za-zＡ-Ｚａ-ｚ0-9０-９]+|[ァ-ヶー]+|[一-龠々]+|[ぁ-ん]+/g;
 
-async function searchOnce(keyword: string): Promise<CardSearchHit[]> {
+async function searchOnce(keyword: string, pagenum = 1): Promise<CardSearchHit[]> {
   const form = new URLSearchParams();
   form.set("keyword", keyword);
   form.append("keyword_type[]", "card_name");
   form.append("keyword_type[]", "card_ruby"); // 読み仮名表記ゆれ(ひらがな/カタカナ)にも対応
-  form.set("pagenum", "1");
+  form.set("pagenum", String(pagenum));
 
   const html = await postForm(env.DM_CARD_BASE_URL, form);
   return parseCardListPage(html);
+}
+
+/**
+ * カード名一覧の全件クロール(buildCardIndex.ts)用。keywordを空にすると
+ * 全カードが対象になり、pagenumを進めることで次ページを取得できる
+ * (公式サイトで実機確認済み)。
+ */
+export async function fetchCardListPage(keyword: string, pagenum: number): Promise<CardSearchHit[]> {
+  return searchOnce(keyword, pagenum);
 }
 
 /**

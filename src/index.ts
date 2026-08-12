@@ -4,6 +4,10 @@ import { healthRouter } from "./routes/health";
 import { rulingRouter } from "./routes/ruling";
 import { debugRouter } from "./routes/debug";
 import { lineWebhookRouter } from "./routes/lineWebhook";
+import { authRouter } from "./routes/auth";
+import { judgesRouter } from "./routes/judges";
+import { correctionsRouter } from "./routes/corrections";
+import { cardsRouter } from "./routes/cards";
 import { logger } from "./utils/logger";
 
 const app = express();
@@ -25,6 +29,10 @@ app.use(healthRouter);
 app.use(rulingRouter);
 app.use(debugRouter);
 app.use(lineWebhookRouter);
+app.use(authRouter);
+app.use(judgesRouter);
+app.use(correctionsRouter);
+app.use(cardsRouter);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error("unhandled_error", { error: err instanceof Error ? err.message : String(err) });

@@ -106,6 +106,77 @@ response:
 }
 ```
 
+### モバイルアプリ向けAPI(ジャッジ認証・訂正・カード名サジェスト)
+
+LINE Bot以外のクライアント(将来のFlutterモバイルアプリ等)向けのJSON APIです。`/api/ruling`はログイン不要でそのまま利用できますが、ジャッジ限定機能(訂正記録・ジャッジ管理)はログインが必要です。
+
+#### POST /api/login
+
+ジャッジID(公認ジャッジ・管理者)でログインし、以降のAPI呼び出しに使うセッショントークンを取得します。LINEコマンドの`/login`と同様、パスワードは無くジャッジIDのみで認証するため、総当たり対策として1分あたり5回までのレート制限がかかっています。
+
+request:
+
+```json
+{ "judgeId": "J001" }
+```
+
+response:
+
+```json
+{ "token": "63928eeb...", "judgeId": "J001", "role": "judge" }
+```
+
+以降の認証が必要なエンドポイントには `Authorization: Bearer <token>` ヘッダーを付与してください。
+
+#### POST /api/logout
+
+`Authorization: Bearer <token>` が必要。呼び出し元のセッションを破棄します。response: `{ "status": "ok" }`
+
+#### GET /api/session
+
+`Authorization: Bearer <token>` が必要。アプリ起動時に、保存済みトークンがまだ有効か(ログアウト済み・ジャッジ削除済みでないか)を確認する用途を想定しています。response: `{ "judgeId": "J001", "role": "judge" }`
+
+#### POST /api/corrections
+
+`Authorization: Bearer <token>` が必要(ジャッジ・管理者どちらも可)。LINE版の`/訂正`コマンドと異なり会話履歴を参照しないため、画面に表示済みの質問・Botの結論をクライアント側から明示的に送ります。
+
+request:
+
+```json
+{
+  "originalQuestion": "《ボルメテウス・ホワイト・ドラゴン》でシールドをブレイクした場合、S・トリガーは使えますか？",
+  "botConclusion": "使えません。",
+  "correctRuling": "1体目は出せますが2体目は出せません"
+}
+```
+
+response: `{ "status": "ok" }`
+
+#### GET/POST /api/judges, DELETE /api/judges/:judgeId
+
+`Authorization: Bearer <token>`(管理者のみ)が必要。LINEコマンドの`/judge_list`・`/judge_add`・`/judge_remove`のAPI版です。`POST`で追加できるロールは`"judge"`固定(管理者への昇格は不可)、`DELETE`で自分自身を削除しようとすると`409`が返ります。
+
+```json
+// GET /api/judges response
+{ "judges": [{ "id": "J001", "role": "judge", "createdAt": 1234567890, "createdBy": "A001" }] }
+
+// POST /api/judges request
+{ "judgeId": "J002" }
+
+// DELETE /api/judges/J002 response
+{ "removed": true }
+```
+
+#### GET /api/cards/suggest?q=&lt;text&gt;
+
+認証不要。質問入力中のカード名オートコンプリート用に、事前クロール済みのカード名インデックス(`card_index`テーブル)から前方一致優先で候補を返します。`q`が2文字未満の場合は空配列を返します。初回利用前に`npm run cards:index`の実行が必要です(詳細は次のセクション)。
+
+response:
+
+```json
+{ "suggestions": [{ "id": "dm26ex3-005", "name": "ボルシャック・ドラゴン" }] }
+```
+
 ### POST /api/debug/search (開発用、`ENABLE_DEBUG_ROUTES=true` の時のみ有効)
 
 質問文中の《》『』「」で囲まれたカード名候補を抽出し、公式カード検索・詳細取得を行った結果を返す。
@@ -169,6 +240,20 @@ npm run eval:retrieval
 - `ENABLE_POPULARITY_CARD_RESOLUTION`(既定`true`): この自動確定機能のON/OFF。`false`にすると常に候補確認を返す(Web検索は行わない)
 - `LLM_API_KEY`が未設定の場合はWeb検索も実行できないため、自動的に候補確認にフォールバックします(そもそもこのキーが無いと裁定生成自体が動作しません)
 - Web検索は候補があいまいと判定された場合にのみ実行されるため、通常の質問には影響しません
+
+## カード名サジェスト(モバイルアプリの入力補助用)
+
+`GET /api/cards/suggest`は、公式サイトの全カードを事前にクロールしてローカルDB(`card_index`テーブル)に構築したカード名インデックスから候補を返します。公式サイトのカード一覧ページには画像サムネイルのみでカード名テキストが含まれないため、カード名を得るには各カードの詳細ページを個別に取得する必要があり、質問の都度公式サイトへライブ検索する方式は採用していません。
+
+### インデックスの構築・更新
+
+```bash
+npm run cards:index
+```
+
+公式サイトを空キーワードで全件検索してカードID一覧を収集した後、各カードの詳細ページを取得して`card_index`に保存します。**全カード数は約11,654件(2026-08時点)あり、公式サイトへの負荷軽減のための500ms間隔レート制限により、初回実行には約1.6時間かかります。** 2回目以降は、前回の取得から30日以内のカードをスキップする差分更新のため高速に終わります。本番(Render)ではデプロイ後にShellから`node dist/scripts/buildCardIndex.js`を実行してください(`npm run embeddings:rules`と同じ運用)。
+
+インデックスが未構築(`card_index`が空)の間、`GET /api/cards/suggest`は常に空配列を返します(エラーにはなりません)。
 
 ## テスト
 

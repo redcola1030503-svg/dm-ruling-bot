@@ -93,6 +93,15 @@ db.exec(`
     created_at INTEGER NOT NULL,
     created_by TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS card_index (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_card_index_name ON card_index(name);
 `);
 
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。
