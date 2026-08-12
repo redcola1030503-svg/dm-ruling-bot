@@ -1,0 +1,178 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CardIndexBuildProgress, CardIndexBuildSummary } from "../src/cards/cardIndexCrawler";
+
+const runCardIndexBuild =
+  vi.fn<(onProgress?: (progress: CardIndexBuildProgress) => void) => Promise<CardIndexBuildSummary>>();
+vi.mock("../src/cards/cardIndexCrawler", () => ({
+  runCardIndexBuild: (onProgress?: (progress: CardIndexBuildProgress) => void) => runCardIndexBuild(onProgress),
+}));
+
+const fetchTotalCardCount = vi.fn<() => Promise<number | null>>();
+vi.mock("../src/cards/cardSearch", () => ({
+  fetchTotalCardCount: () => fetchTotalCardCount(),
+}));
+
+const getLastKnownTotalCount = vi.fn<() => number | null>();
+const setLastKnownTotalCount = vi.fn<(count: number) => void>();
+vi.mock("../src/cards/cardIndexRepository", () => ({
+  getLastKnownTotalCount: () => getLastKnownTotalCount(),
+  setLastKnownTotalCount: (count: number) => setLastKnownTotalCount(count),
+}));
+
+function flushMicrotasks(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+describe("cardIndexBuildJob", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    runCardIndexBuild.mockReset();
+    fetchTotalCardCount.mockReset();
+    getLastKnownTotalCount.mockReset();
+    setLastKnownTotalCount.mockReset();
+  });
+
+  describe("startCardIndexBuildInBackground / getCardIndexBuildStatus", () => {
+    it("idle状態からtrueを返しrunningになる", async () => {
+      const { startCardIndexBuildInBackground, getCardIndexBuildStatus } =
+        await import("../src/cards/cardIndexBuildJob");
+      runCardIndexBuild.mockImplementation(() => new Promise(() => {}));
+
+      const started = startCardIndexBuildInBackground();
+
+      expect(started).toBe(true);
+      expect(getCardIndexBuildStatus()).toMatchObject({ status: "running", processed: 0, total: 0 });
+    });
+
+    it("実行中に呼ぶとfalseを返し、runCardIndexBuildは1回しか呼ばれない", async () => {
+      const { startCardIndexBuildInBackground, getCardIndexBuildStatus } =
+        await import("../src/cards/cardIndexBuildJob");
+      runCardIndexBuild.mockImplementation(() => new Promise(() => {}));
+
+      const first = startCardIndexBuildInBackground();
+      const second = startCardIndexBuildInBackground();
+
+      expect(first).toBe(true);
+      expect(second).toBe(false);
+      expect(runCardIndexBuild).toHaveBeenCalledTimes(1);
+      expect(getCardIndexBuildStatus().status).toBe("running");
+    });
+
+    it("progressコールバックで状態が更新される", async () => {
+      const { startCardIndexBuildInBackground, getCardIndexBuildStatus } =
+        await import("../src/cards/cardIndexBuildJob");
+      runCardIndexBuild.mockImplementation(
+        (onProgress) =>
+          new Promise(() => {
+            onProgress?.({ processed: 50, total: 100, updated: 40, skipped: 5, failed: 5 });
+          }),
+      );
+
+      startCardIndexBuildInBackground();
+
+      expect(getCardIndexBuildStatus()).toMatchObject({ status: "running", processed: 50, updated: 40 });
+    });
+
+    it("成功時はcompletedになる", async () => {
+      const { startCardIndexBuildInBackground, getCardIndexBuildStatus } =
+        await import("../src/cards/cardIndexBuildJob");
+      const summary: CardIndexBuildSummary = {
+        processed: 100,
+        total: 100,
+        updated: 90,
+        skipped: 9,
+        failed: 1,
+        totalCount: 11654,
+      };
+      runCardIndexBuild.mockResolvedValue(summary);
+
+      startCardIndexBuildInBackground();
+      await flushMicrotasks();
+
+      expect(getCardIndexBuildStatus()).toMatchObject({ status: "completed", ...summary });
+    });
+
+    it("失敗時はfailedになりエラーメッセージを記録する", async () => {
+      const { startCardIndexBuildInBackground, getCardIndexBuildStatus } =
+        await import("../src/cards/cardIndexBuildJob");
+      runCardIndexBuild.mockRejectedValue(new Error("network error"));
+
+      startCardIndexBuildInBackground();
+      await flushMicrotasks();
+
+      expect(getCardIndexBuildStatus()).toMatchObject({ status: "failed", error: "network error" });
+    });
+  });
+
+  describe("checkForCardListUpdateAndMaybeReindex", () => {
+    it("total_count取得失敗時は例外を投げる", async () => {
+      const { checkForCardListUpdateAndMaybeReindex } = await import("../src/cards/cardIndexBuildJob");
+      fetchTotalCardCount.mockResolvedValue(null);
+
+      await expect(checkForCardListUpdateAndMaybeReindex()).rejects.toThrow();
+    });
+
+    it("初回(previousCountがnull)はhasUpdate=trueでreindexを開始する", async () => {
+      const { checkForCardListUpdateAndMaybeReindex } = await import("../src/cards/cardIndexBuildJob");
+      fetchTotalCardCount.mockResolvedValue(11654);
+      getLastKnownTotalCount.mockReturnValue(null);
+      runCardIndexBuild.mockImplementation(() => new Promise(() => {}));
+
+      const result = await checkForCardListUpdateAndMaybeReindex();
+
+      expect(result).toMatchObject({
+        hasUpdate: true,
+        previousCount: null,
+        currentCount: 11654,
+        reindexStarted: true,
+      });
+      expect(setLastKnownTotalCount).toHaveBeenCalledWith(11654);
+    });
+
+    it("件数が変わっていなければhasUpdate=falseでreindexを開始しない", async () => {
+      const { checkForCardListUpdateAndMaybeReindex } = await import("../src/cards/cardIndexBuildJob");
+      fetchTotalCardCount.mockResolvedValue(11654);
+      getLastKnownTotalCount.mockReturnValue(11654);
+
+      const result = await checkForCardListUpdateAndMaybeReindex();
+
+      expect(result).toMatchObject({
+        hasUpdate: false,
+        previousCount: 11654,
+        currentCount: 11654,
+        reindexStarted: false,
+      });
+      expect(runCardIndexBuild).not.toHaveBeenCalled();
+    });
+
+    it("件数が変わっていればhasUpdate=trueでreindexを開始する", async () => {
+      const { checkForCardListUpdateAndMaybeReindex } = await import("../src/cards/cardIndexBuildJob");
+      fetchTotalCardCount.mockResolvedValue(11700);
+      getLastKnownTotalCount.mockReturnValue(11654);
+      runCardIndexBuild.mockImplementation(() => new Promise(() => {}));
+
+      const result = await checkForCardListUpdateAndMaybeReindex();
+
+      expect(result).toMatchObject({
+        hasUpdate: true,
+        previousCount: 11654,
+        currentCount: 11700,
+        reindexStarted: true,
+      });
+    });
+
+    it("既にreindex実行中ならreindexStarted=falseになる", async () => {
+      const { checkForCardListUpdateAndMaybeReindex, startCardIndexBuildInBackground } =
+        await import("../src/cards/cardIndexBuildJob");
+      runCardIndexBuild.mockImplementation(() => new Promise(() => {}));
+      startCardIndexBuildInBackground();
+
+      fetchTotalCardCount.mockResolvedValue(11700);
+      getLastKnownTotalCount.mockReturnValue(11654);
+
+      const result = await checkForCardListUpdateAndMaybeReindex();
+
+      expect(result.reindexStarted).toBe(false);
+    });
+  });
+});

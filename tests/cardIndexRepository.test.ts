@@ -10,6 +10,8 @@ const {
   upsertCardIndexEntry,
   getCardIndexUpdatedAt,
   getCardIndexCount,
+  getLastKnownTotalCount,
+  setLastKnownTotalCount,
 } = await import("../src/cards/cardIndexRepository");
 
 describe("cards/cardIndexRepository", () => {
@@ -100,5 +102,26 @@ describe("cards/cardIndexRepository", () => {
   it("getCardIndexCount: 件数を返す", () => {
     prepareMock.mockReturnValue({ get: vi.fn().mockReturnValue({ count: 11654 }) });
     expect(getCardIndexCount()).toBe(11654);
+  });
+
+  it("getLastKnownTotalCount: 存在すれば数値として返す", () => {
+    prepareMock.mockReturnValue({ get: vi.fn().mockReturnValue({ value: "11654" }) });
+    expect(getLastKnownTotalCount()).toBe(11654);
+  });
+
+  it("getLastKnownTotalCount: 存在しなければnull(初回未実施)", () => {
+    prepareMock.mockReturnValue({ get: vi.fn().mockReturnValue(undefined) });
+    expect(getLastKnownTotalCount()).toBeNull();
+  });
+
+  it("setLastKnownTotalCount: INSERT ... ON CONFLICTで保存する", () => {
+    const runFn = vi.fn();
+    prepareMock.mockReturnValue({ run: runFn });
+
+    setLastKnownTotalCount(11700);
+
+    expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO card_index_meta"));
+    expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("ON CONFLICT"));
+    expect(runFn).toHaveBeenCalledWith("last_known_total_count", "11700", expect.any(Number));
   });
 });

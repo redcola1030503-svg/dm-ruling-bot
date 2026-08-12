@@ -63,3 +63,24 @@ export function getCardIndexCount(): number {
   const row = db.prepare("SELECT COUNT(*) as count FROM card_index").get() as { count: number };
   return row.count;
 }
+
+const TOTAL_COUNT_META_KEY = "last_known_total_count";
+
+/**
+ * 前回のカード一覧件数チェック時に記録した公式サイトの全カード数(total_count)。
+ * フル再クロール(1.6時間)をせずに「新カードが追加された可能性」を軽量に
+ * 検知するための比較対象。未実施ならnull。
+ */
+export function getLastKnownTotalCount(): number | null {
+  const row = db.prepare("SELECT value FROM card_index_meta WHERE key = ?").get(TOTAL_COUNT_META_KEY) as
+    | { value: string }
+    | undefined;
+  return row ? Number(row.value) : null;
+}
+
+export function setLastKnownTotalCount(count: number): void {
+  db.prepare(
+    `INSERT INTO card_index_meta (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`,
+  ).run(TOTAL_COUNT_META_KEY, String(count), Date.now());
+}

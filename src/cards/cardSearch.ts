@@ -1,6 +1,6 @@
 import { env } from "../config/env";
 import { fetchHtml, postForm } from "../utils/httpClient";
-import { parseCardDetailPage, parseCardListPage } from "./cardParser";
+import { parseCardDetailPage, parseCardListPage, parseTotalCount } from "./cardParser";
 import { getCachedCard, saveCardToCache } from "./cardRepository";
 import type { CardInfo, CardSearchHit } from "./types";
 
@@ -40,6 +40,23 @@ async function searchOnce(keyword: string, pagenum = 1): Promise<CardSearchHit[]
  */
 export async function fetchCardListPage(keyword: string, pagenum: number): Promise<CardSearchHit[]> {
   return searchOnce(keyword, pagenum);
+}
+
+/**
+ * 公式サイトの全カード数(total_count)を1リクエストだけで取得する。
+ * フル再クロールをせずに「新カードが追加された可能性」を軽量に検知する用途
+ * (card_index更新チェック)。件数比較のみのため、既存カードのテキスト修正
+ * (エラッタ)や、廃番と新規追加が相殺されるケースは検知できない点に注意。
+ */
+export async function fetchTotalCardCount(): Promise<number | null> {
+  const form = new URLSearchParams();
+  form.set("keyword", "");
+  form.append("keyword_type[]", "card_name");
+  form.append("keyword_type[]", "card_ruby");
+  form.set("pagenum", "1");
+
+  const html = await postForm(env.DM_CARD_BASE_URL, form);
+  return parseTotalCount(html);
 }
 
 /**

@@ -102,6 +102,12 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_card_index_name ON card_index(name);
+
+  CREATE TABLE IF NOT EXISTS card_index_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
 `);
 
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。

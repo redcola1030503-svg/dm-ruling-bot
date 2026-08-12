@@ -177,6 +177,35 @@ response:
 { "suggestions": [{ "id": "dm26ex3-005", "name": "ボルシャック・ドラゴン" }] }
 ```
 
+#### POST /api/cards/reindex
+
+`Authorization: Bearer <token>`(管理者のみ)が必要。`card_index`の再構築(≒`npm run cards:index`相当)をバックグラウンドで開始します。呼び出し自体は完了を待たず即座に返ります(全件クロールは最大約1.6時間かかるため)。既に実行中の場合は新たに開始せず`409`を返します。
+
+response(開始時): `202 { "status": "started" }` / (実行中): `409 { "error": "already_running", "current": {...} }`
+
+#### GET /api/cards/reindex/status
+
+`Authorization: Bearer <token>`(管理者のみ)が必要。`POST /api/cards/reindex`(または後述の自動トリガー)の進捗をポーリングします。
+
+```json
+// 実行中
+{ "status": "running", "startedAt": 1234567890, "processed": 6600, "total": 11654, "updated": 6319, "skipped": 280, "failed": 1 }
+// 完了
+{ "status": "completed", "startedAt": ..., "finishedAt": ..., "updated": 6319, "skipped": 5354, "failed": 1, "totalCount": 11654 }
+// 未実行
+{ "status": "idle" }
+```
+
+#### POST /api/cards/reindex/check
+
+`Authorization: Bearer <token>`(管理者のみ)が必要。公式サイトへ1リクエストだけ送って全カード数(`total_count`)を取得し、前回チェック時の件数と比較する軽量チェックです。全件クロール(最大1.6時間)をせずに「新カードが追加された可能性があるか」だけを確認したい場合に使います。件数比較のみのため、既存カードのテキスト修正(エラッタ)までは検知できない点に注意してください。差分があれば`POST /api/cards/reindex`と同様に自動でバックグラウンドの再構築を開始します(既に実行中なら開始しません)。
+
+response:
+
+```json
+{ "hasUpdate": true, "previousCount": 11654, "currentCount": 11700, "checkedAt": 1234567890, "reindexStarted": true }
+```
+
 ### POST /api/debug/search (開発用、`ENABLE_DEBUG_ROUTES=true` の時のみ有効)
 
 質問文中の《》『』「」で囲まれたカード名候補を抽出し、公式カード検索・詳細取得を行った結果を返す。
@@ -251,7 +280,9 @@ npm run eval:retrieval
 npm run cards:index
 ```
 
-公式サイトを空キーワードで全件検索してカードID一覧を収集した後、各カードの詳細ページを取得して`card_index`に保存します。**全カード数は約11,654件(2026-08時点)あり、公式サイトへの負荷軽減のための500ms間隔レート制限により、初回実行には約1.6時間かかります。** 2回目以降は、前回の取得から30日以内のカードをスキップする差分更新のため高速に終わります。本番(Render)ではデプロイ後にShellから`node dist/scripts/buildCardIndex.js`を実行してください(`npm run embeddings:rules`と同じ運用)。
+公式サイトを空キーワードで全件検索してカードID一覧を収集した後、各カードの詳細ページを取得して`card_index`に保存します。**全カード数は約11,654件(2026-08時点)あり、公式サイトへの負荷軽減のための500ms間隔レート制限により、初回実行には約1.6時間かかります。** 2回目以降は、前回の取得から30日以内のカードをスキップする差分更新のため高速に終わります。本番の初回構築時はRenderのShellから`node dist/scripts/buildCardIndex.js`を実行してください(`npm run embeddings:rules`と同じ運用)。
+
+初回構築後は、管理者アカウントで`POST /api/cards/reindex`(即座に再構築、`GET /api/cards/reindex/status`で進捗確認)、または`POST /api/cards/reindex/check`(公式サイトへ1リクエストだけ送って新カードの有無を軽量確認し、あれば自動で再構築)をアプリ/APIから呼び出す方が、Shellにログインする手間がなく簡単です。いずれも同じ`card_index`テーブルへの差分更新ロジック(`src/cards/cardIndexCrawler.ts`)を共有しています。
 
 インデックスが未構築(`card_index`が空)の間、`GET /api/cards/suggest`は常に空配列を返します(エラーにはなりません)。
 
