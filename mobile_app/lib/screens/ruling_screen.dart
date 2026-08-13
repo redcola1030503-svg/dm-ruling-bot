@@ -1,3 +1,4 @@
+import 'package:extended_text_field/extended_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,6 +6,7 @@ import '../api/api_client.dart';
 import '../api/api_exception.dart';
 import '../models/ruling_result.dart';
 import '../state/auth_provider.dart';
+import '../widgets/card_name_special_text.dart';
 import '../widgets/card_suggest_field.dart';
 import '../widgets/ruling_result_view.dart';
 import 'correction_dialog.dart';
@@ -141,10 +143,11 @@ class _RulingScreenState extends State<RulingScreen> {
           children: [
             CardSuggestField(apiClient: widget.apiClient, onSelected: _insertCardName),
             const SizedBox(height: 12),
-            TextField(
+            ExtendedTextField(
               controller: _questionController,
               focusNode: _questionFocusNode,
               maxLines: 5,
+              specialTextSpanBuilder: QuestionSpecialTextSpanBuilder(),
               decoration: const InputDecoration(
                 labelText: '質問を入力',
                 hintText: '例: 《ボルメテウス・ホワイト・ドラゴン》でシールドをブレイクした場合、S・トリガーは使えますか？',
