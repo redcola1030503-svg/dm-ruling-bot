@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
         title: 'DM裁定確認',
         theme: ThemeData(
           colorScheme: colorScheme,
-          fontFamily: 'NotoSansJP',
+          fontFamily: 'MPLUS1p',
           appBarTheme: AppBarTheme(
             backgroundColor: colorScheme.primary,
             foregroundColor: colorScheme.onPrimary,

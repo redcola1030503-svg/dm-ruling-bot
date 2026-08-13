@@ -147,6 +147,7 @@ class _RulingScreenState extends State<RulingScreen> {
               controller: _questionController,
               focusNode: _questionFocusNode,
               maxLines: 5,
+              textDirection: TextDirection.ltr,
               specialTextSpanBuilder: QuestionSpecialTextSpanBuilder(),
               decoration: const InputDecoration(
                 labelText: '質問を入力',

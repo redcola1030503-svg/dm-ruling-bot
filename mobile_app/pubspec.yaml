@@ -57,7 +57,7 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/icon/icon.png"
-  adaptive_icon_background: "#4a4ae0"
+  adaptive_icon_background: "#3034d4"
   adaptive_icon_foreground: "assets/icon/icon_foreground.png"
   min_sdk_android: 21
 
@@ -84,11 +84,11 @@ flutter:
   # https://flutter.dev/to/asset-from-package
 
   fonts:
-    - family: NotoSansJP
+    - family: MPLUS1p
       fonts:
-        - asset: assets/fonts/NotoSansJP-Variable.ttf
+        - asset: assets/fonts/MPLUS1p-Variable.ttf
           weight: 400
-        - asset: assets/fonts/NotoSansJP-Variable.ttf
+        - asset: assets/fonts/MPLUS1p-Variable.ttf
           weight: 500
-        - asset: assets/fonts/NotoSansJP-Variable.ttf
+        - asset: assets/fonts/MPLUS1p-Variable.ttf
           weight: 700
