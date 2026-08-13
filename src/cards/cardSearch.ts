@@ -4,7 +4,10 @@ import { parseCardDetailPage, parseCardListPage, parseTotalCount } from "./cardP
 import { getCachedCard, saveCardToCache } from "./cardRepository";
 import type { CardInfo, CardSearchHit } from "./types";
 
-const DEFAULT_MAX_RESULTS = 10;
+// 公式サイトの検索結果は1ページ最大50件(実測値)。カード名はモバイルアプリの
+// サジェストで選ばれた正式なフルネームであることを前提とするため、通常は
+// 50件を超えるほど多くのカードがヒットすることはない想定。
+const DEFAULT_MAX_RESULTS = 50;
 
 async function searchOnce(keyword: string, pagenum = 1): Promise<CardSearchHit[]> {
   const form = new URLSearchParams();
