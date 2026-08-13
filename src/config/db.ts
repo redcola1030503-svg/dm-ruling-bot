@@ -108,6 +108,30 @@ db.exec(`
     value TEXT NOT NULL,
     updated_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS ruling_job (
+    id TEXT PRIMARY KEY,
+    device_id TEXT,
+    question TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'done', 'failed')),
+    outcome_status TEXT,
+    result_json TEXT,
+    error TEXT,
+    notified_at INTEGER,
+    created_at INTEGER NOT NULL,
+    started_at INTEGER,
+    finished_at INTEGER
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_ruling_job_device ON ruling_job(device_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_ruling_job_created ON ruling_job(created_at);
+
+  CREATE TABLE IF NOT EXISTS device_push_token (
+    device_id TEXT PRIMARY KEY,
+    fcm_token TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT 'android',
+    updated_at INTEGER NOT NULL
+  );
 `);
 
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。

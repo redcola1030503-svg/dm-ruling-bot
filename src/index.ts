@@ -2,6 +2,8 @@ import express from "express";
 import { env } from "./config/env";
 import { healthRouter } from "./routes/health";
 import { rulingRouter } from "./routes/ruling";
+import { rulingJobsRouter } from "./routes/rulingJobs";
+import { pushRouter } from "./routes/push";
 import { debugRouter } from "./routes/debug";
 import { lineWebhookRouter } from "./routes/lineWebhook";
 import { authRouter } from "./routes/auth";
@@ -27,6 +29,8 @@ app.use(
 
 app.use(healthRouter);
 app.use(rulingRouter);
+app.use(rulingJobsRouter);
+app.use(pushRouter);
 app.use(debugRouter);
 app.use(lineWebhookRouter);
 app.use(authRouter);

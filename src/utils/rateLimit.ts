@@ -27,3 +27,13 @@ export const authRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "rate_limited" },
 });
+
+// プッシュ通知トークン登録は端末起動・トークンrefreshのたびに呼ばれる程度の
+// 低頻度アクセスなので、乱用防止の範囲で緩めに制限する。
+export const pushRegisterRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "rate_limited" },
+});

@@ -48,6 +48,19 @@ const envSchema = z.object({
     .string()
     .default("false")
     .transform((value) => value === "true"),
+
+  // Firebase Cloud Messaging送信用サービスアカウントJSON(base64エンコード)。
+  // 未設定の場合、プッシュ送信は無効化され裁定生成自体は通常どおり動作する
+  // (ポーリングでの結果取得は引き続き可能)。
+  FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: z.string().optional(),
+
+  // 同時実行中の裁定ジョブ数の上限。非同期化により同期HTTP接続数による
+  // 自然な流量制御が失われるため、LLM APIのコスト・レート保護のため明示的に制限する。
+  RULING_JOB_MAX_CONCURRENCY: z.coerce.number().default(5),
+
+  // ruling_jobテーブルの保持期間(日)。古い完了/失敗ジョブはジョブ作成の
+  // たびに機会的に削除する(Renderは単一インスタンスでcron等を持ち込む規模ではないため)。
+  RULING_JOB_RETENTION_DAYS: z.coerce.number().default(3),
 });
 
 export const env = envSchema.parse(process.env);
