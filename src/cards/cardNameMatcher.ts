@@ -51,9 +51,14 @@ export async function findCardCandidates(
   inputName: string,
   options?: { maxResults?: number },
 ): Promise<CardNameMatch[]> {
-  const hits = await searchOfficialCards(inputName, options);
+  // maxResultsは検索結果の絞り込みではなく、スコアリング後の絞り込みに使う。
+  // 公式サイト検索の結果順は関連度順ではないため、先に絞り込むと
+  // 名称完全一致のカードが件数制限で切り捨てられることがある
+  // (例:「ボルシャック・ドラゴン」で検索すると派生カードが多く、
+  // 完全一致の本家カードが検索結果の後方に出る)。
+  const hits = await searchOfficialCards(inputName);
   const cards = await fetchCards(hits);
   const matches = scoreCardsAgainst(cards, inputName);
   matches.sort((a, b) => b.score - a.score);
-  return matches;
+  return options?.maxResults ? matches.slice(0, options.maxResults) : matches;
 }
