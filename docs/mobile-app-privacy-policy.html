@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>プライバシーポリシー | デュエマ裁定確認アプリ AIティーチャーくん</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+    line-height: 1.8;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+    color: #222;
+    background: #fff;
+  }
+  h1 { font-size: 1.5rem; border-bottom: 2px solid #4a4ae0; padding-bottom: 12px; }
+  h2 { font-size: 1.15rem; margin-top: 2em; border-left: 4px solid #4a4ae0; padding-left: 10px; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #f5f5fa; white-space: nowrap; }
+  .updated { color: #666; font-size: 0.9rem; }
+  a { color: #4a4ae0; }
+</style>
+</head>
+<body>
+
+<h1>プライバシーポリシー</h1>
+<p class="updated">制定日: 2026年8月13日</p>
+
+<p>本ポリシーは、個人開発者(以下「開発者」)が提供するモバイルアプリ「デュエマ裁定確認アプリ AIティーチャーくん」(以下「本アプリ」)における利用者情報の取り扱いについて定めるものです。</p>
+
+<h2>1. 本アプリの概要</h2>
+<p>本アプリは、トレーディングカードゲーム「デュエル・マスターズ」のルール裁定について、入力された質問文に対し、公式サイトの情報を根拠としたAI(生成AI)による回答候補を提示するツールです。回答は開発者が独自に構築したAPI(dm-ruling-bot)を通じて生成されます。</p>
+
+<h2>2. 収集する情報</h2>
+<table>
+  <tr><th>情報の種類</th><th>取得するタイミング</th><th>内容</th></tr>
+  <tr><td>質問文</td><td>裁定を質問したとき</td><td>ルール裁定確認のために入力したテキスト。氏名・連絡先等の入力は求めていませんが、利用者が任意の文章内に個人情報を含めて送信することを妨げるものではありません</td></tr>
+  <tr><td>ジャッジID</td><td>ログイン時</td><td>公認ジャッジ・管理者が本アプリの追加機能(訂正記録・ジャッジ管理)を利用するために入力するID。パスワードは使用しません</td></tr>
+  <tr><td>セッショントークン</td><td>ログイン後</td><td>ログイン状態を維持するための識別子。端末内の暗号化ストレージ(Android Keystore等)に保存されます</td></tr>
+  <tr><td>訂正内容</td><td>ジャッジ・管理者が訂正を記録したとき</td><td>質問文、AIの回答、正しい裁定内容のテキスト</td></tr>
+  <tr><td>カード名の一部</td><td>質問入力中(カード名検索時)</td><td>カード名の入力補完(オートコンプリート)のために送信される文字列</td></tr>
+</table>
+
+<p>本アプリは、氏名・メールアドレス・電話番号・位置情報・端末の広告IDなど、利用者個人を直接特定する情報の入力・収集は行いません。</p>
+
+<h2>3. 情報の送信先・利用目的</h2>
+<p>上記の情報は、開発者が運営するサーバー(dm-ruling-bot、Render社のインフラ上で稼働)に送信され、以下の目的で利用されます。</p>
+<ul>
+  <li>入力された質問への裁定回答を生成するため</li>
+  <li>回答精度を高めるため、ジャッジによる訂正記録を今後の類似質問の参考情報として利用するため</li>
+  <li>公認ジャッジ・管理者の認証、権限管理のため</li>
+</ul>
+
+<p>裁定回答の生成にあたり、質問文の内容は以下の外部サービスに送信されます。</p>
+<table>
+  <tr><th>送信先</th><th>提供元</th><th>送信される情報・目的</th></tr>
+  <tr><td>Claude API</td><td>Anthropic, PBC</td><td>質問文をもとにルール裁定の回答を生成するため</td></tr>
+  <tr><td>Voyage AI Embedding API</td><td>Voyage AI, Inc.</td><td>質問内容に関連する総合ルール条文を意味検索するため(質問文由来のテキストを一時的に送信)</td></tr>
+  <tr><td>デュエル・マスターズ公式サイト</td><td>株式会社タカラトミー</td><td>質問中のカード名等をもとにカード情報・公式Q&amp;A・ルール変更情報を検索するため。個人を特定する情報は送信しません</td></tr>
+</table>
+
+<p>これらのサービスへの送信は、各社のプライバシーポリシー・利用規約に基づき取り扱われます。開発者は、上記以外の目的で第三者に情報を提供することはありません。</p>
+
+<h2>4. データの保存期間・削除</h2>
+<p>収集した情報は、開発者が運営するサーバーのデータベースに保存されます。保存期間はあらかじめ定めていませんが、利用者からの削除依頼があった場合は、下記の問い合わせ窓口を通じて合理的な範囲で対応します。</p>
+
+<h2>5. 通信の暗号化</h2>
+<p>本アプリとサーバー間の通信はすべてHTTPS(TLS)により暗号化されています。</p>
+
+<h2>6. 対象年齢</h2>
+<p>本アプリは特定の年齢制限を設けていませんが、公認ジャッジ・管理者向けの機能はテスト目的で招待されたユーザーのみが利用対象です。</p>
+
+<h2>7. お問い合わせ窓口</h2>
+<p>本アプリの情報の取り扱いに関するお問い合わせは、以下のメールアドレスまでご連絡ください。</p>
+<p>Eメール: <a href="mailto:red.cola1030503@gmail.com">red.cola1030503@gmail.com</a></p>
+
+<h2>8. 本ポリシーの変更</h2>
+<p>本ポリシーの内容は、法令の変更や本アプリの機能追加等に応じて、予告なく変更されることがあります。変更後の内容は本ページに掲載した時点から効力を生じるものとします。</p>
+
+</body>
+</html>
