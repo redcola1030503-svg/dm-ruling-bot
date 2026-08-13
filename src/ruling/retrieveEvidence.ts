@@ -1,5 +1,4 @@
 import { findCardCandidates } from "../cards/cardNameMatcher";
-import { resolvePopularCardName } from "../cards/resolveAmbiguousCardByPopularity";
 import { env } from "../config/env";
 import { searchAndRankQa } from "../rules/qaRanking";
 import { searchAndRankRuleChanges } from "../rules/ruleChangeRanking";
@@ -86,19 +85,6 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
         new Set(matches.slice(0, AMBIGUOUS_CANDIDATE_LIMIT).map((m) => m.card.name)),
       );
       if (candidates.length > 0) {
-        // 候補の中に環境で話題度が圧倒的に高いカードがあればWeb検索で自動確定を
-        // 試みる。判断できない場合はnullが返り、従来通りユーザーへの候補確認に
-        // フォールバックする(誤ったカードを勝手に確定しないための安全策)。
-        const resolvedName = env.ENABLE_POPULARITY_CARD_RESOLUTION
-          ? await resolvePopularCardName(queried, candidates)
-          : null;
-        const resolvedMatch = resolvedName
-          ? matches.find((m) => m.card.name === resolvedName)
-          : undefined;
-        if (resolvedMatch) {
-          registerCard(resolvedMatch);
-          continue;
-        }
         ambiguousCards.push({ queried, candidates });
       }
       continue;

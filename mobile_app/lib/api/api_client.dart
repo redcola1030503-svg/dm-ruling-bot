@@ -55,7 +55,7 @@ class ApiClient {
             headers: _headers(),
             body: jsonEncode({'question': question}),
           )
-          .timeout(const Duration(seconds: 120));
+          .timeout(const Duration(seconds: 300));
     } on TimeoutException {
       throw const ApiException('サーバーの応答がありませんでした。時間をおいて再度お試しください。');
     }

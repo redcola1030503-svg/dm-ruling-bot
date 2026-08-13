@@ -168,7 +168,7 @@ class _RulingScreenState extends State<RulingScreen> {
             if (_loading) ...[
               const SizedBox(height: 8),
               Text(
-                '公式情報の検索とLLMによる裁定生成には最大1〜2分程度かかることがあります。',
+                '公式情報の検索とLLMによる裁定生成には最大数分程度かかることがあります。',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

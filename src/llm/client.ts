@@ -13,12 +13,6 @@ function getClient(): Anthropic {
   return client;
 }
 
-// 裁定生成以外(あいまいカード名のWeb検索解決など)でも同じクライアントを
-// 使い回すためのエクスポート。
-export function getAnthropicClient(): Anthropic {
-  return getClient();
-}
-
 const MODEL = "claude-sonnet-5";
 
 export async function completeJson(params: {
