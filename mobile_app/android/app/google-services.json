@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "244258250345",
+    "project_id": "dm-ruling-bot",
+    "storage_bucket": "dm-ruling-bot.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:244258250345:android:940c888e15249e23b80cf8",
+        "android_client_info": {
+          "package_name": "com.dmrulingbot.aiteacher"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABkfDFSg6oLtazVQpZHfAquF-Fbn6jnIU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
-import '../models/ruling_result.dart';
+import '../models/ruling_job.dart';
 import '../state/auth_provider.dart';
+import '../state/ruling_jobs_provider.dart';
 import '../widgets/card_name_special_text.dart';
 import '../widgets/card_suggest_field.dart';
 import '../widgets/ruling_result_view.dart';
@@ -13,6 +14,7 @@ import 'correction_dialog.dart';
 import 'judges_screen.dart';
 import 'card_index_screen.dart';
 import 'login_screen.dart';
+import 'ruling_job_detail_screen.dart';
 
 class RulingScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -26,10 +28,8 @@ class RulingScreen extends StatefulWidget {
 class _RulingScreenState extends State<RulingScreen> {
   final _questionController = TextEditingController();
   final _questionFocusNode = FocusNode();
-  RulingResult? _result;
-  String? _lastQuestion;
-  bool _loading = false;
-  String? _error;
+  bool _submitting = false;
+  String? _submitError;
 
   @override
   void dispose() {
@@ -56,32 +56,29 @@ class _RulingScreenState extends State<RulingScreen> {
     final question = _questionController.text.trim();
     if (question.isEmpty) return;
     setState(() {
-      _loading = true;
-      _error = null;
+      _submitting = true;
+      _submitError = null;
     });
     try {
-      final result = await widget.apiClient.getRuling(question);
-      setState(() {
-        _result = result;
-        _lastQuestion = question;
-      });
+      await context.read<RulingJobsProvider>().submitQuestion(question);
+      _questionController.clear();
     } catch (e) {
       setState(() {
-        _error = e is ApiException ? e.friendlyMessage : '通信エラーが発生しました: $e';
+        _submitError = e is ApiException ? e.friendlyMessage : '通信エラーが発生しました: $e';
       });
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
-  void _openCorrectionDialog() {
-    if (_result == null || _lastQuestion == null) return;
+  void _openCorrectionDialog(RulingJob job) {
+    if (job.result == null) return;
     showDialog(
       context: context,
       builder: (_) => CorrectionDialog(
         apiClient: widget.apiClient,
-        originalQuestion: _lastQuestion!,
-        botConclusion: _result!.conclusion,
+        originalQuestion: job.question,
+        botConclusion: job.result!.conclusion,
       ),
     );
   }
@@ -89,6 +86,10 @@ class _RulingScreenState extends State<RulingScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final jobs = context.watch<RulingJobsProvider>().jobs;
+    final latestJob = jobs.isNotEmpty ? jobs.first : null;
+    final olderJobs = jobs.length > 1 ? jobs.sublist(1) : const <RulingJob>[];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('DM裁定確認'),
@@ -159,8 +160,8 @@ class _RulingScreenState extends State<RulingScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
+                onPressed: _submitting ? null : _submit,
+                child: _submitting
                     ? const SizedBox(
                         width: 20,
                         height: 20,
@@ -169,31 +170,88 @@ class _RulingScreenState extends State<RulingScreen> {
                     : const Text('質問する'),
               ),
             ),
-            if (_loading) ...[
-              const SizedBox(height: 8),
-              Text(
-                '公式情報の検索とLLMによる裁定生成には最大数分程度かかることがあります。',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-            if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '送信後は画面を離れたりアプリを閉じたりしても裁定生成は続行され、完了すると通知でお知らせします。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (_submitError != null) ...[
               const SizedBox(height: 16),
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+              Text(_submitError!, style: const TextStyle(color: Colors.red)),
             ],
-            if (_result != null) ...[
+            if (latestJob != null) ...[
               const SizedBox(height: 16),
-              RulingResultView(result: _result!),
-              if (auth.isLoggedIn) ...[
+              if (latestJob.question.isNotEmpty) ...[
+                Text('質問', style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 4),
+                SelectableText(latestJob.question),
                 const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: _openCorrectionDialog,
-                  child: const Text('この裁定を訂正する'),
-                ),
               ],
+              if (!latestJob.isFinished)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      SizedBox(width: 12),
+                      Text('公式情報の検索とLLMによる裁定生成を行っています(最大数分程度)…'),
+                    ],
+                  ),
+                )
+              else if (latestJob.status == RulingJobStatus.failed)
+                Text(
+                  latestJob.error ?? '裁定生成中にエラーが発生しました。',
+                  style: const TextStyle(color: Colors.red),
+                )
+              else if (latestJob.result != null) ...[
+                RulingResultView(result: latestJob.result!),
+                if (auth.isLoggedIn) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => _openCorrectionDialog(latestJob),
+                    child: const Text('この裁定を訂正する'),
+                  ),
+                ],
+              ],
+            ],
+            if (olderJobs.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              Text('これまでの質問', style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 4),
+              ...olderJobs.map(
+                (job) => Card(
+                  child: ListTile(
+                    title: Text(
+                      job.question,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(_statusLabel(job)),
+                    trailing: !job.isFinished
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => RulingJobDetailScreen(jobId: job.jobId)),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  String _statusLabel(RulingJob job) {
+    switch (job.status) {
+      case RulingJobStatus.pending:
+      case RulingJobStatus.running:
+        return '生成中…';
+      case RulingJobStatus.failed:
+        return 'エラーが発生しました';
+      case RulingJobStatus.done:
+        return job.result?.conclusion ?? '完了';
+    }
   }
 }

@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- プッシュ通知表示に必要(Android 13以降、実行時に別途ユーザー許可も要る) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="デュエマ裁定確認"
         android:name="${applicationName}"
@@ -31,6 +33,10 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- notificationブロック付きFCMメッセージの既定通知チャンネル -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="ruling_result" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

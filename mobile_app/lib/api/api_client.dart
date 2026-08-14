@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/card_suggestion.dart';
 import '../models/judge.dart';
 import '../models/reindex_status.dart';
+import '../models/ruling_job.dart';
 import '../models/ruling_result.dart';
 import '../models/session.dart';
 import 'api_exception.dart';
@@ -68,6 +69,36 @@ class ApiClient {
       return RulingResult.fromJson(decoded);
     }
     return RulingResult.fromJson(_handleObject(resp));
+  }
+
+  /// 質問を非同期ジョブとして投稿する。即座にjobIdが返り、結果は
+  /// getRulingJobでポーリングするか、プッシュ通知を受けて取得する。
+  Future<String> submitRulingJob(String question, String? deviceId) async {
+    final resp = await _client.post(
+      _uri('/api/ruling/jobs'),
+      headers: _headers(),
+      body: jsonEncode({
+        'question': question,
+        if (deviceId != null) 'deviceId': deviceId,
+      }),
+    );
+    final json = _handleObject(resp);
+    return json['jobId'] as String;
+  }
+
+  Future<RulingJob> getRulingJob(String jobId, {String? question}) async {
+    final resp = await _client.get(_uri('/api/ruling/jobs/$jobId'), headers: _headers());
+    return RulingJob.fromJson(_handleObject(resp), question: question);
+  }
+
+  Future<void> registerPushToken(String deviceId, String fcmToken) async {
+    final resp = await _client.post(
+      _uri('/api/push/register-token'),
+      headers: _headers(),
+      body: jsonEncode({'deviceId': deviceId, 'fcmToken': fcmToken, 'platform': 'android'}),
+    );
+    if (resp.statusCode == 204) return;
+    _handleObject(resp);
   }
 
   Future<Session> login(String judgeId) async {
