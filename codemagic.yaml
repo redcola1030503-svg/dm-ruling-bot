@@ -1,0 +1,49 @@
+workflows:
+  ios-release:
+    name: iOS Release (App Store / TestFlight)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: mobile_app
+    # Codemagicの Team settings > Integrations で発行したApp Store Connect API連携の
+    # 名前をここに指定する(コード署名・TestFlight/App Storeへの提出を自動化するため)。
+    integrations:
+      app_store_connect: dm_ruling_bot_asc
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.dmrulingbot.aiteacher
+      vars:
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+      flutter: stable
+    triggering:
+      events: []  # 手動実行のみ。pushトリガーが必要になったらbranch_patternsを追加する
+    scripts:
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      - name: Flutter build ipa
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - red.cola1030503@gmail.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        # 初回は内部テスト(TestFlight)での確認を優先し、審査提出は状況を見て有効化する。
+        submit_to_testflight: true
+        submit_to_app_store: false
