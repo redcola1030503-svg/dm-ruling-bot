@@ -21,4 +21,18 @@ describe("normalizeCardName", () => {
   it("大文字/小文字を区別しない", () => {
     expect(normalizeCardName("VAN")).toBe(normalizeCardName("van"));
   });
+
+  it("アポストロフィの異体字(U+2019右シングルクォーテーション等)をU+0027に統一する", () => {
+    // 「頂上混成 ガリュディアス・モモミーズ'22」のように、質問文側はASCIIアポストロフィ(U+0027)、
+    // 公式カード名側はUnicode右シングルクォーテーション(U+2019)で表記されるケースがある。
+    expect(normalizeCardName("ガリュディアス・モモミーズ'22")).toBe(
+      normalizeCardName("ガリュディアス・モモミーズ’22"),
+    );
+    expect(normalizeCardName("ガリュディアス・モモミーズ‘22")).toBe(
+      normalizeCardName("ガリュディアス・モモミーズ'22"),
+    );
+    expect(normalizeCardName("ガリュディアス・モモミーズ＇22")).toBe(
+      normalizeCardName("ガリュディアス・モモミーズ'22"),
+    );
+  });
 });
