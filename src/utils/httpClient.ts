@@ -41,6 +41,12 @@ async function requestWithRetry<T>(config: AxiosRequestConfig): Promise<T> {
       return response.data;
     } catch (error) {
       lastError = error;
+      // 404はサーバーが「そのリソースは存在しない」と明確に答えている状態で、
+      // 再試行しても結果は変わらない(ページネーションで存在しないページを
+      // 叩いた場合など)。リトライで待機時間を無駄にせず即座に諦める。
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        throw error;
+      }
       logger.warn("http_request_retry", {
         url: config.url,
         attempt,

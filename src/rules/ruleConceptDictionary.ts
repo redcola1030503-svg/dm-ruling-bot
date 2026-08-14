@@ -33,6 +33,8 @@ const RULE_CONCEPTS: readonly string[] = [
   "召喚できない",
   "唱えられない",
   "できない",
+  "使用宣言",
+  "追加ターン",
 ];
 
 export function extractRuleConcepts(question: string): string[] {

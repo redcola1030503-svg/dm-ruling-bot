@@ -51,7 +51,7 @@ export async function searchAndRankQa(
 ): Promise<QaEvidence[]> {
   const { items: listItems, cardLinkedIds } = await collectListItems(
     criteria,
-    options?.maxResultsPerTerm ?? 10,
+    options?.maxResultsPerTerm ?? 20,
     options?.cardQaListUrls ?? [],
   );
 
@@ -67,5 +67,5 @@ export async function searchAndRankQa(
   }));
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, options?.topN ?? 10);
+  return scored.slice(0, options?.topN ?? 15);
 }
