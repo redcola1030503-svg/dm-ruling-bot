@@ -46,7 +46,17 @@ class CardNameSpecialText extends SpecialText {
           color: Colors.indigo,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(displayName, style: style),
+        // 「破壊の赤！スクラッパーレッド！」のような非常に長いカード名でも
+        // 入力欄の枠をはみ出さないよう、一定幅で1行に収め省略表示する。
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 160),
+          child: Text(
+            displayName,
+            style: style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ),
     );
   }
