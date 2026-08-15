@@ -10,6 +10,8 @@ export type EvidenceSource = {
 export type ParsedQuestion = {
   originalText: string;
   cardNames: string[];
+  /** 「」『』由来など、カード名かどうか確信が持てない弱い候補。見つからなくても質問全体は止めない。 */
+  weakCardNames: string[];
   keywords: string[];
   ruleConcepts: string[];
   situation: string;

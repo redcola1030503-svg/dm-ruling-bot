@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { completeJson } from "../llm/client";
 import { extractJsonBlock } from "../llm/jsonExtract";
-import { extractCardNameCandidates } from "../cards/extractCardNameCandidates";
+import { extractCardNameCandidatesTiered } from "../cards/extractCardNameCandidates";
 import { extractRuleConcepts } from "../rules/ruleConceptDictionary";
 import type { ParsedQuestion } from "./types";
 
@@ -32,6 +32,9 @@ const parsedQuestionSchema = z.object({
 });
 
 export async function analyzeQuestion(originalText: string): Promise<ParsedQuestion> {
+  const { strong: strongBracketNames, weak: weakBracketNames } =
+    extractCardNameCandidatesTiered(originalText);
+
   try {
     const raw = await completeJson({
       system: ANALYZE_SYSTEM_PROMPT,
@@ -39,10 +42,12 @@ export async function analyzeQuestion(originalText: string): Promise<ParsedQuest
     });
     const parsed = parsedQuestionSchema.parse(JSON.parse(extractJsonBlock(raw)));
 
-    // LLMが見落とした場合に備え、括弧表記とルール用語辞書からの抽出も統合する。
-    const mergedCardNames = Array.from(
-      new Set([...parsed.cardNames, ...extractCardNameCandidates(originalText)]),
-    );
+    // LLMが見落とした場合に備え、《》由来の候補(strong)を統合する。
+    // 「」『』由来(weak)は一般名詞・能力名を囲んでいる場合も多い(例:「侵略」「猫」)ため、
+    // ここではcardNamesに混ぜず、LLMが既にカード名と認識したものだけ残してweakCardNamesに回す
+    // (見つからなくても質問全体をカード名未確定扱いにしないため)。
+    const mergedCardNames = Array.from(new Set([...parsed.cardNames, ...strongBracketNames]));
+    const weakCardNames = weakBracketNames.filter((name) => !mergedCardNames.includes(name));
     const mergedRuleConcepts = Array.from(
       new Set([...parsed.ruleConcepts, ...extractRuleConcepts(originalText)]),
     );
@@ -50,6 +55,7 @@ export async function analyzeQuestion(originalText: string): Promise<ParsedQuest
     return {
       originalText,
       cardNames: mergedCardNames,
+      weakCardNames,
       keywords: parsed.keywords,
       ruleConcepts: mergedRuleConcepts,
       situation: parsed.situation,
@@ -60,7 +66,8 @@ export async function analyzeQuestion(originalText: string): Promise<ParsedQuest
     // (公式情報取得自体のフォールバックではなく、質問の前処理段階のフォールバックのため許容する)
     return {
       originalText,
-      cardNames: extractCardNameCandidates(originalText),
+      cardNames: strongBracketNames,
+      weakCardNames: weakBracketNames.filter((name) => !strongBracketNames.includes(name)),
       keywords: [],
       ruleConcepts: extractRuleConcepts(originalText),
       situation: "",

@@ -32,6 +32,7 @@ describe("produceRuling のカード名確認フロー", () => {
     analyzeQuestion.mockResolvedValueOnce({
       originalText: "q",
       cardNames: ["ベートーベン"],
+      weakCardNames: [],
       keywords: [],
       ruleConcepts: [],
       situation: "",
@@ -56,6 +57,7 @@ describe("produceRuling のカード名確認フロー", () => {
     analyzeQuestion.mockResolvedValueOnce({
       originalText: "q",
       cardNames: ["斬隠蒼頭龍バイケン"],
+      weakCardNames: [],
       keywords: [],
       ruleConcepts: [],
       situation: "",

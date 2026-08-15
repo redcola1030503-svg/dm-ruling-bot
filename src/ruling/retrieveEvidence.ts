@@ -21,12 +21,16 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
   const cardResults = await Promise.all(
     parsed.cardNames.map((name) => findCardCandidates(name, { maxResults: 5 })),
   );
+  const weakCardResults = await Promise.all(
+    parsed.weakCardNames.map((name) => findCardCandidates(name, { maxResults: 5 })),
+  );
 
   const cards: EvidenceSource[] = [];
   const cardQaListUrls: string[] = [];
   const cardDerivedConcepts = new Set<string>();
   const seenCardIds = new Set<string>();
   const ambiguousCards: AmbiguousCard[] = [];
+  const resolvedWeakCardNames: string[] = [];
 
   // 質問文には同じカードがフルネームと略称の両方で登場することがある
   // (例:「斬隠蒼頭龍バイケン」と「バイケン」)。略称側だけを見ると複数の
@@ -92,8 +96,21 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     registerCard(best);
   }
 
+  // 「」『』由来の弱い候補: 一般名詞や能力名(「侵略」「猫」等)である可能性が高いため、
+  // 見つかった場合のみカード情報として採用する。見つからなくても、strongな候補と違って
+  // ambiguousCardsには入れない(=質問全体をカード名未確定扱いで止めない)。
+  for (let i = 0; i < parsed.weakCardNames.length; i++) {
+    const queried = parsed.weakCardNames[i] as string;
+    const matches = weakCardResults[i] ?? [];
+    const best = matches[0];
+    if (best && best.score >= CARD_MATCH_MIN_SCORE) {
+      registerCard(best);
+      resolvedWeakCardNames.push(queried);
+    }
+  }
+
   const criteria = {
-    cardNames: parsed.cardNames,
+    cardNames: [...parsed.cardNames, ...resolvedWeakCardNames],
     ruleConcepts: Array.from(new Set([...parsed.ruleConcepts, ...cardDerivedConcepts])),
     keywords: parsed.keywords,
   };

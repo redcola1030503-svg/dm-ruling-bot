@@ -38,10 +38,11 @@ function makeCard(overrides: Partial<CardInfo>): CardInfo {
   };
 }
 
-function makeParsedQuestion(cardNames: string[]) {
+function makeParsedQuestion(cardNames: string[], weakCardNames: string[] = []) {
   return {
     originalText: cardNames.join(" "),
     cardNames,
+    weakCardNames,
     keywords: [],
     ruleConcepts: [],
     situation: "",
@@ -121,5 +122,39 @@ describe("retrieveEvidence のカード名あいまい判定", () => {
     expect(evidence.ambiguousCards).toHaveLength(0);
     expect(evidence.cards).toHaveLength(1);
     expect(evidence.cards[0].title).toBe("斬隠蒼頭龍バイケン");
+  });
+});
+
+describe("retrieveEvidence の弱いカード名候補(「」『』由来)の扱い", () => {
+  it("見つからなくてもambiguousCardsに追加しない(一般名詞の誤爆対策)", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], ["侵略"]));
+
+    expect(evidence.ambiguousCards).toHaveLength(0);
+    expect(evidence.cards).toHaveLength(0);
+  });
+
+  it("十分なスコアで見つかった場合はcardsに採用する", async () => {
+    findCardCandidates.mockResolvedValueOnce([
+      { card: makeCard({ id: "a", name: "「正義星帝」＜ライオネル.Star＞" }), matchType: "exact", score: 1 },
+    ]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], ["正義星帝"]));
+
+    expect(evidence.ambiguousCards).toHaveLength(0);
+    expect(evidence.cards).toHaveLength(1);
+    expect(evidence.cards[0].title).toBe("「正義星帝」＜ライオネル.Star＞");
+  });
+
+  it("低スコアの候補しかない場合は採用もambiguous化もしない", async () => {
+    findCardCandidates.mockResolvedValueOnce([
+      { card: makeCard({ id: "a", name: "何か別のカード" }), matchType: "fuzzy", score: 0.3 },
+    ]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], ["猫"]));
+
+    expect(evidence.ambiguousCards).toHaveLength(0);
+    expect(evidence.cards).toHaveLength(0);
   });
 });
