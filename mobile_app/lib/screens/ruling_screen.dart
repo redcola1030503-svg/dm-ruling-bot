@@ -195,10 +195,13 @@ class _RulingScreenState extends State<RulingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                           SizedBox(width: 12),
-                          Text('公式情報の検索とLLMによる裁定生成を行っています(最大数分程度)…'),
+                          Expanded(
+                            child: Text('公式情報の検索とLLMによる裁定生成を行っています(最大数分程度)…'),
+                          ),
                         ],
                       ),
                       SizedBox(height: 12),
