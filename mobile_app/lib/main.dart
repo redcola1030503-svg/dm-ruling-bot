@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 import 'api/api_client.dart';
@@ -38,6 +39,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _pushService.listenNotificationTap(_openJobDetail);
     });
     _rulingJobsProvider.restore();
+    MobileAds.instance.initialize();
   }
 
   @override

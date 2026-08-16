@@ -9,6 +9,7 @@ import '../state/auth_provider.dart';
 import '../state/ruling_jobs_provider.dart';
 import '../widgets/card_name_special_text.dart';
 import '../widgets/card_suggest_field.dart';
+import '../widgets/loading_banner_ad.dart';
 import '../widgets/ruling_result_view.dart';
 import 'correction_dialog.dart';
 import 'judges_screen.dart';
@@ -190,11 +191,18 @@ class _RulingScreenState extends State<RulingScreen> {
               if (!latestJob.isFinished)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                      SizedBox(width: 12),
-                      Text('公式情報の検索とLLMによる裁定生成を行っています(最大数分程度)…'),
+                      Row(
+                        children: [
+                          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(width: 12),
+                          Text('公式情報の検索とLLMによる裁定生成を行っています(最大数分程度)…'),
+                        ],
+                      ),
+                      SizedBox(height: 12),
+                      LoadingBannerAd(),
                     ],
                   ),
                 )

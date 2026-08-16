@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/ruling_job.dart';
 import '../state/auth_provider.dart';
 import '../state/ruling_jobs_provider.dart';
+import '../widgets/loading_banner_ad.dart';
 import '../widgets/ruling_result_view.dart';
 import 'correction_dialog.dart';
 
@@ -73,6 +74,8 @@ class _RulingJobDetailScreenState extends State<RulingJobDetailScreen> {
                     const Center(child: CircularProgressIndicator()),
                     const SizedBox(height: 8),
                     const Center(child: Text('裁定を生成しています…')),
+                    const SizedBox(height: 16),
+                    const LoadingBannerAd(),
                   ] else if (job.status == RulingJobStatus.failed) ...[
                     Text(
                       job.error ?? '裁定生成中にエラーが発生しました。',
