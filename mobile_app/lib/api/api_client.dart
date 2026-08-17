@@ -79,7 +79,7 @@ class ApiClient {
       headers: _headers(),
       body: jsonEncode({
         'question': question,
-        if (deviceId != null) 'deviceId': deviceId,
+        'deviceId': ?deviceId,
       }),
     );
     final json = _handleObject(resp);
