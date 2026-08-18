@@ -1,6 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
-import { saveCorrection } from "../corrections/repository";
+import {
+  deleteCorrection,
+  getAllCorrections,
+  getCorrectionById,
+  getCorrectionsByJudgeId,
+  saveCorrection,
+  updateCorrectionRuling,
+} from "../corrections/repository";
 import { extractCardNameCandidates } from "../cards/extractCardNameCandidates";
 import { requireJudgeSession } from "../judges/authMiddleware";
 import { logger } from "../utils/logger";
@@ -36,4 +43,68 @@ correctionsRouter.post("/api/corrections", requireJudgeSession, (req, res) => {
 
   logger.info("api_correction_saved", { judgeId: session.judgeId });
   res.status(201).json({ status: "ok" });
+});
+
+// 管理者は全訂正、それ以外のジャッジは自分(judgeId)の訂正のみを取得する。
+correctionsRouter.get("/api/corrections", requireJudgeSession, (_req, res) => {
+  const session = res.locals.judgeSession as JudgeSession;
+  const corrections =
+    session.role === "admin" ? getAllCorrections() : getCorrectionsByJudgeId(session.judgeId);
+  res.json({ corrections });
+});
+
+const updateCorrectionRequestSchema = z.object({
+  correctRuling: z.string().min(1).max(2000),
+});
+
+correctionsRouter.patch("/api/corrections/:id", requireJudgeSession, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "invalid_id" });
+    return;
+  }
+
+  const parsed = updateCorrectionRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return;
+  }
+
+  const session = res.locals.judgeSession as JudgeSession;
+  const existing = getCorrectionById(id);
+  if (!existing) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (session.role !== "admin" && existing.judgeId !== session.judgeId) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+
+  updateCorrectionRuling(id, parsed.data.correctRuling);
+  logger.info("api_correction_updated", { id, updatedBy: session.judgeId });
+  res.json({ correction: getCorrectionById(id) });
+});
+
+correctionsRouter.delete("/api/corrections/:id", requireJudgeSession, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "invalid_id" });
+    return;
+  }
+
+  const session = res.locals.judgeSession as JudgeSession;
+  const existing = getCorrectionById(id);
+  if (!existing) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (session.role !== "admin" && existing.judgeId !== session.judgeId) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+
+  const removed = deleteCorrection(id);
+  logger.info("api_correction_withdrawn", { id, withdrawnBy: session.judgeId });
+  res.json({ removed });
 });

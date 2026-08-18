@@ -12,6 +12,7 @@ import '../widgets/card_suggest_field.dart';
 import '../widgets/loading_banner_ad.dart';
 import '../widgets/ruling_result_view.dart';
 import 'correction_dialog.dart';
+import 'corrections_screen.dart';
 import 'judges_screen.dart';
 import 'card_index_screen.dart';
 import 'login_screen.dart';
@@ -100,6 +101,13 @@ class _RulingScreenState extends State<RulingScreen> {
               icon: const Icon(Icons.account_circle),
               onSelected: (value) {
                 switch (value) {
+                  case 'corrections':
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CorrectionsScreen(apiClient: widget.apiClient),
+                      ),
+                    );
+                    break;
                   case 'judges':
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -123,6 +131,10 @@ class _RulingScreenState extends State<RulingScreen> {
                 PopupMenuItem(
                   enabled: false,
                   child: Text('${auth.session!.judgeId} (${auth.isAdmin ? '管理者' : 'ジャッジ'})'),
+                ),
+                PopupMenuItem(
+                  value: 'corrections',
+                  child: Text(auth.isAdmin ? '訂正内容(全ジャッジ)' : '自分の訂正内容'),
                 ),
                 if (auth.isAdmin) const PopupMenuItem(value: 'judges', child: Text('ジャッジ管理')),
                 if (auth.isAdmin) const PopupMenuItem(value: 'card_index', child: Text('カードインデックス管理')),

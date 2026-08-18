@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/card_suggestion.dart';
+import '../models/correction.dart';
 import '../models/judge.dart';
 import '../models/reindex_status.dart';
 import '../models/ruling_job.dart';
@@ -136,6 +137,37 @@ class ApiClient {
         'botConclusion': botConclusion,
         'correctRuling': correctRuling,
       }),
+    );
+    _handleObject(resp);
+  }
+
+  /// 自分の訂正一覧を取得する。管理者トークンの場合はサーバー側で
+  /// 全ジャッジ分の訂正が返る(ロール分岐はバックエンドが行う)。
+  Future<List<Correction>> getCorrections(String token) async {
+    final resp = await _client.get(_uri('/api/corrections'), headers: _headers(token));
+    final json = _handleObject(resp);
+    final list = json['corrections'] as List<dynamic>? ?? [];
+    return list.map((e) => Correction.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<Correction> updateCorrection({
+    required String token,
+    required int id,
+    required String correctRuling,
+  }) async {
+    final resp = await _client.patch(
+      _uri('/api/corrections/$id'),
+      headers: _headers(token),
+      body: jsonEncode({'correctRuling': correctRuling}),
+    );
+    final json = _handleObject(resp);
+    return Correction.fromJson(json['correction'] as Map<String, dynamic>);
+  }
+
+  Future<void> withdrawCorrection(String token, int id) async {
+    final resp = await _client.delete(
+      _uri('/api/corrections/$id'),
+      headers: _headers(token),
     );
     _handleObject(resp);
   }

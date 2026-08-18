@@ -53,3 +53,29 @@ export function getAllCorrections(): Correction[] {
     .all() as CorrectionRow[];
   return rows.map(rowToCorrection);
 }
+
+export function getCorrectionsByJudgeId(judgeId: string): Correction[] {
+  const rows = db
+    .prepare("SELECT * FROM correction WHERE judge_id = ? ORDER BY created_at DESC")
+    .all(judgeId) as CorrectionRow[];
+  return rows.map(rowToCorrection);
+}
+
+export function getCorrectionById(id: number): Correction | null {
+  const row = db.prepare("SELECT * FROM correction WHERE id = ?").get(id) as
+    | CorrectionRow
+    | undefined;
+  return row ? rowToCorrection(row) : null;
+}
+
+export function updateCorrectionRuling(id: number, correctRuling: string): boolean {
+  const result = db
+    .prepare("UPDATE correction SET correct_ruling = ? WHERE id = ?")
+    .run(correctRuling, id);
+  return result.changes > 0;
+}
+
+export function deleteCorrection(id: number): boolean {
+  const result = db.prepare("DELETE FROM correction WHERE id = ?").run(id);
+  return result.changes > 0;
+}
