@@ -65,7 +65,8 @@ class _CorrectionsScreenState extends State<CorrectionsScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
-                maxLines: 3,
+                minLines: 6,
+                maxLines: 12,
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: '正しい裁定',
