@@ -145,8 +145,10 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     score: chunk.finalScore,
   }));
 
-  // 過去にジャッジが訂正した実績。公式情報ではないため、URLは持たせずsourcesには
-  // 出力させない(generateRuling側でurlの無いEvidenceはsourcesから自動除外される)。
+  // 公認ジャッジ本人がこのBotの誤りを実際に指摘・修正した記録。公式総合ルール・
+  // 公式Q&Aと同等に信頼できる一次資料として扱う(generateRuling側の指示書参照)。
+  // Webページを持たないためurlは空文字のままだが、sourcesには含められる
+  // (generateRuling側でタイトル一致による照合を行う)。
   const correctionResults = searchAndRankCorrections(criteria);
   const pastCorrections: ScoredEvidenceSource[] = correctionResults.map((correction) => ({
     title: `過去の訂正事例(ジャッジID: ${correction.judgeId})`,

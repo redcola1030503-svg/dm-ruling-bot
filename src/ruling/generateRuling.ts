@@ -74,10 +74,12 @@ confidenceは以下の基準で自己評価してください：
 食い違うことは絶対に許されません。
 
 14.
-「過去の訂正事例」が提供されている場合、これは公式情報ではなく、過去にジャッジがこのBot
-の誤答を指摘した実績です。断定の直接根拠にはできず、sourcesにも含めないでください。
-ただし、これから出そうとしている結論が過去に指摘された誤答パターンと同じ誤りを繰り返し
-ていないか必ず確認し、繰り返している場合は結論を見直してください。
+「過去の訂正事例」は、公認ジャッジ本人がこのBotの誤りを実際に指摘・修正した記録であり、
+公式総合ルール・公式Q&Aと同等に信頼できる一次資料として扱ってください。論点が今回の
+状況と本当に一致している場合は、それを直接の断定根拠として用いて構いません。その場合は
+sourcesにもタイトルをそのまま(url欄は空文字のまま)含めてください。ただし、論点が異なる
+場合や、これから出そうとしている結論が過去に指摘された誤答パターンと同じ誤りを繰り返し
+ていないかは必ず確認し、一致しない・繰り返している場合は根拠にせず結論を見直してください。
 
 15.
 ある能力・呪文が「複数のカードを実行する(唱える/出す等)」効果を持つ場合(例:キリコ
@@ -162,8 +164,8 @@ function buildUserMessage(parsed: ParsedQuestion, evidence: RulingEvidence): str
     formatEvidenceList("公式Q&A(類似事例)", evidence.qa),
     formatEvidenceList("ルール変更", evidence.ruleChanges),
     formatEvidenceList("関連カード", evidence.cards),
-    formatEvidenceList("過去の訂正事例(非公式・参考情報。根拠にはしないこと)", evidence.pastCorrections),
-    "## 指示\n\n上記の公式情報だけを根拠として、この状況の処理を判断してください。まず総合ルールへの当てはめを検討し、次に類似のQ&A事例を参照してください。過去の訂正事例は根拠にはできませんが、同じ誤りを繰り返していないかの確認に使ってください。",
+    formatEvidenceList("過去の訂正事例(公認ジャッジによる修正実績。公式情報と同等の一次資料)", evidence.pastCorrections),
+    "## 指示\n\n上記の公式情報および過去の訂正事例を根拠として、この状況の処理を判断してください。まず総合ルールへの当てはめを検討し、次に類似のQ&A事例・過去の訂正事例を参照してください。過去の訂正事例は論点が一致する場合は直接の根拠として使えますが、同じ誤りを繰り返していないかの確認にも使ってください。",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -195,7 +197,8 @@ export async function generateRuling(
     evidence.cards.length > 0 ||
     evidence.qa.length > 0 ||
     evidence.ruleChanges.length > 0 ||
-    evidence.generalRules.length > 0;
+    evidence.generalRules.length > 0 ||
+    evidence.pastCorrections.length > 0;
 
   if (!hasAnyEvidence) {
     return {
@@ -213,14 +216,16 @@ export async function generateRuling(
   const validated = llmOutputSchema.parse(JSON.parse(extractJsonBlock(raw)));
 
   // Evidenceに実在するURLのみを根拠として許可する(指示書ルール9: 捏造URL防止)。
-  // pastCorrectionsはURLを持たない非公式情報のため、意図的に対象外とする。
+  // pastCorrectionsはWebページを持たずurlが空文字のため、実在するタイトルと
+  // 完全一致するものだけをタイトル照合で許可する(捏造タイトルの防止)。
   const allowedUrls = new Set(
     [...evidence.cards, ...evidence.qa, ...evidence.ruleChanges, ...evidence.generalRules].map(
       (item) => item.url,
     ),
   );
-  const sources = validated.sources.filter(
-    (source) => source.url !== "" && allowedUrls.has(source.url),
+  const allowedCorrectionTitles = new Set(evidence.pastCorrections.map((item) => item.title));
+  const sources = validated.sources.filter((source) =>
+    source.url === "" ? allowedCorrectionTitles.has(source.title) : allowedUrls.has(source.url),
   );
 
   // Evidenceのキーワードスコアだけに基づく機械的な推定と、LLM自身の自己評価(論点の

@@ -20,13 +20,21 @@ describe("formatRulingForLine", () => {
     expect(text).toContain("【処理順】");
     expect(text).toContain("①");
     expect(text).toContain("確度：高");
-    expect(text).toContain("【公式情報】");
+    expect(text).toContain("【根拠】");
     expect(text).toContain("https://dm.takaratomy.co.jp/rule/qa/12345/");
   });
 
-  it("sourcesが空の場合は【公式情報】セクションを省略する", () => {
+  it("sourcesが空の場合は【根拠】セクションを省略する", () => {
     const text = formatRulingForLine({ ...BASE_RESULT, sources: [] });
-    expect(text).not.toContain("【公式情報】");
+    expect(text).not.toContain("【根拠】");
+  });
+
+  it("urlが空文字の場合(過去の訂正事例)はタイトルのみ表示しURL行は出さない", () => {
+    const text = formatRulingForLine({
+      ...BASE_RESULT,
+      sources: [{ title: "過去の訂正事例(ジャッジID: J001)", url: "" }],
+    });
+    expect(text).toContain("・過去の訂正事例(ジャッジID: J001)");
   });
 
   it("sourcesは最大5件に制限される", () => {

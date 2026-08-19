@@ -32,7 +32,11 @@ class RulingResultView extends StatelessWidget {
   }
 
   String? _sourceUrl(dynamic item) {
-    if (item is Map && item['url'] != null) return item['url'].toString();
+    // 過去の訂正事例などWebページを持たない出典はurlが空文字で返るため、
+    // リンクとして扱わずタイトルのみのテキスト表示にする。
+    if (item is Map && item['url'] != null && (item['url'] as String).isNotEmpty) {
+      return item['url'].toString();
+    }
     return null;
   }
 

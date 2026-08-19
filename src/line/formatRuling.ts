@@ -28,9 +28,10 @@ export function formatRulingForLine(result: RulingResult): string {
   if (result.sources.length > 0) {
     const sourcesText = result.sources
       .slice(0, MAX_SOURCES)
-      .map((source) => `・${source.title}\n${source.url}`)
+      // 過去の訂正事例はWebページを持たずurlが空文字のため、その場合はタイトルのみ表示する。
+      .map((source) => (source.url ? `・${source.title}\n${source.url}` : `・${source.title}`))
       .join("\n\n");
-    parts.push(`【公式情報】\n\n${sourcesText}`);
+    parts.push(`【根拠】\n\n${sourcesText}`);
   }
 
   const text = parts.join("\n\n");

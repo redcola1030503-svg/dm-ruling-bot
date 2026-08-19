@@ -11,16 +11,20 @@ export function estimateConfidence(evidence: RulingEvidence): Confidence {
   const hasStrongGeneralRuleMatch = evidence.generalRules.some((rule) => rule.score >= 10);
   const hasStrongQaMatch = evidence.qa.some((qa) => qa.score >= 10);
   const hasRuleChangeMatch = evidence.ruleChanges.length > 0;
+  // 公認ジャッジによる訂正実績は公式総合ルール・公式Q&Aと同等の一次資料として扱うため、
+  // 強い一致(論点が明確に合致)であれば同様にhigh評価の材料にする。
+  const hasStrongCorrectionMatch = evidence.pastCorrections.some((correction) => correction.score >= 10);
 
-  if (hasStrongGeneralRuleMatch || hasStrongQaMatch || hasRuleChangeMatch) {
+  if (hasStrongGeneralRuleMatch || hasStrongQaMatch || hasRuleChangeMatch || hasStrongCorrectionMatch) {
     return "high";
   }
 
   const hasSomeGeneralRuleMatch = evidence.generalRules.length > 0;
   const hasSomeQaMatch = evidence.qa.length > 0;
+  const hasSomeCorrectionMatch = evidence.pastCorrections.length > 0;
   const hasCardText = evidence.cards.length > 0;
 
-  if (hasCardText && (hasSomeQaMatch || hasSomeGeneralRuleMatch)) {
+  if (hasCardText && (hasSomeQaMatch || hasSomeGeneralRuleMatch || hasSomeCorrectionMatch)) {
     return "medium";
   }
 
