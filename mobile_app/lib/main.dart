@@ -6,6 +6,7 @@ import 'api/api_client.dart';
 import 'push/push_service.dart';
 import 'screens/ruling_job_detail_screen.dart';
 import 'screens/ruling_screen.dart';
+import 'screens/ruling_thread_detail_screen.dart';
 import 'state/auth_provider.dart';
 import 'state/ruling_jobs_provider.dart';
 
@@ -36,7 +37,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _rulingJobsProvider = RulingJobsProvider(apiClient: _apiClient, pushService: _pushService);
 
     _pushService.initialize().then((_) {
-      _pushService.listenNotificationTap(_openJobDetail);
+      _pushService.listenNotificationTap(_openJobOrThreadDetail);
     });
     _rulingJobsProvider.restore();
     MobileAds.instance.initialize();
@@ -55,10 +56,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  void _openJobDetail(String jobId) {
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => RulingJobDetailScreen(jobId: jobId)),
-    );
+  void _openJobOrThreadDetail(String jobId, String? threadId) {
+    if (threadId != null && threadId.isNotEmpty) {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => RulingThreadDetailScreen(threadId: threadId)),
+      );
+    } else {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => RulingJobDetailScreen(jobId: jobId)),
+      );
+    }
   }
 
   @override

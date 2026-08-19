@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/api_client.dart';
 import '../models/ruling_job.dart';
+import '../models/ruling_thread.dart';
 import '../push/device_id.dart';
 import '../push/push_service.dart';
 
@@ -25,6 +26,7 @@ class RulingJobsProvider extends ChangeNotifier {
   final FlutterSecureStorage _storage;
 
   final List<RulingJob> _jobs = [];
+  final List<RulingThreadSummary> _threads = [];
   final Map<String, Timer> _pollers = {};
   bool _pushRegistered = false;
   bool _restored = false;
@@ -39,6 +41,7 @@ class RulingJobsProvider extends ChangeNotifier {
         _storage = storage ?? const FlutterSecureStorage();
 
   List<RulingJob> get jobs => List.unmodifiable(_jobs);
+  List<RulingThreadSummary> get threads => List.unmodifiable(_threads);
 
   Future<void> restore() async {
     if (_restored) return;
@@ -65,25 +68,110 @@ class RulingJobsProvider extends ChangeNotifier {
     }
   }
 
+  /// 新規質問を送信する。常に新規スレッドとして開始される。
   Future<String> submitQuestion(String question) async {
     final deviceId = await deviceIdProvider.getOrCreate();
     if (!_pushRegistered) {
       unawaited(_setUpPush(deviceId));
     }
 
-    final jobId = await apiClient.submitRulingJob(question, deviceId);
+    final submission = await apiClient.submitRulingJob(question, deviceId);
     final job = RulingJob(
-      jobId: jobId,
+      jobId: submission.jobId,
       question: question,
       status: RulingJobStatus.pending,
+      threadId: submission.threadId,
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
     _jobs.insert(0, job);
+    if (submission.threadId != null) {
+      _upsertThreadOptimistic(submission.threadId!, question, job, isNewJob: true);
+    }
     await _persist();
     notifyListeners();
 
-    _startPolling(jobId);
-    return jobId;
+    _startPolling(submission.jobId);
+    return submission.jobId;
+  }
+
+  /// 既存スレッドへの追加質問(フォローアップ)を送信する。
+  Future<String> submitFollowUp(String threadId, String question) async {
+    final deviceId = await deviceIdProvider.getOrCreate();
+    if (!_pushRegistered) {
+      unawaited(_setUpPush(deviceId));
+    }
+
+    final submission = await apiClient.submitRulingJob(question, deviceId, threadId: threadId);
+    final job = RulingJob(
+      jobId: submission.jobId,
+      question: question,
+      status: RulingJobStatus.pending,
+      threadId: threadId,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    _jobs.insert(0, job);
+    _upsertThreadOptimistic(threadId, question, job, isNewJob: true);
+    await _persist();
+    notifyListeners();
+
+    _startPolling(submission.jobId);
+    return submission.jobId;
+  }
+
+  /// スレッド一覧をサーバーから取得し直す(質問画面表示時・アプリ起動時に呼ぶ想定)。
+  Future<void> loadThreads() async {
+    final deviceId = await deviceIdProvider.getOrCreate();
+    final result = await apiClient.getRulingThreads(deviceId);
+    _threads
+      ..clear()
+      ..addAll(result);
+    notifyListeners();
+  }
+
+  /// スレッド一覧へ即時反映する(サーバーからの最新取得を待たない楽観更新)。
+  /// 正式なタイトル・件数等は次回loadThreads()で上書きされる。
+  /// isNewJob: 新規投稿(submitQuestion/submitFollowUp)ならtrueでjobCountを+1し、
+  /// 既存ジョブの状態更新(refreshJobのポーリング結果)ならfalseでjobCountを変えない。
+  void _upsertThreadOptimistic(
+    String threadId,
+    String question,
+    RulingJob job, {
+    required bool isNewJob,
+  }) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final index = _threads.indexWhere((t) => t.threadId == threadId);
+    final latestJob = RulingThreadLatestJob(
+      jobId: job.jobId,
+      status: job.status.name,
+      outcomeStatus: job.outcomeStatus,
+      conclusion: job.result?.conclusion,
+    );
+    if (index >= 0) {
+      final existing = _threads.removeAt(index);
+      _threads.insert(
+        0,
+        RulingThreadSummary(
+          threadId: existing.threadId,
+          title: existing.title,
+          createdAt: existing.createdAt,
+          updatedAt: now,
+          jobCount: isNewJob ? existing.jobCount + 1 : existing.jobCount,
+          latestJob: latestJob,
+        ),
+      );
+    } else if (isNewJob) {
+      _threads.insert(
+        0,
+        RulingThreadSummary(
+          threadId: threadId,
+          title: question,
+          createdAt: now,
+          updatedAt: now,
+          jobCount: 1,
+          latestJob: latestJob,
+        ),
+      );
+    }
   }
 
   Future<void> _setUpPush(String deviceId) async {
@@ -127,6 +215,9 @@ class RulingJobsProvider extends ChangeNotifier {
       _jobs[index] = updated;
     } else {
       _jobs.insert(0, updated);
+    }
+    if (updated.threadId != null) {
+      _upsertThreadOptimistic(updated.threadId!, updated.question, updated, isNewJob: false);
     }
     await _persist();
     notifyListeners();

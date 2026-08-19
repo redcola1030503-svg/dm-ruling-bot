@@ -14,6 +14,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 class PushService {
   static const _jobIdDataKey = 'jobId';
+  static const _threadIdDataKey = 'threadId';
 
   Future<void> initialize() async {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -37,14 +38,15 @@ class PushService {
   }
 
   /// 通知タップによる起動(アプリ終了状態からの起動・バックグラウンドからの復帰)を検知する。
-  void listenNotificationTap(void Function(String jobId) onTap) {
+  /// threadIdはスレッド機能導入前の通知データには含まれないためnullになりうる。
+  void listenNotificationTap(void Function(String jobId, String? threadId) onTap) {
     FirebaseMessaging.instance.getInitialMessage().then((message) {
       final jobId = message?.data[_jobIdDataKey];
-      if (jobId != null) onTap(jobId);
+      if (jobId != null) onTap(jobId, message?.data[_threadIdDataKey]);
     });
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       final jobId = message.data[_jobIdDataKey];
-      if (jobId != null) onTap(jobId);
+      if (jobId != null) onTap(jobId, message.data[_threadIdDataKey]);
     });
   }
 }

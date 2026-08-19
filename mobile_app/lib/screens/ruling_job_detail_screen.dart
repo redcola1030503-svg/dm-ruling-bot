@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/ruling_job.dart';
 import '../state/auth_provider.dart';
 import '../state/ruling_jobs_provider.dart';
-import '../widgets/loading_banner_ad.dart';
-import '../widgets/ruling_result_view.dart';
+import '../widgets/ruling_turn_view.dart';
 import 'correction_dialog.dart';
 
 /// 通知タップ、またはジョブ一覧タップで遷移する結果詳細画面。
@@ -61,37 +60,10 @@ class _RulingJobDetailScreenState extends State<RulingJobDetailScreen> {
           ? const Center(child: Text('この質問の情報が見つかりませんでした。'))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (job.question.isNotEmpty) ...[
-                    Text('質問', style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 4),
-                    SelectableText(job.question),
-                    const SizedBox(height: 16),
-                  ],
-                  if (!job.isFinished) ...[
-                    const Center(child: CircularProgressIndicator()),
-                    const SizedBox(height: 8),
-                    const Center(child: Text('裁定を生成しています…')),
-                    const SizedBox(height: 16),
-                    const LoadingBannerAd(),
-                  ] else if (job.status == RulingJobStatus.failed) ...[
-                    Text(
-                      job.error ?? '裁定生成中にエラーが発生しました。',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ] else if (job.result != null) ...[
-                    RulingResultView(result: job.result!),
-                    if (auth.isLoggedIn) ...[
-                      const SizedBox(height: 8),
-                      OutlinedButton(
-                        onPressed: () => _openCorrectionDialog(job),
-                        child: const Text('この裁定を訂正する'),
-                      ),
-                    ],
-                  ],
-                ],
+              child: RulingTurnView(
+                job: job,
+                isLoggedIn: auth.isLoggedIn,
+                onCorrect: () => _openCorrectionDialog(job),
               ),
             ),
     );

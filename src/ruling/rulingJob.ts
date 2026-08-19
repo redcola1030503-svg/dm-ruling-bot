@@ -22,7 +22,12 @@ export function canAcceptNewJob(): boolean {
  * produceRulingは例外を投げず{status, result}を返す設計のため、.catchは
  * DBエラー等の予期しない例外専用のセーフティネットとして扱う。
  */
-export function runRulingJobInBackground(jobId: string, question: string, deviceId: string | null): void {
+export function runRulingJobInBackground(
+  jobId: string,
+  question: string,
+  deviceId: string | null,
+  threadId: string | null,
+): void {
   runningCount++;
   markRunning(jobId);
 
@@ -38,7 +43,7 @@ export function runRulingJobInBackground(jobId: string, question: string, device
         token,
         title: "裁定の準備ができました",
         body: outcome.result.conclusion.slice(0, PUSH_BODY_MAX_LENGTH),
-        data: { jobId, type: "ruling_result" },
+        data: { jobId, type: "ruling_result", ...(threadId ? { threadId } : {}) },
       });
       markNotified(jobId);
       if (pushResult.shouldRemoveToken) {

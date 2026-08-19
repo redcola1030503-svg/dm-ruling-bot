@@ -23,6 +23,7 @@ class RulingJob {
   final String? outcomeStatus;
   final RulingResult? result;
   final String? error;
+  final String? threadId;
   final int createdAt;
 
   const RulingJob({
@@ -32,6 +33,7 @@ class RulingJob {
     this.outcomeStatus,
     this.result,
     this.error,
+    this.threadId,
     required this.createdAt,
   });
 
@@ -41,11 +43,12 @@ class RulingJob {
     final resultJson = json['result'] as Map<String, dynamic>?;
     return RulingJob(
       jobId: json['jobId'] as String,
-      question: question ?? '',
+      question: (json['question'] as String?) ?? question ?? '',
       status: _parseStatus(json['status'] as String?),
       outcomeStatus: json['outcomeStatus'] as String?,
       result: resultJson != null ? RulingResult.fromJson(resultJson) : null,
       error: json['error'] as String?,
+      threadId: json['threadId'] as String?,
       createdAt: (json['createdAt'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
     );
   }
@@ -55,6 +58,7 @@ class RulingJob {
     String? outcomeStatus,
     RulingResult? result,
     String? error,
+    String? threadId,
   }) {
     return RulingJob(
       jobId: jobId,
@@ -63,6 +67,7 @@ class RulingJob {
       outcomeStatus: outcomeStatus ?? this.outcomeStatus,
       result: result ?? this.result,
       error: error ?? this.error,
+      threadId: threadId ?? this.threadId,
       createdAt: createdAt,
     );
   }
@@ -83,6 +88,7 @@ class RulingJob {
                 'sources': result!.sources,
               },
         'error': error,
+        'threadId': threadId,
         'createdAt': createdAt,
       };
 
@@ -95,6 +101,7 @@ class RulingJob {
       outcomeStatus: json['outcomeStatus'] as String?,
       result: resultJson != null ? RulingResult.fromJson(resultJson) : null,
       error: json['error'] as String?,
+      threadId: json['threadId'] as String?,
       createdAt: (json['createdAt'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
     );
   }

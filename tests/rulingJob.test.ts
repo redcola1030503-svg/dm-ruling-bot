@@ -63,7 +63,7 @@ describe("rulingJob", () => {
     const { runRulingJobInBackground } = await import("../src/ruling/rulingJob");
     produceRuling.mockImplementation(() => new Promise(() => {}));
 
-    runRulingJobInBackground("job-1", "質問", null);
+    runRulingJobInBackground("job-1", "質問", null, null);
 
     expect(markRunning).toHaveBeenCalledWith("job-1");
   });
@@ -72,7 +72,7 @@ describe("rulingJob", () => {
     const { runRulingJobInBackground } = await import("../src/ruling/rulingJob");
     produceRuling.mockResolvedValue(okOutcome());
 
-    runRulingJobInBackground("job-1", "質問", null);
+    runRulingJobInBackground("job-1", "質問", null, null);
     await flushMicrotasks();
 
     expect(markDone).toHaveBeenCalledWith("job-1", "ok", okOutcome().result);
@@ -84,7 +84,7 @@ describe("rulingJob", () => {
     produceRuling.mockResolvedValue(okOutcome());
     getToken.mockReturnValue(null);
 
-    runRulingJobInBackground("job-1", "質問", "device-1");
+    runRulingJobInBackground("job-1", "質問", "device-1", null);
     await flushMicrotasks();
 
     expect(sendPushNotification).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe("rulingJob", () => {
     getToken.mockReturnValue("fcm-token-abc");
     sendPushNotification.mockResolvedValue({ ok: true, shouldRemoveToken: false });
 
-    runRulingJobInBackground("job-1", "質問", "device-1");
+    runRulingJobInBackground("job-1", "質問", "device-1", null);
     await flushMicrotasks();
 
     expect(sendPushNotification).toHaveBeenCalledWith(
@@ -106,13 +106,29 @@ describe("rulingJob", () => {
     expect(deleteToken).not.toHaveBeenCalled();
   });
 
+  it("threadIdがあればプッシュ通知のdataにthreadIdが含まれる", async () => {
+    const { runRulingJobInBackground } = await import("../src/ruling/rulingJob");
+    produceRuling.mockResolvedValue(okOutcome("裁定の結論"));
+    getToken.mockReturnValue("fcm-token-abc");
+    sendPushNotification.mockResolvedValue({ ok: true, shouldRemoveToken: false });
+
+    runRulingJobInBackground("job-1", "質問", "device-1", "thread-1");
+    await flushMicrotasks();
+
+    expect(sendPushNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { jobId: "job-1", type: "ruling_result", threadId: "thread-1" },
+      }),
+    );
+  });
+
   it("無効トークンならshouldRemoveToken指示でdeleteTokenが呼ばれる", async () => {
     const { runRulingJobInBackground } = await import("../src/ruling/rulingJob");
     produceRuling.mockResolvedValue(okOutcome());
     getToken.mockReturnValue("stale-token");
     sendPushNotification.mockResolvedValue({ ok: false, shouldRemoveToken: true });
 
-    runRulingJobInBackground("job-1", "質問", "device-1");
+    runRulingJobInBackground("job-1", "質問", "device-1", null);
     await flushMicrotasks();
 
     expect(deleteToken).toHaveBeenCalledWith("device-1");
@@ -122,7 +138,7 @@ describe("rulingJob", () => {
     const { runRulingJobInBackground } = await import("../src/ruling/rulingJob");
     produceRuling.mockRejectedValue(new Error("db error"));
 
-    runRulingJobInBackground("job-1", "質問", null);
+    runRulingJobInBackground("job-1", "質問", null, null);
     await flushMicrotasks();
 
     expect(markFailed).toHaveBeenCalledWith("job-1", "db error");
@@ -133,7 +149,7 @@ describe("rulingJob", () => {
     produceRuling.mockResolvedValue(okOutcome());
 
     expect(getRunningJobCount()).toBe(0);
-    runRulingJobInBackground("job-1", "質問", null);
+    runRulingJobInBackground("job-1", "質問", null, null);
     expect(getRunningJobCount()).toBe(1);
     await flushMicrotasks();
 
@@ -147,7 +163,7 @@ describe("rulingJob", () => {
 
     expect(canAcceptNewJob()).toBe(true);
     for (let i = 0; i < 5; i++) {
-      runRulingJobInBackground(`job-${i}`, "質問", null);
+      runRulingJobInBackground(`job-${i}`, "質問", null, null);
     }
 
     expect(canAcceptNewJob()).toBe(false);

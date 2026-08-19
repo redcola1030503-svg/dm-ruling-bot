@@ -12,16 +12,22 @@ export type RulingJobRow = {
   result_json: string | null;
   error: string | null;
   notified_at: number | null;
+  thread_id: string | null;
   created_at: number;
   started_at: number | null;
   finished_at: number | null;
 };
 
-export function createJob(id: string, question: string, deviceId: string | null): void {
+export function createJob(
+  id: string,
+  question: string,
+  deviceId: string | null,
+  threadId: string | null,
+): void {
   db.prepare(
-    `INSERT INTO ruling_job (id, device_id, question, status, created_at)
-     VALUES (?, ?, ?, 'pending', ?)`,
-  ).run(id, deviceId, question, Date.now());
+    `INSERT INTO ruling_job (id, device_id, question, status, thread_id, created_at)
+     VALUES (?, ?, ?, 'pending', ?, ?)`,
+  ).run(id, deviceId, question, threadId, Date.now());
 }
 
 export function markRunning(id: string): void {
@@ -51,10 +57,22 @@ export function getJob(id: string): RulingJobRow | null {
   return row ?? null;
 }
 
+export function getJobsByThread(threadId: string): RulingJobRow[] {
+  return db
+    .prepare("SELECT * FROM ruling_job WHERE thread_id = ? ORDER BY created_at ASC")
+    .all(threadId) as RulingJobRow[];
+}
+
 // 完了/失敗から一定期間経過したジョブを削除する(ジョブ作成のたびに機会的に実行)。
+// スレッドに紐づくジョブ(thread_id IS NOT NULL)はスレッド履歴として無期限保持し、
+// スレッド化されていない孤立ジョブ(旧クライアント等でdeviceId未送信の場合)のみ対象とする。
 export function pruneOldJobs(retentionMs: number): void {
   const threshold = Date.now() - retentionMs;
   db.prepare(
-    "DELETE FROM ruling_job WHERE status IN ('done', 'failed') AND finished_at IS NOT NULL AND finished_at < ?",
+    `DELETE FROM ruling_job
+     WHERE status IN ('done', 'failed')
+       AND finished_at IS NOT NULL
+       AND finished_at < ?
+       AND thread_id IS NULL`,
   ).run(threshold);
 }

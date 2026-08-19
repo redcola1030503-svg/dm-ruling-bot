@@ -118,6 +118,7 @@ db.exec(`
     result_json TEXT,
     error TEXT,
     notified_at INTEGER,
+    thread_id TEXT,
     created_at INTEGER NOT NULL,
     started_at INTEGER,
     finished_at INTEGER
@@ -125,6 +126,16 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_ruling_job_device ON ruling_job(device_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_ruling_job_created ON ruling_job(created_at);
+
+  CREATE TABLE IF NOT EXISTS ruling_thread (
+    id TEXT PRIMARY KEY,
+    device_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_ruling_thread_device ON ruling_thread(device_id, updated_at);
 
   CREATE TABLE IF NOT EXISTS device_push_token (
     device_id TEXT PRIMARY KEY,
@@ -145,6 +156,14 @@ try {
 } catch {
   // 既にカラムが存在する場合は無視
 }
+try {
+  db.exec("ALTER TABLE ruling_job ADD COLUMN thread_id TEXT");
+} catch {
+  // 既にカラムが存在する場合は無視
+}
+// thread_idカラムの追加(CREATE TABLE時点、または直前のALTER TABLE)より後でないと
+// 既存DBでカラム不在エラーになるため、インデックス作成はここに置く。
+db.exec("CREATE INDEX IF NOT EXISTS idx_ruling_job_thread ON ruling_job(thread_id, created_at)");
 
 // 総合ルールembedding検索(Voyage AI)用のカラム。
 // content_hash: rule_number+textの内容ハッシュ。クロール時の差分更新(同一内容の

@@ -9,8 +9,16 @@ import '../models/judge.dart';
 import '../models/reindex_status.dart';
 import '../models/ruling_job.dart';
 import '../models/ruling_result.dart';
+import '../models/ruling_thread.dart';
 import '../models/session.dart';
 import 'api_exception.dart';
+
+class RulingJobSubmission {
+  final String jobId;
+  final String? threadId;
+
+  const RulingJobSubmission({required this.jobId, this.threadId});
+}
 
 class ApiClient {
   final String baseUrl;
@@ -74,22 +82,51 @@ class ApiClient {
 
   /// 質問を非同期ジョブとして投稿する。即座にjobIdが返り、結果は
   /// getRulingJobでポーリングするか、プッシュ通知を受けて取得する。
-  Future<String> submitRulingJob(String question, String? deviceId) async {
+  /// threadIdを省略した場合はサーバー側で新規スレッドが自動作成され、
+  /// 指定した場合はそのスレッドへの追加質問(フォローアップ)として扱われる。
+  Future<RulingJobSubmission> submitRulingJob(
+    String question,
+    String? deviceId, {
+    String? threadId,
+  }) async {
     final resp = await _client.post(
       _uri('/api/ruling/jobs'),
       headers: _headers(),
       body: jsonEncode({
         'question': question,
         'deviceId': ?deviceId,
+        'threadId': ?threadId,
       }),
     );
     final json = _handleObject(resp);
-    return json['jobId'] as String;
+    return RulingJobSubmission(
+      jobId: json['jobId'] as String,
+      threadId: json['threadId'] as String?,
+    );
   }
 
   Future<RulingJob> getRulingJob(String jobId, {String? question}) async {
     final resp = await _client.get(_uri('/api/ruling/jobs/$jobId'), headers: _headers());
     return RulingJob.fromJson(_handleObject(resp), question: question);
+  }
+
+  /// deviceId(匿名端末ID)に紐づくスレッド一覧を、更新日時の新しい順で取得する。
+  Future<List<RulingThreadSummary>> getRulingThreads(String deviceId) async {
+    final resp = await _client.get(
+      _uri('/api/ruling/threads', {'deviceId': deviceId}),
+      headers: _headers(),
+    );
+    final json = _handleObject(resp);
+    final list = json['threads'] as List<dynamic>? ?? [];
+    return list.map((e) => RulingThreadSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<RulingThreadDetail> getRulingThread(String threadId, String deviceId) async {
+    final resp = await _client.get(
+      _uri('/api/ruling/threads/$threadId', {'deviceId': deviceId}),
+      headers: _headers(),
+    );
+    return RulingThreadDetail.fromJson(_handleObject(resp));
   }
 
   Future<void> registerPushToken(String deviceId, String fcmToken) async {

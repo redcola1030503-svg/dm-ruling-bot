@@ -3,6 +3,7 @@ import { env } from "./config/env";
 import { healthRouter } from "./routes/health";
 import { rulingRouter } from "./routes/ruling";
 import { rulingJobsRouter } from "./routes/rulingJobs";
+import { rulingThreadsRouter } from "./routes/rulingThreads";
 import { pushRouter } from "./routes/push";
 import { debugRouter } from "./routes/debug";
 import { lineWebhookRouter } from "./routes/lineWebhook";
@@ -30,6 +31,7 @@ app.use(
 app.use(healthRouter);
 app.use(rulingRouter);
 app.use(rulingJobsRouter);
+app.use(rulingThreadsRouter);
 app.use(pushRouter);
 app.use(debugRouter);
 app.use(lineWebhookRouter);

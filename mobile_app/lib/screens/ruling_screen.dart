@@ -7,6 +7,7 @@ import '../api/api_exception.dart';
 import '../models/ruling_job.dart';
 import '../state/auth_provider.dart';
 import '../state/ruling_jobs_provider.dart';
+import '../models/ruling_thread.dart';
 import '../widgets/card_name_special_text.dart';
 import '../widgets/card_suggest_field.dart';
 import '../widgets/loading_banner_ad.dart';
@@ -16,7 +17,7 @@ import 'corrections_screen.dart';
 import 'judges_screen.dart';
 import 'card_index_screen.dart';
 import 'login_screen.dart';
-import 'ruling_job_detail_screen.dart';
+import 'ruling_thread_detail_screen.dart';
 
 class RulingScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -32,6 +33,13 @@ class _RulingScreenState extends State<RulingScreen> {
   final _questionFocusNode = FocusNode();
   bool _submitting = false;
   String? _submitError;
+
+  @override
+  void initState() {
+    super.initState();
+    final provider = context.read<RulingJobsProvider>();
+    Future.microtask(() => provider.loadThreads());
+  }
 
   @override
   void dispose() {
@@ -88,9 +96,10 @@ class _RulingScreenState extends State<RulingScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final jobs = context.watch<RulingJobsProvider>().jobs;
+    final jobsProvider = context.watch<RulingJobsProvider>();
+    final jobs = jobsProvider.jobs;
     final latestJob = jobs.isNotEmpty ? jobs.first : null;
-    final olderJobs = jobs.length > 1 ? jobs.sublist(1) : const <RulingJob>[];
+    final threads = jobsProvider.threads;
 
     return Scaffold(
       appBar: AppBar(
@@ -237,24 +246,22 @@ class _RulingScreenState extends State<RulingScreen> {
                 ],
               ],
             ],
-            if (olderJobs.isNotEmpty) ...[
+            if (threads.isNotEmpty) ...[
               const SizedBox(height: 24),
-              Text('これまでの質問', style: Theme.of(context).textTheme.labelLarge),
+              Text('質問スレッド', style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 4),
-              ...olderJobs.map(
-                (job) => Card(
+              ...threads.map(
+                (thread) => Card(
                   child: ListTile(
                     title: Text(
-                      job.question,
+                      thread.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    subtitle: Text(_statusLabel(job)),
-                    trailing: !job.isFinished
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.chevron_right),
+                    subtitle: Text(_threadStatusLabel(thread)),
+                    trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => RulingJobDetailScreen(jobId: job.jobId)),
+                      MaterialPageRoute(builder: (_) => RulingThreadDetailScreen(threadId: thread.threadId)),
                     ),
                   ),
                 ),
@@ -266,15 +273,17 @@ class _RulingScreenState extends State<RulingScreen> {
     );
   }
 
-  String _statusLabel(RulingJob job) {
-    switch (job.status) {
-      case RulingJobStatus.pending:
-      case RulingJobStatus.running:
+  String _threadStatusLabel(RulingThreadSummary thread) {
+    final latest = thread.latestJob;
+    if (latest == null) return '${thread.jobCount}件の質問';
+    switch (latest.status) {
+      case 'pending':
+      case 'running':
         return '生成中…';
-      case RulingJobStatus.failed:
+      case 'failed':
         return 'エラーが発生しました';
-      case RulingJobStatus.done:
-        return job.result?.conclusion ?? '完了';
+      default:
+        return latest.conclusion ?? '完了';
     }
   }
 }
