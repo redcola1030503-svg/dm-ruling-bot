@@ -1,8 +1,44 @@
 import { analyzeQuestion } from "./analyzeQuestion";
 import { retrieveEvidence } from "./retrieveEvidence";
 import { generateRuling } from "./generateRuling";
-import type { AmbiguousCard, RulingResult } from "./types";
+import type { AmbiguousCard, EvidenceSource, RulingEvidence, RulingResult } from "./types";
 import { logger } from "../utils/logger";
+import { recordCardQuery, recordSourceReference } from "../stats/statsRepository";
+
+/**
+ * 一意に確定できたカードそれぞれについて、質問された回数を記録する。
+ * ambiguousCards(候補が絞れなかったもの)は対象外(誤ったカードとして
+ * カウントされることを避けるため)。
+ */
+function recordCardQueries(evidence: RulingEvidence): void {
+  for (const card of evidence.cards) {
+    recordCardQuery(card.itemKey, card.title, card.url);
+  }
+}
+
+/**
+ * LLMが実際に根拠として採用したsources(url、訂正事例のみtitleで照合)を
+ * evidence全体から探し、その種別・個別項目ごとの参照回数を記録する。
+ */
+function recordSourceReferences(evidence: RulingEvidence, result: RulingResult): void {
+  const pool: EvidenceSource[] = [
+    ...evidence.cards,
+    ...evidence.qa,
+    ...evidence.ruleChanges,
+    ...evidence.generalRules,
+    ...evidence.pastCorrections,
+  ];
+  const byUrl = new Map(pool.filter((item) => item.url !== "").map((item) => [item.url, item]));
+  const byCorrectionTitle = new Map(
+    evidence.pastCorrections.map((item) => [item.title, item]),
+  );
+
+  for (const source of result.sources) {
+    const matched = source.url === "" ? byCorrectionTitle.get(source.title) : byUrl.get(source.url);
+    if (!matched) continue;
+    recordSourceReference(matched.sourceType, matched.itemKey, matched.title, matched.url);
+  }
+}
 
 export type ProduceRulingOutcome =
   | { status: "ok"; result: RulingResult }
@@ -83,6 +119,8 @@ export async function produceRuling(question: string): Promise<ProduceRulingOutc
     ambiguousCards: evidence.ambiguousCards,
   });
 
+  recordCardQueries(evidence);
+
   // カード名を一意に確定できない場合、誤ったカードを前提に裁定を生成してしまうと
   // かえって誤答のリスクが高まるため、LLMには回さずユーザーに確認を返す。
   if (evidence.ambiguousCards.length > 0) {
@@ -100,6 +138,7 @@ export async function produceRuling(question: string): Promise<ProduceRulingOutc
       generalRuleCount: evidence.generalRules.length,
       elapsedMs: Date.now() - startedAt,
     });
+    recordSourceReferences(evidence, result);
     return { status: "ok", result };
   } catch (error) {
     logger.error("llm_generation_failed", {

@@ -143,6 +143,27 @@ db.exec(`
     platform TEXT NOT NULL DEFAULT 'android',
     updated_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS card_query_stat (
+    card_id TEXT PRIMARY KEY,
+    card_name TEXT NOT NULL,
+    card_url TEXT NOT NULL DEFAULT '',
+    query_count INTEGER NOT NULL DEFAULT 0,
+    last_queried_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS source_reference_stat (
+    source_type TEXT NOT NULL,
+    item_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL DEFAULT '',
+    reference_count INTEGER NOT NULL DEFAULT 0,
+    last_referenced_at INTEGER NOT NULL,
+    PRIMARY KEY (source_type, item_key)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_source_reference_stat_ranking
+    ON source_reference_stat(source_type, reference_count DESC);
 `);
 
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。

@@ -18,6 +18,7 @@ import 'judges_screen.dart';
 import 'card_index_screen.dart';
 import 'login_screen.dart';
 import 'ruling_thread_detail_screen.dart';
+import 'usage_stats_screen.dart';
 
 class RulingScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -131,6 +132,13 @@ class _RulingScreenState extends State<RulingScreen> {
                       ),
                     );
                     break;
+                  case 'usage_stats':
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => UsageStatsScreen(apiClient: widget.apiClient),
+                      ),
+                    );
+                    break;
                   case 'logout':
                     context.read<AuthProvider>().logout();
                     break;
@@ -147,6 +155,7 @@ class _RulingScreenState extends State<RulingScreen> {
                 ),
                 if (auth.isAdmin) const PopupMenuItem(value: 'judges', child: Text('ジャッジ管理')),
                 if (auth.isAdmin) const PopupMenuItem(value: 'card_index', child: Text('カードインデックス管理')),
+                if (auth.isAdmin) const PopupMenuItem(value: 'usage_stats', child: Text('利用統計')),
                 const PopupMenuItem(value: 'logout', child: Text('ログアウト')),
               ],
             )

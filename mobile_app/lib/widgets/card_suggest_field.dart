@@ -35,7 +35,8 @@ class _CardSuggestFieldState extends State<CardSuggestField> {
 
   void _onChanged(String value) {
     _debounce?.cancel();
-    if (value.trim().length < 2) {
+    // 《零》のような1文字のカード名にも対応するため1文字から検索する。
+    if (value.trim().isEmpty) {
       setState(() => _suggestions = []);
       return;
     }

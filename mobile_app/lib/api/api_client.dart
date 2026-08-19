@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../models/card_query_stat.dart';
 import '../models/card_suggestion.dart';
 import '../models/correction.dart';
 import '../models/judge.dart';
@@ -11,6 +12,7 @@ import '../models/ruling_job.dart';
 import '../models/ruling_result.dart';
 import '../models/ruling_thread.dart';
 import '../models/session.dart';
+import '../models/source_reference_stat.dart';
 import 'api_exception.dart';
 
 class RulingJobSubmission {
@@ -234,7 +236,7 @@ class ApiClient {
   }
 
   Future<List<CardSuggestion>> suggestCards(String query) async {
-    if (query.length < 2) return [];
+    if (query.isEmpty) return [];
     final resp = await _client.get(
       _uri('/api/cards/suggest', {'q': query}),
       headers: _headers(),
@@ -260,5 +262,29 @@ class ApiClient {
   Future<Map<String, dynamic>> checkReindex(String token) async {
     final resp = await _client.post(_uri('/api/cards/reindex/check'), headers: _headers(token));
     return _handleObject(resp);
+  }
+
+  Future<List<CardQueryStat>> getCardQueryStats(String token, {int limit = 50}) async {
+    final resp = await _client.get(
+      _uri('/api/stats/cards', {'limit': '$limit'}),
+      headers: _headers(token),
+    );
+    final json = _handleObject(resp);
+    final list = json['cards'] as List<dynamic>? ?? [];
+    return list.map((e) => CardQueryStat.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<SourceReferenceStat>> getSourceReferenceStats(
+    String token,
+    String sourceType, {
+    int limit = 50,
+  }) async {
+    final resp = await _client.get(
+      _uri('/api/stats/sources', {'type': sourceType, 'limit': '$limit'}),
+      headers: _headers(token),
+    );
+    final json = _handleObject(resp);
+    final list = json['items'] as List<dynamic>? ?? [];
+    return list.map((e) => SourceReferenceStat.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

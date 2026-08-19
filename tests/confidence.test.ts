@@ -36,6 +36,7 @@ describe("estimateConfidence", () => {
           text: "...",
           url: "",
           sourceType: "correction",
+          itemKey: "1",
           score: 12,
         },
       ],
@@ -46,9 +47,24 @@ describe("estimateConfidence", () => {
   it("訂正事例のスコアが弱くてもカードテキストがあればmedium", () => {
     const evidence: RulingEvidence = {
       ...EMPTY_EVIDENCE,
-      cards: [{ title: "カード", text: "...", url: "https://example.com/card", sourceType: "card" }],
+      cards: [
+        {
+          title: "カード",
+          text: "...",
+          url: "https://example.com/card",
+          sourceType: "card",
+          itemKey: "card-1",
+        },
+      ],
       pastCorrections: [
-        { title: "過去の訂正事例", text: "...", url: "", sourceType: "correction", score: 1 },
+        {
+          title: "過去の訂正事例",
+          text: "...",
+          url: "",
+          sourceType: "correction",
+          itemKey: "2",
+          score: 1,
+        },
       ],
     };
     expect(estimateConfidence(evidence)).toBe("medium");

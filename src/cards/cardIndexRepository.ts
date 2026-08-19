@@ -1,6 +1,9 @@
 import { db } from "../config/db";
 
-const MIN_QUERY_LENGTH = 2;
+// 《零》のような1文字のカード名も検索できるよう1文字から許可する。
+// 極端に短い(1〜2文字)クエリでも、呼び出し側(SUGGEST_LIMIT)で件数が絞られるため
+// 結果が過剰になる心配はない。
+const MIN_QUERY_LENGTH = 1;
 
 export type CardSuggestion = { id: string; name: string };
 

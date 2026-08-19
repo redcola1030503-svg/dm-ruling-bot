@@ -5,6 +5,8 @@ export type EvidenceSource = {
   text: string;
   url: string;
   sourceType: "card" | "qa" | "ruleChange" | "generalRule" | "correction";
+  /** 統計集計(参照回数の記録)用の安定した識別子。種別ごとに意味が異なる。 */
+  itemKey: string;
 };
 
 export type ParsedQuestion = {

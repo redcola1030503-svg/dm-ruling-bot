@@ -20,11 +20,23 @@ describe("cards/cardIndexRepository", () => {
   });
 
   describe("suggestCardNames", () => {
-    it("クエリが2文字未満なら空配列を返しDBを呼ばない", () => {
-      const result = suggestCardNames("セ", 10);
+    it("クエリが空文字なら空配列を返しDBを呼ばない", () => {
+      const result = suggestCardNames("   ", 10);
 
       expect(result).toEqual([]);
       expect(prepareMock).not.toHaveBeenCalled();
+    });
+
+    it("1文字のクエリでも検索する(《零》のような1文字カード名に対応するため)", () => {
+      const prefixAll = vi.fn().mockReturnValue([{ id: "a", name: "零" }]);
+      prepareMock.mockReturnValueOnce({ all: prefixAll });
+
+      // limitを1にして前方一致だけでlimitに達するようにし、部分一致クエリ
+      // (2回目のprepare)が呼ばれないようにする。
+      const result = suggestCardNames("零", 1);
+
+      expect(result).toEqual([{ id: "a", name: "零" }]);
+      expect(prefixAll).toHaveBeenCalledWith("零%", 1);
     });
 
     it("前方一致だけでlimitに達すれば部分一致は検索しない", () => {

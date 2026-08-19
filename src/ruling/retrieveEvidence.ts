@@ -51,6 +51,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
       text: `文明:${match.card.civilization} 種類:${match.card.cardType} コスト:${match.card.cost} パワー:${match.card.power} 種族:${match.card.race}\n${match.card.cardText}`,
       url: match.card.url,
       sourceType: "card",
+      itemKey: match.card.id,
     });
     if (match.card.qaListUrl) {
       cardQaListUrls.push(match.card.qaListUrl);
@@ -126,6 +127,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     text: `Q: ${item.question}\nA: ${item.answer}`,
     url: item.url,
     sourceType: "qa",
+    itemKey: item.url,
     score: item.score,
   }));
 
@@ -134,6 +136,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     text: item.body,
     url: item.url,
     sourceType: "ruleChange",
+    itemKey: item.url,
     score: item.score,
   }));
 
@@ -142,6 +145,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     text: chunk.text,
     url: env.DM_GENERAL_RULE_PAGE_URL,
     sourceType: "generalRule",
+    itemKey: chunk.ruleNumber,
     score: chunk.finalScore,
   }));
 
@@ -155,6 +159,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     text: `質問: ${correction.originalQuestion}\nBotの誤った結論: ${correction.botConclusion}\n正しい裁定: ${correction.correctRuling}`,
     url: "",
     sourceType: "correction",
+    itemKey: String(correction.id),
     score: correction.score,
   }));
 
