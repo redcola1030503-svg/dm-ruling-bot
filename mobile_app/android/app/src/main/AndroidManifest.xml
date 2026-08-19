@@ -2,6 +2,8 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- プッシュ通知表示に必要(Android 13以降、実行時に別途ユーザー許可も要る) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- AdMobバナー広告で広告IDを使用するために必要(Android 13以降は明示しないとゼロIDになる) -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
     <application
         android:label="デュエマ裁定確認"
         android:name="${applicationName}"
