@@ -10,6 +10,7 @@ import {
 } from "../corrections/repository";
 import { extractCardNameCandidates } from "../cards/extractCardNameCandidates";
 import { requireJudgeSession } from "../judges/authMiddleware";
+import { publicReadRateLimiter } from "../utils/rateLimit";
 import { logger } from "../utils/logger";
 import type { JudgeSession } from "../judges/types";
 
@@ -51,6 +52,25 @@ correctionsRouter.get("/api/corrections", requireJudgeSession, (_req, res) => {
   const corrections =
     session.role === "admin" ? getAllCorrections() : getCorrectionsByJudgeId(session.judgeId);
   res.json({ corrections });
+});
+
+// 利用統計画面で「訂正事例」タブの項目をタップした際、訂正1件の全文を表示するために使う。
+// 一般ユーザーも閲覧できる公開情報として扱うが、correctedBy(LINEユーザーID)は
+// 内部識別子のため公開レスポンスには含めない。
+correctionsRouter.get("/api/corrections/:id", publicReadRateLimiter, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "invalid_id" });
+    return;
+  }
+
+  const correction = getCorrectionById(id);
+  if (!correction) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  res.json({ correction: { ...correction, correctedBy: "" } });
 });
 
 const updateCorrectionRequestSchema = z.object({

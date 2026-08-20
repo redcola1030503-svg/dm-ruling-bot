@@ -37,3 +37,13 @@ export const pushRegisterRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "rate_limited" },
 });
+
+// 利用統計・条文全文・訂正事例全文など、DB読み取りのみで軽量な公開APIの
+// 乱用防止用。LLM呼び出しを伴わないため他のAPIより緩めに制限する。
+export const publicReadRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "rate_limited" },
+});

@@ -73,6 +73,14 @@ export function getAllCachedGeneralRuleChunks(): GeneralRuleChunk[] {
   return rows.map((row) => ({ ruleNumber: row.rule_number, text: row.text }));
 }
 
+/** 利用統計画面で条文の全文を表示する用途など、条文番号1件を直接引きたい場合に使う。 */
+export function getGeneralRuleChunkByRuleNumber(ruleNumber: string): GeneralRuleChunk | null {
+  const row = db
+    .prepare("SELECT rule_number, text FROM general_rule_chunk WHERE rule_number = ?")
+    .get(ruleNumber) as ChunkRow | undefined;
+  return row ? { ruleNumber: row.rule_number, text: row.text } : null;
+}
+
 function rowToChunkRow(row: ChunkRowWithEmbedding): GeneralRuleChunkRow {
   return {
     id: row.id,

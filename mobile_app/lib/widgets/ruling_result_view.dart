@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/ruling_result.dart';
+import '../utils/external_links.dart';
 import 'confidence_badge.dart';
 
 /// APIレスポンスのcards/sourcesは要素の型が固定されていないため、
@@ -38,22 +38,6 @@ class RulingResultView extends StatelessWidget {
       return item['url'].toString();
     }
     return null;
-  }
-
-  /// dm-wikiはツインパクトカードのページ名を全角スラッシュ(／)区切りの
-  /// 《カード名》形式で登録しているため、半角スラッシュを変換して生成する。
-  Uri _dmWikiUri(String cardName) {
-    final normalized = cardName.trim().replaceAll(RegExp(r'\s*/\s*'), '／');
-    return Uri.parse('https://dmwiki.net/${Uri.encodeComponent('《$normalized》')}');
-  }
-
-  Future<void> _openUri(BuildContext context, Uri uri) async {
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('リンクを開けませんでした: $uri')),
-      );
-    }
   }
 
   @override
@@ -101,7 +85,7 @@ class RulingResultView extends StatelessWidget {
                     .map(
                       (name) => ActionChip(
                         label: Text(name),
-                        onPressed: () => _openUri(context, _dmWikiUri(name)),
+                        onPressed: () => openExternalUri(context, buildDmWikiUri(name)),
                       ),
                     )
                     .toList(),
@@ -124,7 +108,7 @@ class RulingResultView extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: url != null
                       ? InkWell(
-                          onTap: () => _openUri(context, Uri.parse(url)),
+                          onTap: () => openExternalUri(context, Uri.parse(url)),
                           child: textWidget,
                         )
                       : textWidget,

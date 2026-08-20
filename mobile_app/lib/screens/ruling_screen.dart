@@ -90,6 +90,13 @@ class _RulingScreenState extends State<RulingScreen> {
       appBar: AppBar(
         title: const Text('DM裁定確認'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: '利用統計',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => UsageStatsScreen(apiClient: widget.apiClient)),
+            ),
+          ),
           if (auth.isLoggedIn)
             PopupMenuButton<String>(
               icon: const Icon(Icons.account_circle),
@@ -116,13 +123,6 @@ class _RulingScreenState extends State<RulingScreen> {
                       ),
                     );
                     break;
-                  case 'usage_stats':
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => UsageStatsScreen(apiClient: widget.apiClient),
-                      ),
-                    );
-                    break;
                   case 'logout':
                     context.read<AuthProvider>().logout();
                     break;
@@ -139,7 +139,6 @@ class _RulingScreenState extends State<RulingScreen> {
                 ),
                 if (auth.isAdmin) const PopupMenuItem(value: 'judges', child: Text('ジャッジ管理')),
                 if (auth.isAdmin) const PopupMenuItem(value: 'card_index', child: Text('カードインデックス管理')),
-                if (auth.isAdmin) const PopupMenuItem(value: 'usage_stats', child: Text('利用統計')),
                 const PopupMenuItem(value: 'logout', child: Text('ログアウト')),
               ],
             )

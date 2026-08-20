@@ -203,6 +203,17 @@ class ApiClient {
     return Correction.fromJson(json['correction'] as Map<String, dynamic>);
   }
 
+  /// 利用統計画面の「訂正事例」タブで項目をタップした際、訂正1件の全文を取得する。
+  /// 一般ユーザーも閲覧できる公開APIのためトークンは不要(ログイン済みなら送ってよい)。
+  Future<Correction> getCorrection(int id, {String? token}) async {
+    final resp = await _client.get(
+      _uri('/api/corrections/$id'),
+      headers: _headers(token),
+    );
+    final json = _handleObject(resp);
+    return Correction.fromJson(json['correction'] as Map<String, dynamic>);
+  }
+
   Future<void> withdrawCorrection(String token, int id) async {
     final resp = await _client.delete(
       _uri('/api/corrections/$id'),
@@ -264,7 +275,8 @@ class ApiClient {
     return _handleObject(resp);
   }
 
-  Future<List<CardQueryStat>> getCardQueryStats(String token, {int limit = 50}) async {
+  /// 利用統計は一般ユーザーも閲覧できる公開APIのためトークンは不要。
+  Future<List<CardQueryStat>> getCardQueryStats({String? token, int limit = 50}) async {
     final resp = await _client.get(
       _uri('/api/stats/cards', {'limit': '$limit'}),
       headers: _headers(token),
@@ -275,8 +287,8 @@ class ApiClient {
   }
 
   Future<List<SourceReferenceStat>> getSourceReferenceStats(
-    String token,
     String sourceType, {
+    String? token,
     int limit = 50,
   }) async {
     final resp = await _client.get(
@@ -286,5 +298,15 @@ class ApiClient {
     final json = _handleObject(resp);
     final list = json['items'] as List<dynamic>? ?? [];
     return list.map((e) => SourceReferenceStat.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// 利用統計画面の「総合ルール」タブで項目をタップした際、条文の全文を取得する。
+  Future<String> getGeneralRuleText(String ruleNumber, {String? token}) async {
+    final resp = await _client.get(
+      _uri('/api/stats/general-rules/${Uri.encodeComponent(ruleNumber)}'),
+      headers: _headers(token),
+    );
+    final json = _handleObject(resp);
+    return json['text'] as String;
   }
 }

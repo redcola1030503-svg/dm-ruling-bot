@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getTopCardQueries, getTopSourceReferences } from "../stats/statsRepository";
-import { requireAdminSession } from "../judges/authMiddleware";
+import { getGeneralRuleChunkByRuleNumber } from "../rules/generalRuleRepository";
+import { publicReadRateLimiter } from "../utils/rateLimit";
 
 export const statsRouter = Router();
 
@@ -10,7 +11,9 @@ const MAX_LIMIT = 200;
 
 const limitSchema = z.coerce.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT);
 
-statsRouter.get("/api/stats/cards", requireAdminSession, (req, res) => {
+// 利用統計は一般ユーザーも閲覧できる公開情報として扱う(集計値・条文全文のみで、
+// 個人情報は含まれない)。ログイン不要。
+statsRouter.get("/api/stats/cards", publicReadRateLimiter, (req, res) => {
   const parsedLimit = limitSchema.safeParse(req.query.limit);
   if (!parsedLimit.success) {
     res.status(400).json({ error: "invalid_request", details: parsedLimit.error.flatten() });
@@ -21,7 +24,7 @@ statsRouter.get("/api/stats/cards", requireAdminSession, (req, res) => {
 
 const sourceTypeSchema = z.enum(["card", "qa", "ruleChange", "generalRule", "correction"]);
 
-statsRouter.get("/api/stats/sources", requireAdminSession, (req, res) => {
+statsRouter.get("/api/stats/sources", publicReadRateLimiter, (req, res) => {
   const parsedType = sourceTypeSchema.safeParse(req.query.type);
   if (!parsedType.success) {
     res.status(400).json({ error: "invalid_request", details: parsedType.error.flatten() });
@@ -33,4 +36,20 @@ statsRouter.get("/api/stats/sources", requireAdminSession, (req, res) => {
     return;
   }
   res.json({ items: getTopSourceReferences(parsedType.data, parsedLimit.data) });
+});
+
+// 利用統計画面で「総合ルール」タブの項目をタップした際、条文の全文を表示するために使う。
+statsRouter.get("/api/stats/general-rules/:ruleNumber", publicReadRateLimiter, (req, res) => {
+  const parsedParams = z.object({ ruleNumber: z.string().min(1) }).safeParse(req.params);
+  if (!parsedParams.success) {
+    res.status(400).json({ error: "invalid_request", details: parsedParams.error.flatten() });
+    return;
+  }
+
+  const chunk = getGeneralRuleChunkByRuleNumber(parsedParams.data.ruleNumber);
+  if (!chunk) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  res.json({ ruleNumber: chunk.ruleNumber, text: chunk.text });
 });
