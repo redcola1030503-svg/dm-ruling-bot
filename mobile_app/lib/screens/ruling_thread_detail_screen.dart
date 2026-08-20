@@ -1,4 +1,3 @@
-import 'package:extended_text_field/extended_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,8 +5,7 @@ import '../api/api_exception.dart';
 import '../models/ruling_job.dart';
 import '../state/auth_provider.dart';
 import '../state/ruling_jobs_provider.dart';
-import '../widgets/card_name_special_text.dart';
-import '../widgets/card_suggest_field.dart';
+import '../widgets/inline_card_suggest_field.dart';
 import '../widgets/ruling_turn_view.dart';
 import 'correction_dialog.dart';
 
@@ -66,20 +64,6 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
         _loading = false;
       });
     }
-  }
-
-  void _insertCardName(String name) {
-    final text = _questionController.text;
-    final selection = _questionController.selection;
-    final insertion = '《$name》';
-    final start = selection.isValid ? selection.start : text.length;
-    final end = selection.isValid ? selection.end : text.length;
-    final newText = text.replaceRange(start, end, insertion);
-    _questionController.value = _questionController.value.copyWith(
-      text: newText,
-      selection: TextSelection.collapsed(offset: start + insertion.length),
-    );
-    _questionFocusNode.requestFocus();
   }
 
   Future<void> _submitFollowUp() async {
@@ -173,20 +157,15 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
                     padding: EdgeInsets.only(bottom: 8),
                     child: Text('前の質問の回答が完了してから、続けて質問できます。'),
                   ),
-                CardSuggestField(
+                InlineCardSuggestField(
                   apiClient: context.read<RulingJobsProvider>().apiClient,
-                  onSelected: _insertCardName,
-                ),
-                const SizedBox(height: 8),
-                ExtendedTextField(
                   controller: _questionController,
                   focusNode: _questionFocusNode,
                   maxLines: 4,
-                  textDirection: TextDirection.ltr,
-                  specialTextSpanBuilder: QuestionSpecialTextSpanBuilder(),
                   enabled: canSubmit,
                   decoration: const InputDecoration(
                     labelText: '追加で質問する',
+                    helperText: '《の後にカード名を入力すると候補が出ます',
                     border: OutlineInputBorder(),
                   ),
                 ),

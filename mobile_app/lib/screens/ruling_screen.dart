@@ -1,4 +1,3 @@
-import 'package:extended_text_field/extended_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,8 +7,7 @@ import '../models/ruling_job.dart';
 import '../state/auth_provider.dart';
 import '../state/ruling_jobs_provider.dart';
 import '../models/ruling_thread.dart';
-import '../widgets/card_name_special_text.dart';
-import '../widgets/card_suggest_field.dart';
+import '../widgets/inline_card_suggest_field.dart';
 import '../widgets/loading_banner_ad.dart';
 import '../widgets/ruling_result_view.dart';
 import 'correction_dialog.dart';
@@ -47,20 +45,6 @@ class _RulingScreenState extends State<RulingScreen> {
     _questionController.dispose();
     _questionFocusNode.dispose();
     super.dispose();
-  }
-
-  void _insertCardName(String name) {
-    final text = _questionController.text;
-    final selection = _questionController.selection;
-    final insertion = '《$name》';
-    final start = selection.isValid ? selection.start : text.length;
-    final end = selection.isValid ? selection.end : text.length;
-    final newText = text.replaceRange(start, end, insertion);
-    _questionController.value = _questionController.value.copyWith(
-      text: newText,
-      selection: TextSelection.collapsed(offset: start + insertion.length),
-    );
-    _questionFocusNode.requestFocus();
   }
 
   Future<void> _submit() async {
@@ -173,17 +157,15 @@ class _RulingScreenState extends State<RulingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CardSuggestField(apiClient: widget.apiClient, onSelected: _insertCardName),
-            const SizedBox(height: 12),
-            ExtendedTextField(
+            InlineCardSuggestField(
+              apiClient: widget.apiClient,
               controller: _questionController,
               focusNode: _questionFocusNode,
               maxLines: 5,
-              textDirection: TextDirection.ltr,
-              specialTextSpanBuilder: QuestionSpecialTextSpanBuilder(),
               decoration: const InputDecoration(
                 labelText: '質問を入力',
                 hintText: '例: 《ボルメテウス・ホワイト・ドラゴン》でシールドをブレイクした場合、S・トリガーは使えますか？',
+                helperText: '《の後にカード名を入力すると候補が出ます',
                 border: OutlineInputBorder(),
               ),
             ),
