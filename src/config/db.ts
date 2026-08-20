@@ -8,6 +8,11 @@ mkdirSync(dirname(env.DATABASE_URL), { recursive: true });
 
 export const db = new DatabaseSync(env.DATABASE_URL);
 
+// 本番は単一インスタンス上で本番サーバーとバッチスクリプト(buildQaIndex等)が
+// 同じSQLiteファイルを同時に読み書きしうる。busy_timeout未設定だとロック競合時に
+// 即座にSQLITE_BUSYで失敗するため、一定時間は自動リトライさせてから諦めるようにする。
+db.exec("PRAGMA busy_timeout = 5000;");
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS card_cache (
     id TEXT PRIMARY KEY,

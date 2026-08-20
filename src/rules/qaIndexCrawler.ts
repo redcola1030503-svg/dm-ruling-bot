@@ -103,11 +103,11 @@ export async function runQaIndexBuild(
 
   for (let i = 0; i < allItems.length; i++) {
     const item = allItems[i]!;
-    const existingUpdatedAt = getQaIndexUpdatedAt(item.id);
-    if (existingUpdatedAt !== null && Date.now() - existingUpdatedAt < STALE_THRESHOLD_MS) {
-      skipped += 1;
-    } else {
-      try {
+    try {
+      const existingUpdatedAt = getQaIndexUpdatedAt(item.id);
+      if (existingUpdatedAt !== null && Date.now() - existingUpdatedAt < STALE_THRESHOLD_MS) {
+        skipped += 1;
+      } else {
         const html = await fetchHtml(item.url);
         const detail = parseQaDetailPage(html, item.id, item.url);
         if (detail) {
@@ -116,13 +116,13 @@ export async function runQaIndexBuild(
         } else {
           failed += 1;
         }
-      } catch (error) {
-        failed += 1;
-        logger.error("qa_index_entry_failed", {
-          id: item.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
       }
+    } catch (error) {
+      failed += 1;
+      logger.error("qa_index_entry_failed", {
+        id: item.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     const processed = i + 1;
