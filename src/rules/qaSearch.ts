@@ -37,6 +37,14 @@ async function searchQaPage(keyword: string, pagenum: number): Promise<QaListIte
   }
 }
 
+/**
+ * QA全件クロール(qaIndexCrawler.ts)用。keywordを空にすると全Q&Aが対象になり、
+ * pagenumを進めることで次ページを取得できる(公式サイトで実機確認済み)。
+ */
+export async function fetchQaListPage(keyword: string, pagenum: number): Promise<QaListItem[]> {
+  return searchQaPage(keyword, pagenum);
+}
+
 export async function searchQaByKeyword(
   keyword: string,
   options?: { maxResults?: number },

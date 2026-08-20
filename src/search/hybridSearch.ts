@@ -1,7 +1,9 @@
 import { env } from "../config/env";
 import { logger } from "../utils/logger";
 import { searchAndRankGeneralRules, type GeneralRuleSearchCriteria } from "../rules/generalRuleRanking";
-import { semanticSearchGeneralRules } from "./semanticSearch";
+import { searchAndRankQa, type QaSearchCriteria } from "../rules/qaRanking";
+import type { QaEvidence } from "../rules/types";
+import { semanticSearchGeneralRules, semanticSearchQa } from "./semanticSearch";
 
 // スコアのスケールが異なる2つの検索(keywordScoreは0〜数十点の整数、
 // embeddingScoreはコサイン類似度0〜1)を、生スコアのmin-max正規化ではなく
@@ -133,4 +135,92 @@ export async function hybridSearchGeneralRules(
   }
 
   return finalResults;
+}
+
+// 既存のsearchAndRankQaのデフォルトtopN(15件)を踏襲する。総合ルール用の
+// SEARCH_FINAL_RESULT(条文向けにチューニングされた値、既定5)とは意味が
+// 異なるため、QA側は独立した既定値を持つ。
+const DEFAULT_QA_FINAL_RESULTS = 15;
+
+type MergedQaEntry = {
+  url: string;
+  question: string;
+  answer: string;
+  keywordRank?: number;
+  semanticRank?: number;
+};
+
+/**
+ * 既存のキーワード検索(公式サイトへのライブ検索、カード名・ルール用語一致)と、
+ * qa_index(全件クロール済みQ&Aコーパス)に対するembedding意味検索を統合した
+ * ハイブリッド検索。カード名が質問文と完全に異なっていても、処理が近い過去の
+ * Q&A(別カードを例にした同種の裁定パターン)を意味検索側で拾えるようにする
+ * (hybridSearchGeneralRulesのQA版)。embedding検索が失敗しても例外を伝播させず、
+ * キーワード検索のみの結果にフォールバックする。
+ */
+export async function hybridSearchQa(
+  question: string,
+  criteria: QaSearchCriteria,
+  options?: {
+    cardQaListUrls?: string[];
+    finalResultCount?: number;
+  },
+): Promise<QaEvidence[]> {
+  const semanticCandidateCount = env.SEARCH_SEMANTIC_CANDIDATES;
+  const keywordResults = await searchAndRankQa(criteria, {
+    cardQaListUrls: options?.cardQaListUrls,
+    topN: semanticCandidateCount,
+  });
+
+  let semanticResults: Awaited<ReturnType<typeof semanticSearchQa>> = [];
+  try {
+    semanticResults = await semanticSearchQa(question, semanticCandidateCount);
+  } catch (error) {
+    logger.error("qa_semantic_search_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    semanticResults = [];
+  }
+
+  const merged = new Map<string, MergedQaEntry>();
+
+  keywordResults.forEach((result, rank) => {
+    merged.set(result.id, {
+      url: result.url,
+      question: result.question,
+      answer: result.answer,
+      keywordRank: rank,
+    });
+  });
+
+  semanticResults.forEach((result, rank) => {
+    const existing = merged.get(result.id);
+    if (existing) {
+      existing.semanticRank = rank;
+    } else {
+      merged.set(result.id, {
+        url: result.url,
+        question: result.question,
+        answer: result.answer,
+        semanticRank: rank,
+      });
+    }
+  });
+
+  const rankedResults: QaEvidence[] = Array.from(merged.entries()).map(([id, entry]) => {
+    const keywordRrf = entry.keywordRank !== undefined ? reciprocalRankScore(entry.keywordRank) : 0;
+    const semanticRrf = entry.semanticRank !== undefined ? reciprocalRankScore(entry.semanticRank) : 0;
+    return {
+      id,
+      url: entry.url,
+      question: entry.question,
+      answer: entry.answer,
+      score: keywordRrf * env.SEARCH_KEYWORD_WEIGHT + semanticRrf * env.SEARCH_EMBEDDING_WEIGHT,
+    };
+  });
+
+  rankedResults.sort((a, b) => b.score - a.score);
+
+  const finalResultCount = options?.finalResultCount ?? DEFAULT_QA_FINAL_RESULTS;
+  return rankedResults.slice(0, finalResultCount);
 }

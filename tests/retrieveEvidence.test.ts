@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { CardInfo } from "../src/cards/types";
 import type { CardNameMatch } from "../src/cards/cardNameMatcher";
 
-vi.mock("../src/rules/qaRanking", () => ({ searchAndRankQa: vi.fn().mockResolvedValue([]) }));
 vi.mock("../src/rules/ruleChangeRanking", () => ({
   searchAndRankRuleChanges: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../src/search/hybridSearch", () => ({
   hybridSearchGeneralRules: vi.fn().mockResolvedValue([]),
+  hybridSearchQa: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../src/corrections/ranking", () => ({ searchAndRankCorrections: vi.fn().mockReturnValue([]) }));
 

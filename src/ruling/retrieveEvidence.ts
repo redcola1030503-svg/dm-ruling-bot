@@ -1,10 +1,9 @@
 import { findCardCandidates } from "../cards/cardNameMatcher";
 import { env } from "../config/env";
-import { searchAndRankQa } from "../rules/qaRanking";
 import { searchAndRankRuleChanges } from "../rules/ruleChangeRanking";
 import { extractRuleConcepts } from "../rules/ruleConceptDictionary";
 import { searchAndRankCorrections } from "../corrections/ranking";
-import { hybridSearchGeneralRules } from "../search/hybridSearch";
+import { hybridSearchGeneralRules, hybridSearchQa } from "../search/hybridSearch";
 import type {
   AmbiguousCard,
   EvidenceSource,
@@ -117,7 +116,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
   };
 
   const [qaResults, ruleChangeResults, generalRuleResults] = await Promise.all([
-    searchAndRankQa(criteria, { cardQaListUrls }),
+    hybridSearchQa(parsed.originalText, criteria, { cardQaListUrls }),
     searchAndRankRuleChanges(criteria),
     hybridSearchGeneralRules(parsed.originalText, criteria),
   ]);

@@ -14,7 +14,12 @@ vi.mock("../src/rules/generalRuleRepository", () => ({
   getAllGeneralRuleChunkRows: () => getAllGeneralRuleChunkRows(),
 }));
 
-const { semanticSearchGeneralRules } = await import("../src/search/semanticSearch");
+const getAllQaIndexRowsWithEmbedding = vi.fn();
+vi.mock("../src/rules/qaIndexRepository", () => ({
+  getAllQaIndexRowsWithEmbedding: () => getAllQaIndexRowsWithEmbedding(),
+}));
+
+const { semanticSearchGeneralRules, semanticSearchQa } = await import("../src/search/semanticSearch");
 
 describe("semanticSearchGeneralRules", () => {
   it("VOYAGE_API_KEY未設定の場合、DBアクセスやembedding呼び出しをせず空配列を返す", async () => {
@@ -22,5 +27,14 @@ describe("semanticSearchGeneralRules", () => {
 
     expect(results).toEqual([]);
     expect(getAllGeneralRuleChunkRows).not.toHaveBeenCalled();
+  });
+});
+
+describe("semanticSearchQa", () => {
+  it("VOYAGE_API_KEY未設定の場合、DBアクセスやembedding呼び出しをせず空配列を返す", async () => {
+    const results = await semanticSearchQa("質問", 10);
+
+    expect(results).toEqual([]);
+    expect(getAllQaIndexRowsWithEmbedding).not.toHaveBeenCalled();
   });
 });

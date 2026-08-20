@@ -164,6 +164,20 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_source_reference_stat_ranking
     ON source_reference_stat(source_type, reference_count DESC);
+
+  CREATE TABLE IF NOT EXISTS qa_index (
+    id TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    embedding BLOB,
+    embedding_model TEXT,
+    embedding_dimensions INTEGER,
+    embedding_text_hash TEXT,
+    embedding_updated_at TEXT,
+    updated_at INTEGER NOT NULL
+  );
 `);
 
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。
