@@ -1,5 +1,5 @@
 import axios from "axios";
-import { fetchQaListPage } from "./qaSearch";
+import { fetchQaListPage, fetchQaOldListPage } from "./qaSearch";
 import { parseQaDetailPage } from "./qaParser";
 import { fetchHtml } from "../utils/httpClient";
 import { getQaIndexCount, getQaIndexUpdatedAt, upsertQaIndexEntry } from "./qaIndexRepository";
@@ -26,18 +26,21 @@ export type QaIndexBuildProgress = {
 export type QaIndexBuildSummary = QaIndexBuildProgress & { totalCount: number };
 
 /**
- * keywordを空にした全Q&A検索をpagenumを進めながらクロールし、全Q&Aの
- * {id, url}一覧を収集する(cardIndexCrawler.tsのcollectAllCardHitsと同じ設計)。
+ * 1つの一覧(pageFetcher)をpagenumを進めながらクロールし、既知のseenマップへ
+ * 新規{id, url}を追加していく(cardIndexCrawler.tsのcollectAllCardHitsと同じ設計)。
  */
-async function collectAllQaHits(): Promise<QaListItem[]> {
-  const seen = new Map<string, QaListItem>();
+async function collectAllQaHitsFrom(
+  label: string,
+  pageFetcher: (pagenum: number) => Promise<QaListItem[]>,
+  seen: Map<string, QaListItem>,
+): Promise<void> {
   let pagenum = 1;
   let consecutiveEmptyPages = 0;
 
   while (pagenum <= MAX_PAGES && consecutiveEmptyPages < MAX_CONSECUTIVE_EMPTY_PAGES) {
     let items: QaListItem[];
     try {
-      items = await fetchQaListPage("", pagenum);
+      items = await pageFetcher(pagenum);
     } catch (error) {
       // ページネーション終端でのAxios 404は「それ以上結果がない」だけの正常系。
       if (axios.isAxiosError(error) && error.response?.status === 404) {
@@ -60,7 +63,7 @@ async function collectAllQaHits(): Promise<QaListItem[]> {
         newItemsInPage += 1;
       }
     }
-    console.log(`page ${pagenum}: ${items.length}件取得 (累計 ${seen.size}件)`);
+    console.log(`[${label}] page ${pagenum}: ${items.length}件取得 (累計 ${seen.size}件)`);
 
     if (newItemsInPage === 0) {
       // 全て既知のIDだった = 同じページが繰り返されている(終端到達)とみなす
@@ -69,7 +72,17 @@ async function collectAllQaHits(): Promise<QaListItem[]> {
     consecutiveEmptyPages = 0;
     pagenum += 1;
   }
+}
 
+/**
+ * 現行の/rule/qa/検索一覧と、そこでは辿れなくなった過去のQ&Aアーカイブ
+ * (/rule/qa_old/)の両方をクロールし、全Q&Aの{id, url}一覧を収集する。
+ * 同じQ&Aが両方に出てくることがあるが、idベースのMapで自動的に重複排除される。
+ */
+async function collectAllQaHits(): Promise<QaListItem[]> {
+  const seen = new Map<string, QaListItem>();
+  await collectAllQaHitsFrom("qa", (pagenum) => fetchQaListPage("", pagenum), seen);
+  await collectAllQaHitsFrom("qa_old", (pagenum) => fetchQaOldListPage(pagenum), seen);
   return Array.from(seen.values());
 }
 

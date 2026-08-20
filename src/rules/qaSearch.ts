@@ -14,14 +14,14 @@ const DEFAULT_MAX_RESULTS = 10;
 // maxResultsに応じて複数ページを取得する。
 const RESULTS_PER_PAGE = 10;
 
-async function searchQaPage(keyword: string, pagenum: number): Promise<QaListItem[]> {
+async function searchQaPageAt(baseUrlRaw: string, keyword: string, pagenum: number): Promise<QaListItem[]> {
   const form = new URLSearchParams();
   form.set("qa_w", keyword);
   form.set("qa_pt", "");
   form.set("qa_prod", "");
   form.set("qa_type", "0"); // 0=通常のQ&A, 1=デュエパーティー専用Q&A
 
-  const baseUrl = env.DM_QA_URL.endsWith("/") ? env.DM_QA_URL : `${env.DM_QA_URL}/`;
+  const baseUrl = baseUrlRaw.endsWith("/") ? baseUrlRaw : `${baseUrlRaw}/`;
   const url = pagenum > 1 ? `${baseUrl}page/${pagenum}/` : baseUrl;
   try {
     const html = await postForm(url, form);
@@ -37,12 +37,26 @@ async function searchQaPage(keyword: string, pagenum: number): Promise<QaListIte
   }
 }
 
+async function searchQaPage(keyword: string, pagenum: number): Promise<QaListItem[]> {
+  return searchQaPageAt(env.DM_QA_URL, keyword, pagenum);
+}
+
 /**
  * QA全件クロール(qaIndexCrawler.ts)用。keywordを空にすると全Q&Aが対象になり、
  * pagenumを進めることで次ページを取得できる(公式サイトで実機確認済み)。
  */
 export async function fetchQaListPage(keyword: string, pagenum: number): Promise<QaListItem[]> {
   return searchQaPage(keyword, pagenum);
+}
+
+/**
+ * 「過去のよくある質問」(/rule/qa_old/)の全件クロール用。現行の/rule/qa/検索
+ * 一覧のページネーションでは辿れなくなった古いQ&Aがここにのみ残っているため、
+ * 全件クロール時はqa/と合わせてこちらも対象にする必要がある(実機確認済み、
+ * 個別ページのURLはparseQaListPage内で正規の/rule/qa/{id}/へ正規化される)。
+ */
+export async function fetchQaOldListPage(pagenum: number): Promise<QaListItem[]> {
+  return searchQaPageAt(env.DM_QA_OLD_URL, "", pagenum);
 }
 
 export async function searchQaByKeyword(

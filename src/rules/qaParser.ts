@@ -3,6 +3,12 @@ import type { QaDetail, QaListItem } from "./types";
 
 const ORIGIN = "https://dm.takaratomy.co.jp";
 
+/**
+ * 「過去のよくある質問」(/rule/qa_old/、現行の/rule/qa/検索一覧には出てこなく
+ * なった古いQ&A)の一覧ページも同じHTML構造・同じ検索フォームを持つため、
+ * このパーサーを共用する。qa_old側の個別ページは/rule/qa/{id}/へ301リダイレクト
+ * される(同一WordPress投稿)ため、urlは常に正規の/rule/qa/{id}/へ正規化する。
+ */
 export function parseQaListPage(html: string): QaListItem[] {
   const $ = cheerio.load(html);
   const items: QaListItem[] = [];
@@ -12,14 +18,14 @@ export function parseQaListPage(html: string): QaListItem[] {
     const href = anchor.attr("href");
     if (!href) return;
 
-    const url = new URL(href, ORIGIN).toString();
-    const match = url.match(/\/rule\/qa\/(\d+)\//);
+    const rawUrl = new URL(href, ORIGIN).toString();
+    const match = rawUrl.match(/\/rule\/qa(?:_old)?\/(\d+)\//);
     const id = match?.[1];
     if (!id) return;
 
     items.push({
       id,
-      url,
+      url: `${ORIGIN}/rule/qa/${id}/`,
       titleText: anchor.text().trim(),
       date: $(el).find("p.day01").first().text().trim(),
     });

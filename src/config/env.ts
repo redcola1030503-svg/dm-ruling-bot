@@ -37,6 +37,9 @@ const envSchema = z.object({
 
   DM_CARD_BASE_URL: z.string().default("https://dm.takaratomy.co.jp/card/"),
   DM_QA_URL: z.string().default("https://dm.takaratomy.co.jp/rule/qa/"),
+  // 「過去のよくある質問」アーカイブ。現行の/rule/qa/検索一覧のページネーションでは
+  // 辿れなくなった古いQ&Aがここにのみ残っている(全件クロール時は両方を対象にする)。
+  DM_QA_OLD_URL: z.string().default("https://dm.takaratomy.co.jp/rule/qa_old/"),
   DM_RULE_CHANGE_URL: z
     .string()
     .default("https://dm.takaratomy.co.jp/rule/rulechange/change/"),

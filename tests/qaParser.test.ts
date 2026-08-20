@@ -55,6 +55,27 @@ describe("parseQaListPage", () => {
   it("該当なしの場合は空配列を返す", () => {
     expect(parseQaListPage(NO_RESULT_HTML)).toEqual([]);
   });
+
+  it("qa_old(過去のよくある質問)のURLも抽出し、正規の/rule/qa/{id}/へ正規化する", () => {
+    const items = parseQaListPage(`
+<div id="qa_result_area" class="loading_wrap">
+<ul class="newsList03"><li>
+    <form action="https://dm.takaratomy.co.jp/rule/qa_old/34816/" method="post">
+        <p class="tit01"><a href="https://dm.takaratomy.co.jp/rule/qa_old/34816/">古い質問</a></p>
+        <p class="day01">2020.1.1</p>
+    </form>
+</li></ul>
+</div>
+`);
+    expect(items).toEqual([
+      {
+        id: "34816",
+        url: "https://dm.takaratomy.co.jp/rule/qa/34816/",
+        titleText: "古い質問",
+        date: "2020.1.1",
+      },
+    ]);
+  });
 });
 
 const CARD_QA_LIST_HTML = `
