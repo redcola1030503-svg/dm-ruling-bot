@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/ruling_job.dart';
 import 'loading_banner_ad.dart';
+import 'question_bubble.dart';
 import 'ruling_result_view.dart';
 
 /// 1つの質問+回答(1ターン分)の表示。RulingJobDetailScreen・
@@ -26,9 +27,7 @@ class RulingTurnView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showQuestion && job.question.isNotEmpty) ...[
-          Text('質問', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 4),
-          SelectableText(job.question),
+          QuestionBubble(question: job.question),
           const SizedBox(height: 8),
         ],
         if (!job.isFinished) ...[
@@ -46,7 +45,10 @@ class RulingTurnView extends StatelessWidget {
           RulingResultView(result: job.result!),
           if (isLoggedIn && onCorrect != null) ...[
             const SizedBox(height: 8),
-            OutlinedButton(onPressed: onCorrect, child: const Text('この裁定を訂正する')),
+            OutlinedButton(
+              onPressed: onCorrect,
+              child: const Text('この裁定を訂正する'),
+            ),
           ],
         ],
       ],

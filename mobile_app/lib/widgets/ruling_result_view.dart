@@ -17,7 +17,10 @@ class RulingResultView extends StatelessWidget {
   List<String> get _dedupedCardNames {
     final names = result.cards.map(_describe).toList();
     return names
-        .where((name) => !names.any((other) => other != name && other.contains(name)))
+        .where(
+          (name) =>
+              !names.any((other) => other != name && other.contains(name)),
+        )
         .toList();
   }
 
@@ -34,7 +37,9 @@ class RulingResultView extends StatelessWidget {
   String? _sourceUrl(dynamic item) {
     // 過去の訂正事例などWebページを持たない出典はurlが空文字で返るため、
     // リンクとして扱わずタイトルのみのテキスト表示にする。
-    if (item is Map && item['url'] != null && (item['url'] as String).isNotEmpty) {
+    if (item is Map &&
+        item['url'] != null &&
+        (item['url'] as String).isNotEmpty) {
       return item['url'].toString();
     }
     return null;
@@ -43,79 +48,104 @@ class RulingResultView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text('結論', style: theme.textTheme.labelLarge),
-                ),
-                ConfidenceBadge(confidence: result.confidence),
-              ],
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+              bottomLeft: Radius.circular(4),
+              bottomRight: Radius.circular(16),
             ),
-            const SizedBox(height: 4),
-            SelectableText(result.conclusion, style: theme.textTheme.titleMedium),
-            const SizedBox(height: 16),
-            Text('説明', style: theme.textTheme.labelLarge),
-            const SizedBox(height: 4),
-            SelectableText(result.explanation),
-            if (result.steps.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text('推論ステップ', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 4),
-              ...result.steps.map(
-                (s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: SelectableText('• $s'),
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
-            if (_dedupedCardNames.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text('関連カード', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _dedupedCardNames
-                    .map(
-                      (name) => ActionChip(
-                        label: Text(name),
-                        onPressed: () => openExternalUri(context, buildDmWikiUri(name)),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
-            if (result.sources.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text('根拠(出典)', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 4),
-              ...result.sources.map((s) {
-                final url = _sourceUrl(s);
-                final textWidget = Text(
-                  '- ${_describe(s)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: url != null ? theme.colorScheme.primary : null,
-                    decoration: url != null ? TextDecoration.underline : null,
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('結論', style: theme.textTheme.labelLarge),
                   ),
-                );
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: url != null
-                      ? InkWell(
-                          onTap: () => openExternalUri(context, Uri.parse(url)),
-                          child: textWidget,
-                        )
-                      : textWidget,
-                );
-              }),
+                  ConfidenceBadge(confidence: result.confidence),
+                ],
+              ),
+              const SizedBox(height: 4),
+              SelectableText(
+                result.conclusion,
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              Text('説明', style: theme.textTheme.labelLarge),
+              const SizedBox(height: 4),
+              SelectableText(result.explanation),
+              if (result.steps.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text('推論ステップ', style: theme.textTheme.labelLarge),
+                const SizedBox(height: 4),
+                ...result.steps.map(
+                  (s) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: SelectableText('• $s'),
+                  ),
+                ),
+              ],
+              if (_dedupedCardNames.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text('関連カード', style: theme.textTheme.labelLarge),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _dedupedCardNames
+                      .map(
+                        (name) => ActionChip(
+                          label: Text(name),
+                          onPressed: () =>
+                              openExternalUri(context, buildDmWikiUri(name)),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+              if (result.sources.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text('根拠(出典)', style: theme.textTheme.labelLarge),
+                const SizedBox(height: 4),
+                ...result.sources.map((s) {
+                  final url = _sourceUrl(s);
+                  final textWidget = Text(
+                    '- ${_describe(s)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: url != null ? theme.colorScheme.primary : null,
+                      decoration: url != null ? TextDecoration.underline : null,
+                    ),
+                  );
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: url != null
+                        ? InkWell(
+                            onTap: () =>
+                                openExternalUri(context, Uri.parse(url)),
+                            child: textWidget,
+                          )
+                        : textWidget,
+                  );
+                }),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

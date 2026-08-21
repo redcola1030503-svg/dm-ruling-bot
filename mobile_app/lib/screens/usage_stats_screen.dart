@@ -56,7 +56,10 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _sourceTypeTabs.length + 1, vsync: this);
+    _tabController = TabController(
+      length: _sourceTypeTabs.length + 1,
+      vsync: this,
+    );
     _load();
   }
 
@@ -83,7 +86,8 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
       final cardStats = await widget.apiClient.getCardQueryStats(token: _token);
       final sourceEntries = await Future.wait(
         _sourceTypeTabs.map(
-          (tab) => widget.apiClient.getSourceReferenceStats(tab.type, token: _token),
+          (tab) =>
+              widget.apiClient.getSourceReferenceStats(tab.type, token: _token),
         ),
       );
       if (!mounted) return;
@@ -95,7 +99,10 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e is ApiException ? e.friendlyMessage : '統計の取得に失敗しました: $e');
+      setState(
+        () =>
+            _error = e is ApiException ? e.friendlyMessage : '統計の取得に失敗しました: $e',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -108,7 +115,10 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
       setState(() => _searchResults.remove(type));
       return;
     }
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () => _runSearch(type, query));
+    _debounceTimer = Timer(
+      const Duration(milliseconds: 300),
+      () => _runSearch(type, query),
+    );
   }
 
   Future<void> _runSearch(String type, String query) async {
@@ -124,7 +134,11 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e is ApiException ? e.friendlyMessage : '検索に失敗しました: $e')),
+        SnackBar(
+          content: Text(
+            e is ApiException ? e.friendlyMessage : '検索に失敗しました: $e',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _searching[type] = false);
@@ -140,9 +154,9 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
       case 'qa':
       case 'ruleChange':
         if (stat.url.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('この項目にはリンクがありません')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('この項目にはリンクがありません')));
           return;
         }
         openExternalUri(context, Uri.parse(stat.url));
@@ -158,7 +172,10 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
 
   Future<void> _showGeneralRuleDialog(SourceReferenceStat stat) async {
     await _runWithLoadingDialog(() async {
-      final text = await widget.apiClient.getGeneralRuleText(stat.itemKey, token: _token);
+      final text = await widget.apiClient.getGeneralRuleText(
+        stat.itemKey,
+        token: _token,
+      );
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -180,7 +197,10 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
     final id = int.tryParse(stat.itemKey);
     if (id == null) return;
     await _runWithLoadingDialog(() async {
-      final correction = await widget.apiClient.getCorrection(id, token: _token);
+      final correction = await widget.apiClient.getCorrection(
+        id,
+        token: _token,
+      );
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -201,7 +221,11 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e is ApiException ? e.friendlyMessage : '取得に失敗しました: $e')),
+        SnackBar(
+          content: Text(
+            e is ApiException ? e.friendlyMessage : '取得に失敗しました: $e',
+          ),
+        ),
       );
     } finally {
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
@@ -210,15 +234,23 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('利用統計'),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
+          tabAlignment: TabAlignment.start,
+          labelColor: colorScheme.onPrimary,
+          unselectedLabelColor: colorScheme.onSurfaceVariant,
+          dividerColor: Colors.transparent,
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicatorPadding: const EdgeInsets.symmetric(vertical: 6),
+          indicator: BoxDecoration(
+            color: colorScheme.primary,
+            borderRadius: BorderRadius.circular(999),
+          ),
           tabs: [
             const Tab(text: 'カード'),
             for (final tab in _sourceTypeTabs) Tab(text: tab.label),
@@ -228,20 +260,22 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildCardList(),
-                      for (final tab in _sourceTypeTabs)
-                        tab.type == 'correction'
-                            ? _buildSourceList(_sourceStats[tab.type] ?? [])
-                            : _buildSourceTab(tab.type),
-                    ],
-                  ),
-                ),
+          ? Center(
+              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildCardList(),
+                  for (final tab in _sourceTypeTabs)
+                    tab.type == 'correction'
+                        ? _buildSourceList(_sourceStats[tab.type] ?? [])
+                        : _buildSourceTab(tab.type),
+                ],
+              ),
+            ),
     );
   }
 
@@ -266,9 +300,14 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
   /// 総合ルール/Q&A/ルール変更タブ: 上部にキーワード検索欄を表示し、入力が
   /// 空なら参照回数ランキング、入力があれば検索結果をその下(同じ位置)に表示する。
   Widget _buildSourceTab(String type) {
-    final controller = _searchControllers.putIfAbsent(type, () => TextEditingController());
+    final controller = _searchControllers.putIfAbsent(
+      type,
+      () => TextEditingController(),
+    );
     final isSearching = controller.text.trim().isNotEmpty;
-    final displayList = isSearching ? (_searchResults[type] ?? []) : (_sourceStats[type] ?? []);
+    final displayList = isSearching
+        ? (_searchResults[type] ?? [])
+        : (_sourceStats[type] ?? []);
     final showPreview = type == 'generalRule';
 
     return Column(
@@ -290,12 +329,15 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
                     )
                   : null,
               isDense: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onChanged: (value) => _onSearchChanged(type, value),
           ),
         ),
-        if (_searching[type] == true) const LinearProgressIndicator(minHeight: 2),
+        if (_searching[type] == true)
+          const LinearProgressIndicator(minHeight: 2),
         Expanded(
           child: displayList.isEmpty
               ? ListView(
@@ -311,7 +353,11 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
                     final stat = displayList[index];
                     return ListTile(
                       leading: CircleAvatar(child: Text('${index + 1}')),
-                      title: Text(stat.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      title: Text(
+                        stat.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       subtitle: showPreview && (stat.preview ?? '').isNotEmpty
                           ? Text(
                               stat.preview!,
@@ -320,7 +366,8 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
                               style: Theme.of(context).textTheme.bodySmall,
                             )
                           : null,
-                      isThreeLine: showPreview && (stat.preview ?? '').isNotEmpty,
+                      isThreeLine:
+                          showPreview && (stat.preview ?? '').isNotEmpty,
                       trailing: Text('${stat.referenceCount}回'),
                       onTap: () => _openSourceStat(stat),
                     );
@@ -341,11 +388,7 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
         final stat = stats[index];
         return ListTile(
           leading: CircleAvatar(child: Text('${index + 1}')),
-          title: Text(
-            stat.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          title: Text(stat.title, maxLines: 2, overflow: TextOverflow.ellipsis),
           trailing: Text('${stat.referenceCount}回'),
           onTap: () => _openSourceStat(stat),
         );
@@ -378,7 +421,10 @@ class _CorrectionDetailDialog extends StatelessWidget {
             Text('正しい裁定', style: theme.textTheme.labelMedium),
             SelectableText(correction.correctRuling),
             const SizedBox(height: 12),
-            Text('訂正したジャッジ: ${correction.judgeId}', style: theme.textTheme.labelSmall),
+            Text(
+              '訂正したジャッジ: ${correction.judgeId}',
+              style: theme.textTheme.labelSmall,
+            ),
           ],
         ),
       ),

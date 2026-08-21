@@ -9,6 +9,7 @@ import '../state/ruling_jobs_provider.dart';
 import '../models/ruling_thread.dart';
 import '../widgets/inline_card_suggest_field.dart';
 import '../widgets/loading_banner_ad.dart';
+import '../widgets/question_bubble.dart';
 import '../widgets/ruling_result_view.dart';
 import 'correction_dialog.dart';
 import 'corrections_screen.dart';
@@ -59,7 +60,9 @@ class _RulingScreenState extends State<RulingScreen> {
       _questionController.clear();
     } catch (e) {
       setState(() {
-        _submitError = e is ApiException ? e.friendlyMessage : '通信エラーが発生しました: $e';
+        _submitError = e is ApiException
+            ? e.friendlyMessage
+            : '通信エラーが発生しました: $e';
       });
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -94,7 +97,9 @@ class _RulingScreenState extends State<RulingScreen> {
             icon: const Icon(Icons.bar_chart),
             tooltip: '利用統計',
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => UsageStatsScreen(apiClient: widget.apiClient)),
+              MaterialPageRoute(
+                builder: (_) => UsageStatsScreen(apiClient: widget.apiClient),
+              ),
             ),
           ),
           if (auth.isLoggedIn)
@@ -105,21 +110,24 @@ class _RulingScreenState extends State<RulingScreen> {
                   case 'corrections':
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => CorrectionsScreen(apiClient: widget.apiClient),
+                        builder: (_) =>
+                            CorrectionsScreen(apiClient: widget.apiClient),
                       ),
                     );
                     break;
                   case 'judges':
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => JudgesScreen(apiClient: widget.apiClient),
+                        builder: (_) =>
+                            JudgesScreen(apiClient: widget.apiClient),
                       ),
                     );
                     break;
                   case 'card_index':
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => CardIndexScreen(apiClient: widget.apiClient),
+                        builder: (_) =>
+                            CardIndexScreen(apiClient: widget.apiClient),
                       ),
                     );
                     break;
@@ -131,23 +139,32 @@ class _RulingScreenState extends State<RulingScreen> {
               itemBuilder: (context) => [
                 PopupMenuItem(
                   enabled: false,
-                  child: Text('${auth.session!.judgeId} (${auth.isAdmin ? '管理者' : 'ジャッジ'})'),
+                  child: Text(
+                    '${auth.session!.judgeId} (${auth.isAdmin ? '管理者' : 'ジャッジ'})',
+                  ),
                 ),
                 PopupMenuItem(
                   value: 'corrections',
                   child: Text(auth.isAdmin ? '訂正内容(全ジャッジ)' : '自分の訂正内容'),
                 ),
-                if (auth.isAdmin) const PopupMenuItem(value: 'judges', child: Text('ジャッジ管理')),
-                if (auth.isAdmin) const PopupMenuItem(value: 'card_index', child: Text('カードインデックス管理')),
+                if (auth.isAdmin)
+                  const PopupMenuItem(value: 'judges', child: Text('ジャッジ管理')),
+                if (auth.isAdmin)
+                  const PopupMenuItem(
+                    value: 'card_index',
+                    child: Text('カードインデックス管理'),
+                  ),
                 const PopupMenuItem(value: 'logout', child: Text('ログアウト')),
               ],
             )
           else
             TextButton(
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => LoginScreen(apiClient: widget.apiClient)),
+                MaterialPageRoute(
+                  builder: (_) => LoginScreen(apiClient: widget.apiClient),
+                ),
               ),
-              child: const Text('ログイン', style: TextStyle(color: Colors.white)),
+              child: const Text('ログイン'),
             ),
         ],
       ),
@@ -177,7 +194,10 @@ class _RulingScreenState extends State<RulingScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('質問する'),
               ),
@@ -194,9 +214,7 @@ class _RulingScreenState extends State<RulingScreen> {
             if (latestJob != null) ...[
               const SizedBox(height: 16),
               if (latestJob.question.isNotEmpty) ...[
-                Text('質問', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 4),
-                SelectableText(latestJob.question),
+                QuestionBubble(question: latestJob.question),
                 const SizedBox(height: 8),
               ],
               if (!latestJob.isFinished)
@@ -208,7 +226,11 @@ class _RulingScreenState extends State<RulingScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                           SizedBox(width: 12),
                           Expanded(
                             child: Text('公式情報の検索とLLMによる裁定生成を行っています(最大数分程度)…'),
@@ -251,7 +273,10 @@ class _RulingScreenState extends State<RulingScreen> {
                     subtitle: Text(_threadStatusLabel(thread)),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => RulingThreadDetailScreen(threadId: thread.threadId)),
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            RulingThreadDetailScreen(threadId: thread.threadId),
+                      ),
                     ),
                   ),
                 ),

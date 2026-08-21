@@ -34,7 +34,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _apiClient = ApiClient();
     _pushService = PushService();
-    _rulingJobsProvider = RulingJobsProvider(apiClient: _apiClient, pushService: _pushService);
+    _rulingJobsProvider = RulingJobsProvider(
+      apiClient: _apiClient,
+      pushService: _pushService,
+    );
 
     _pushService.initialize().then((_) {
       _pushService.listenNotificationTap(_openJobOrThreadDetail);
@@ -59,7 +62,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void _openJobOrThreadDetail(String jobId, String? threadId) {
     if (threadId != null && threadId.isNotEmpty) {
       navigatorKey.currentState?.push(
-        MaterialPageRoute(builder: (_) => RulingThreadDetailScreen(threadId: threadId)),
+        MaterialPageRoute(
+          builder: (_) => RulingThreadDetailScreen(threadId: threadId),
+        ),
       );
     } else {
       navigatorKey.currentState?.push(
@@ -70,24 +75,37 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.fromSeed(seedColor: Colors.indigo);
+    // トーク画面のような親しみやすさを狙い、既存の藍色ブランドから
+    // メッセージアプリでお馴染みのグリーンを基調にした配色へ変更。
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF4CAF78),
+    );
+    const scaffoldBackground = Color(0xFFEEF3F6);
     return MultiProvider(
       providers: [
         Provider<ApiClient>.value(value: _apiClient),
         ChangeNotifierProvider(
           create: (_) => AuthProvider(apiClient: _apiClient)..restoreSession(),
         ),
-        ChangeNotifierProvider<RulingJobsProvider>.value(value: _rulingJobsProvider),
+        ChangeNotifierProvider<RulingJobsProvider>.value(
+          value: _rulingJobsProvider,
+        ),
       ],
       child: MaterialApp(
         navigatorKey: navigatorKey,
         title: 'DM裁定確認',
         theme: ThemeData(
           colorScheme: colorScheme,
+          scaffoldBackgroundColor: scaffoldBackground,
           fontFamily: 'MPLUS1p',
           appBarTheme: AppBarTheme(
-            backgroundColor: colorScheme.primary,
-            foregroundColor: colorScheme.onPrimary,
+            backgroundColor: Colors.white,
+            foregroundColor: colorScheme.onSurface,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            shape: Border(
+              bottom: BorderSide(color: colorScheme.outlineVariant),
+            ),
           ),
         ),
         home: _StartupGate(apiClient: _apiClient),
