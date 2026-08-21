@@ -135,6 +135,15 @@ sourcesにもタイトルをそのまま(url欄は空文字のまま)含めて�
 を唱えたり使用したりした場合でも、そのカード自身の効果は引き続き「自分の効果」として扱われ、「相手
 のカードの効果」には該当しません。
 
+21.
+「キーワード能力の一般的な説明」として提供される情報は、非公式のファン運営サイト(dmwiki)による
+参考情報です。公式総合ルール・公式Q&A・公式ルール変更・過去の訂正事例とは異なり、公式が保証した
+内容ではありません。能力の大まかな仕組みを理解する補助として使ってよいですが、これだけを直接の
+断定根拠にしてはいけません。個別の状況に対する最終的な判断は、必ず公式総合ルール・公式Q&A・公式
+カードテキスト・過去の訂正事例のいずれかに基づいて行い、confidenceがこの情報のみを根拠にhighや
+mediumになることはありません(該当する場合はlowにしてください)。sourcesに含める場合は、これが
+非公式の参考情報であることが分かるようにタイトルに含めてください。
+
 出力は必ず以下のJSON形式のみで返してください。「この状況は公式Q&Aと一致しています」の
 ような前置きの説明文や、コードブロックの \`\`\` を含め、JSON以外の文字列は前後にも一切
 出力しないでください。出力する文字列の1文字目は必ず "{" でなければなりません。
@@ -173,7 +182,11 @@ function buildUserMessage(parsed: ParsedQuestion, evidence: RulingEvidence): str
     formatEvidenceList("ルール変更", evidence.ruleChanges),
     formatEvidenceList("関連カード", evidence.cards),
     formatEvidenceList("過去の訂正事例(公認ジャッジによる修正実績。公式情報と同等の一次資料)", evidence.pastCorrections),
-    "## 指示\n\n上記の公式情報および過去の訂正事例を根拠として、この状況の処理を判断してください。まず総合ルールへの当てはめを検討し、次に類似のQ&A事例・過去の訂正事例を参照してください。過去の訂正事例は論点が一致する場合は直接の根拠として使えますが、同じ誤りを繰り返していないかの確認にも使ってください。",
+    formatEvidenceList(
+      "キーワード能力の一般的な説明(非公式のファン運営サイトdmwikiによる参考情報。断定根拠にはできない)",
+      evidence.keywordAbilities,
+    ),
+    "## 指示\n\n上記の公式情報および過去の訂正事例を根拠として、この状況の処理を判断してください。まず総合ルールへの当てはめを検討し、次に類似のQ&A事例・過去の訂正事例を参照してください。過去の訂正事例は論点が一致する場合は直接の根拠として使えますが、同じ誤りを繰り返していないかの確認にも使ってください。キーワード能力の説明は非公式の参考情報であり、能力の概要理解の補助にとどめ、断定根拠にはしないでください。",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -227,9 +240,13 @@ export async function generateRuling(
   // pastCorrectionsはWebページを持たずurlが空文字のため、実在するタイトルと
   // 完全一致するものだけをタイトル照合で許可する(捏造タイトルの防止)。
   const allowedUrls = new Set(
-    [...evidence.cards, ...evidence.qa, ...evidence.ruleChanges, ...evidence.generalRules].map(
-      (item) => item.url,
-    ),
+    [
+      ...evidence.cards,
+      ...evidence.qa,
+      ...evidence.ruleChanges,
+      ...evidence.generalRules,
+      ...evidence.keywordAbilities,
+    ].map((item) => item.url),
   );
   const allowedCorrectionTitles = new Set(evidence.pastCorrections.map((item) => item.title));
   const sources = validated.sources.filter((source) =>

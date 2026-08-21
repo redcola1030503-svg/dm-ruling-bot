@@ -10,6 +10,9 @@ vi.mock("../src/search/hybridSearch", () => ({
   hybridSearchQa: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../src/corrections/ranking", () => ({ searchAndRankCorrections: vi.fn().mockReturnValue([]) }));
+vi.mock("../src/rules/keywordAbilityRepository", () => ({
+  getKeywordAbilitiesByNames: vi.fn().mockReturnValue([]),
+}));
 
 const findCardCandidates = vi.fn<(name: string) => Promise<CardNameMatch[]>>();
 vi.mock("../src/cards/cardNameMatcher", () => ({

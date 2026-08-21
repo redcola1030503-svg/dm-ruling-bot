@@ -17,7 +17,8 @@
     "cards:index": "node dist/scripts/buildCardIndex.js",
     "eval:retrieval": "tsx tests/retrieval/evaluateRetrieval.ts",
     "eval:retrieval:qa": "tsx tests/retrieval/evaluateQaRetrieval.ts",
-    "extract:qa-cases": "tsx src/scripts/extractQaCasesFromCorrections.ts"
+    "extract:qa-cases": "tsx src/scripts/extractQaCasesFromCorrections.ts",
+    "keyword-abilities:index": "node dist/scripts/buildKeywordAbilityIndex.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

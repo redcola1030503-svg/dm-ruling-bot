@@ -8,6 +8,7 @@ const EMPTY_EVIDENCE: RulingEvidence = {
   ruleChanges: [],
   generalRules: [],
   pastCorrections: [],
+  keywordAbilities: [],
   ambiguousCards: [],
 };
 

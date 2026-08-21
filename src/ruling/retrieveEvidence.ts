@@ -2,6 +2,7 @@ import { findCardCandidates } from "../cards/cardNameMatcher";
 import { env } from "../config/env";
 import { searchAndRankRuleChanges } from "../rules/ruleChangeRanking";
 import { extractRuleConcepts } from "../rules/ruleConceptDictionary";
+import { getKeywordAbilitiesByNames } from "../rules/keywordAbilityRepository";
 import { searchAndRankCorrections } from "../corrections/ranking";
 import { hybridSearchGeneralRules, hybridSearchQa } from "../search/hybridSearch";
 import type {
@@ -162,5 +163,17 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     score: correction.score,
   }));
 
-  return { cards, qa, ruleChanges, generalRules, pastCorrections, ambiguousCards };
+  // dmwiki.net(非公式のファン運営サイト)由来のキーワード能力の説明。総合ルールブック
+  // には侵略等の個別キーワード能力の定義が含まれていないため補助的に参照するが、
+  // 非公式情報であることをgenerateRuling側のプロンプトで明示的に注意喚起する。
+  const keywordAbilityResults = getKeywordAbilitiesByNames(criteria.ruleConcepts);
+  const keywordAbilities: EvidenceSource[] = keywordAbilityResults.map((ability) => ({
+    title: ability.name,
+    text: ability.description,
+    url: ability.url,
+    sourceType: "keywordAbility",
+    itemKey: ability.name,
+  }));
+
+  return { cards, qa, ruleChanges, generalRules, pastCorrections, keywordAbilities, ambiguousCards };
 }

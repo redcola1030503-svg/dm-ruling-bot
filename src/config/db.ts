@@ -183,6 +183,17 @@ db.exec(`
     embedding_updated_at TEXT,
     updated_at INTEGER NOT NULL
   );
+
+  -- dmwiki.net(ファン運営サイト、非公式)由来のキーワード能力の一般化された説明文。
+  -- 公式の総合ルールブックには侵略等の個別キーワード能力の定義が含まれていないため、
+  -- 補助的な参考情報として保持する。裁定生成では「非公式の参考情報」として明示的に
+  -- 低い信頼度で扱う(generateRuling.tsのプロンプト参照)。
+  CREATE TABLE IF NOT EXISTS keyword_ability (
+    name TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    description TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
 `);
 
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。

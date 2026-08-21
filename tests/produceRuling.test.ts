@@ -28,6 +28,7 @@ function makeEvidence(overrides: Partial<RulingEvidence>): RulingEvidence {
     ruleChanges: [],
     generalRules: [],
     pastCorrections: [],
+    keywordAbilities: [],
     ambiguousCards: [],
     ...overrides,
   };
