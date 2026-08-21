@@ -89,13 +89,29 @@ class _RulingScreenState extends State<RulingScreen> {
     final latestJob = jobs.isNotEmpty ? jobs.first : null;
     final threads = jobsProvider.threads;
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('DM裁定確認'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              child: const Text(
+                '竜',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('DM裁定確認'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart),
-            tooltip: '利用統計',
+            tooltip: 'ルール確認&利用統計',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => UsageStatsScreen(apiClient: widget.apiClient),
@@ -189,6 +205,11 @@ class _RulingScreenState extends State<RulingScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
                 onPressed: _submitting ? null : _submit,
                 child: _submitting
                     ? const SizedBox(

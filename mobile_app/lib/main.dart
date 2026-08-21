@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
@@ -94,6 +95,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       child: MaterialApp(
         navigatorKey: navigatorKey,
         title: 'DM裁定確認',
+        // テキスト選択メニュー(コピー・貼り付け等)を日本語表示にする。
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('ja')],
+        locale: const Locale('ja'),
         theme: ThemeData(
           colorScheme: colorScheme,
           scaffoldBackgroundColor: scaffoldBackground,

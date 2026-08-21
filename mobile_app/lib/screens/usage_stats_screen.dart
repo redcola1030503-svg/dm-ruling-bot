@@ -237,7 +237,7 @@ class _UsageStatsScreenState extends State<UsageStatsScreen>
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('利用統計'),
+        title: const Text('ルール確認&利用統計'),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,

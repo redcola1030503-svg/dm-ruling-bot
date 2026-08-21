@@ -95,10 +95,53 @@ class _InlineCardSuggestFieldState extends State<InlineCardSuggestField> {
       }
       if (!mounted) return;
       // デバウンス待ちの間に入力が進んでいたら、この結果は古いので捨てる。
-      final current = _findOpenBracketToken(widget.controller.text, widget.controller.selection.baseOffset);
-      if (current == null || current.start != token.start || current.query != token.query) return;
+      final current = _findOpenBracketToken(
+        widget.controller.text,
+        widget.controller.selection.baseOffset,
+      );
+      if (current == null ||
+          current.start != token.start ||
+          current.query != token.query) {
+        return;
+      }
       setState(() => _suggestions = results);
     });
+  }
+
+  /// 選択範囲(またはカーソル位置)を《で置き換え、そのままカード名の
+  /// 検索候補が出るようにする(手入力で《を打った場合と同じ挙動)。
+  void _insertCardNameBracket() {
+    final text = widget.controller.text;
+    final selection = widget.controller.selection;
+    final start = selection.start >= 0 ? selection.start : text.length;
+    final end = selection.end >= 0 ? selection.end : text.length;
+    final newText = text.replaceRange(start, end, '《');
+    widget.controller.value = widget.controller.value.copyWith(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + 1),
+    );
+    widget.focusNode?.requestFocus();
+    _onChanged(newText);
+  }
+
+  Widget _buildContextMenu(
+    BuildContext context,
+    ExtendedEditableTextState editableTextState,
+  ) {
+    final buttonItems = <ContextMenuButtonItem>[
+      ContextMenuButtonItem(
+        label: 'カード名を入力',
+        onPressed: () {
+          editableTextState.hideToolbar();
+          _insertCardNameBracket();
+        },
+      ),
+      ...editableTextState.contextMenuButtonItems,
+    ];
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      buttonItems: buttonItems,
+      anchors: editableTextState.contextMenuAnchors,
+    );
   }
 
   void _select(CardSuggestion suggestion) {
@@ -122,6 +165,7 @@ class _InlineCardSuggestFieldState extends State<InlineCardSuggestField> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -131,9 +175,13 @@ class _InlineCardSuggestFieldState extends State<InlineCardSuggestField> {
           maxLines: widget.maxLines,
           enabled: widget.enabled,
           textDirection: TextDirection.ltr,
-          specialTextSpanBuilder: QuestionSpecialTextSpanBuilder(),
+          specialTextSpanBuilder: QuestionSpecialTextSpanBuilder(
+            badgeColor: colorScheme.primary,
+            badgeTextColor: colorScheme.onPrimary,
+          ),
           onChanged: _onChanged,
           decoration: widget.decoration,
+          extendedContextMenuBuilder: _buildContextMenu,
         ),
         if (_suggestions.isNotEmpty)
           Container(

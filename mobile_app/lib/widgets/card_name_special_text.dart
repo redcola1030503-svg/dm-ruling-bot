@@ -15,9 +15,15 @@ class CardNameSpecialText extends SpecialText {
   static const String kEndFlag = '》';
 
   final int start;
+  final Color badgeColor;
+  final Color badgeTextColor;
 
-  CardNameSpecialText(TextStyle? textStyle, {required this.start})
-      : super(kStartFlag, kEndFlag, textStyle);
+  CardNameSpecialText(
+    TextStyle? textStyle, {
+    required this.start,
+    required this.badgeColor,
+    required this.badgeTextColor,
+  }) : super(kStartFlag, kEndFlag, textStyle);
 
   // isEndはデフォルト実装(value.endsWith(endFlag))のままでよい。
   // 独自に上書きすると蓄積文字列全体と終了フラグの完全一致を求めてしまい、
@@ -30,8 +36,8 @@ class CardNameSpecialText extends SpecialText {
     final text = toString();
     final displayName = getContent();
     final style = (textStyle ?? const TextStyle()).copyWith(
-      color: Colors.white,
-      fontWeight: FontWeight.bold,
+      color: badgeTextColor,
+      fontWeight: FontWeight.w600,
     );
 
     return ExtendedWidgetSpan(
@@ -41,10 +47,10 @@ class CardNameSpecialText extends SpecialText {
       // caretは特殊テキスト内に移動できるが、削除は塊単位で行われる
       deleteAll: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
         decoration: BoxDecoration(
-          color: Colors.indigo,
-          borderRadius: BorderRadius.circular(8),
+          color: badgeColor,
+          borderRadius: BorderRadius.circular(999),
         ),
         // 「破壊の赤！スクラッパーレッド！」のような非常に長いカード名でも
         // 入力欄の枠をはみ出さないよう、一定幅で1行に収め省略表示する。
@@ -63,6 +69,14 @@ class CardNameSpecialText extends SpecialText {
 }
 
 class QuestionSpecialTextSpanBuilder extends SpecialTextSpanBuilder {
+  final Color badgeColor;
+  final Color badgeTextColor;
+
+  QuestionSpecialTextSpanBuilder({
+    required this.badgeColor,
+    required this.badgeTextColor,
+  });
+
   @override
   SpecialText? createSpecialText(
     String flag, {
@@ -75,6 +89,8 @@ class QuestionSpecialTextSpanBuilder extends SpecialTextSpanBuilder {
       return CardNameSpecialText(
         textStyle,
         start: index - (CardNameSpecialText.kStartFlag.length - 1),
+        badgeColor: badgeColor,
+        badgeTextColor: badgeTextColor,
       );
     }
     return null;
