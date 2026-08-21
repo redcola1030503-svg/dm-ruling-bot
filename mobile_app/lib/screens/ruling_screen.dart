@@ -95,13 +95,18 @@ class _RulingScreenState extends State<RulingScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
-              child: const Text(
-                '竜',
-                style: TextStyle(fontWeight: FontWeight.bold),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: colorScheme.primary, width: 1.5),
+              ),
+              child: const ClipOval(
+                child: Image(
+                  image: AssetImage('assets/icon/icon.png'),
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(width: 10),
