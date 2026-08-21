@@ -15,7 +15,9 @@
     "typecheck": "tsc --noEmit",
     "embeddings:rules": "node dist/scripts/generateRuleEmbeddings.js",
     "cards:index": "node dist/scripts/buildCardIndex.js",
-    "eval:retrieval": "tsx tests/retrieval/evaluateRetrieval.ts"
+    "eval:retrieval": "tsx tests/retrieval/evaluateRetrieval.ts",
+    "eval:retrieval:qa": "tsx tests/retrieval/evaluateQaRetrieval.ts",
+    "extract:qa-cases": "tsx src/scripts/extractQaCasesFromCorrections.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
