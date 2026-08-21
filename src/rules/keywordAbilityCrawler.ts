@@ -69,7 +69,16 @@ export async function runKeywordAbilityBuild(
     }
   }
 
-  const totalCount = getKeywordAbilityCount();
+  // 件数取得自体がロック競合等で失敗しても、既にDBへコミット済みの更新結果には
+  // 影響しないため、ここで例外を投げてsummary全体を失わないようにする。
+  let totalCount = -1;
+  try {
+    totalCount = getKeywordAbilityCount();
+  } catch (error) {
+    logger.error("keyword_ability_count_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
   console.log(`完了。更新: ${updated}, スキップ: ${skipped}, 失敗: ${failed}, keyword_ability総登録数: ${totalCount}`);
   return { processed: names.length, total: names.length, updated, skipped, failed, totalCount };
 }
