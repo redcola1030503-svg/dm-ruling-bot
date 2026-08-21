@@ -96,14 +96,15 @@ class _RulingScreenState extends State<RulingScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 32,
-              height: 32,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: colorScheme.primary, width: 1.5),
               ),
-              child: const ClipOval(
-                child: Image(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10.5),
+                child: const Image(
                   image: AssetImage('assets/icon/icon.png'),
                   fit: BoxFit.cover,
                 ),
