@@ -46,7 +46,15 @@ async function collectAllQaHitsFrom(
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         items = [];
       } else {
-        throw error;
+        // タイムアウト等の一時的なネットワークエラーで全体を止めない。このページの
+        // 取得だけ諦めて次ページに進む(差分再実行のため、次回の実行で拾い直せる)。
+        logger.warn("qa_list_page_fetch_failed", {
+          label,
+          pagenum,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        pagenum += 1;
+        continue;
       }
     }
 
