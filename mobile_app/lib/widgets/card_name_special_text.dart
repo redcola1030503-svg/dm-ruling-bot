@@ -35,9 +35,15 @@ class CardNameSpecialText extends SpecialText {
     // バッジ内の表示だけ《》を外したカード名にする。
     final text = toString();
     final displayName = getContent();
+    final baseFontSize = (textStyle ?? const TextStyle()).fontSize ?? 16;
     final style = (textStyle ?? const TextStyle()).copyWith(
       color: badgeTextColor,
       fontWeight: FontWeight.w600,
+      // バッジの縦幅を通常の行の高さに近づけるため、周囲の文字より
+      // 少しだけ小さくする(文章が複数行にまたがったとき、バッジの
+      // 縦幅が行の高さを超えて上下の行と重なって見えるのを防ぐため)。
+      fontSize: baseFontSize * 0.92,
+      height: 1.0,
     );
 
     return ExtendedWidgetSpan(
@@ -47,7 +53,7 @@ class CardNameSpecialText extends SpecialText {
       // caretは特殊テキスト内に移動できるが、削除は塊単位で行われる
       deleteAll: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 1),
         decoration: BoxDecoration(
           color: badgeColor,
           borderRadius: BorderRadius.circular(999),
