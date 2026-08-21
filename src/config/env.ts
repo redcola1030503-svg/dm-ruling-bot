@@ -64,6 +64,16 @@ const envSchema = z.object({
   // ruling_jobテーブルの保持期間(日)。古い完了/失敗ジョブはジョブ作成の
   // たびに機会的に削除する(Renderは単一インスタンスでcron等を持ち込む規模ではないため)。
   RULING_JOB_RETENTION_DAYS: z.coerce.number().default(3),
+
+  // モバイルアプリの非同期裁定ジョブ(rulingJob.ts)経由の裁定生成のみ、Anthropic
+  // Message Batches APIを使う(入出力とも50%割引)。LINE Bot・同期API(/api/ruling)は
+  // 低レイテンシが必要なため対象外で常に通常APIを使う。バッチは「ほとんど1時間以内に
+  // 完了」だが保証はなく最大24時間かかりうるため、レイテンシ悪化が許容できない場合は
+  // falseに戻すだけで即座に通常APIへ復帰できる。
+  RULING_USE_BATCH_API: z
+    .string()
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 export const env = envSchema.parse(process.env);

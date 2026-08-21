@@ -31,7 +31,7 @@ export function runRulingJobInBackground(
   runningCount++;
   markRunning(jobId);
 
-  produceRuling(question)
+  produceRuling(question, { useBatchApi: env.RULING_USE_BATCH_API })
     .then(async (outcome) => {
       markDone(jobId, outcome.status, outcome.result);
 

@@ -326,6 +326,7 @@ Render/Railwayでは「Persistent Disk」「Volume」機能を`/app/data`にマ�
 | `VOYAGE_API_KEY` | 任意。未設定でもキーワード検索のみで動作する。設定する場合はデプロイ後に`npm run embeddings:rules`でembeddingを生成すること |
 | `ENABLE_DEBUG_ROUTES` | **必ず未設定または`false`にする**(`/api/debug/*`は本番で無効化)。なお`NODE_ENV=production`(Dockerfileで設定済み)の場合はこの値が`true`でもコード側で強制的に無効化される(多層防御) |
 | `DATABASE_URL` | 永続ボリューム上のパスを指定(例: `/app/data/cache.db`) |
+| `RULING_USE_BATCH_API` | 任意、既定`false`。`true`にするとモバイルアプリの非同期裁定ジョブ(Push通知経路)のみAnthropic Message Batches API(入出力とも50%割引)を使う。LINE Bot・同期`/api/ruling`は対象外(常に通常API)。バッチは通常1時間以内に完了するが保証はなく最大24時間かかりうるため、レイテンシ悪化が問題になれば`false`に戻すだけで即座に通常APIへ復帰できる |
 | `PORT` | Renderはコンテナに`PORT`環境変数を自動注入し、そのポートで待ち受ける(明示的な設定は不要。本番では10000番ポートが割り当てられている) |
 
 ### デプロイ後の確認

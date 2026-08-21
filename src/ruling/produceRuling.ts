@@ -87,7 +87,10 @@ function llmFailedResult(): RulingResult {
   };
 }
 
-export async function produceRuling(question: string): Promise<ProduceRulingOutcome> {
+export async function produceRuling(
+  question: string,
+  options?: { useBatchApi?: boolean },
+): Promise<ProduceRulingOutcome> {
   const startedAt = Date.now();
   const parsedQuestion = await analyzeQuestion(question);
 
@@ -128,7 +131,7 @@ export async function produceRuling(question: string): Promise<ProduceRulingOutc
   }
 
   try {
-    const result = await generateRuling(parsedQuestion, evidence);
+    const result = await generateRuling(parsedQuestion, evidence, options);
     logger.info("ruling_generated", {
       conclusion: result.conclusion.slice(0, LOG_TEXT_MAX_LENGTH),
       confidence: result.confidence,

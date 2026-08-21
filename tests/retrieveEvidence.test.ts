@@ -10,8 +10,9 @@ vi.mock("../src/search/hybridSearch", () => ({
   hybridSearchQa: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../src/corrections/ranking", () => ({ searchAndRankCorrections: vi.fn().mockReturnValue([]) }));
+const getKeywordAbilitiesByNames = vi.fn().mockReturnValue([]);
 vi.mock("../src/rules/keywordAbilityRepository", () => ({
-  getKeywordAbilitiesByNames: vi.fn().mockReturnValue([]),
+  getKeywordAbilitiesByNames: (names: string[]) => getKeywordAbilitiesByNames(names),
 }));
 
 const findCardCandidates = vi.fn<(name: string) => Promise<CardNameMatch[]>>();
@@ -159,5 +160,35 @@ describe("retrieveEvidence の弱いカード名候補(「」『』由来)の扱
 
     expect(evidence.ambiguousCards).toHaveLength(0);
     expect(evidence.cards).toHaveLength(0);
+  });
+});
+
+describe("retrieveEvidence のkeywordAbility説明文の切り詰め", () => {
+  it("短い説明文はそのまま渡す", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+    getKeywordAbilitiesByNames.mockReturnValueOnce([
+      { name: "侵略", url: "https://dmwiki.net/侵略", description: "短い説明文" },
+    ]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([]));
+
+    expect(evidence.keywordAbilities).toHaveLength(1);
+    expect(evidence.keywordAbilities[0].text).toBe("短い説明文");
+  });
+
+  it("長い説明文は改行境界で切り詰めて省略注記を付ける", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+    const paragraph = "あ".repeat(100);
+    const longDescription = Array.from({ length: 20 }, () => paragraph).join("\n"); // 2000文字超
+    getKeywordAbilitiesByNames.mockReturnValueOnce([
+      { name: "侵略", url: "https://dmwiki.net/侵略", description: longDescription },
+    ]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([]));
+
+    const text = evidence.keywordAbilities[0].text;
+    expect(text.length).toBeLessThan(longDescription.length);
+    expect(text.endsWith("…(以下省略。詳細は元ページのURLを参照)")).toBe(true);
+    expect(text.startsWith(paragraph)).toBe(true);
   });
 });

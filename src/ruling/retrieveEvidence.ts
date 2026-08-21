@@ -16,6 +16,18 @@ import type {
 const CARD_MATCH_MIN_SCORE = 0.75; // prefix一致相当以上のみ採用(誤ったカードを勝手に確定しない)
 const EXACT_MATCH_SCORE = 1;
 const AMBIGUOUS_CANDIDATE_LIMIT = 3;
+// dmwiki説明文は非公式の補助情報(generateRuling.tsのルール21で断定根拠にはできないと明記済み)
+// のため、長文カード(例:「侵略」3,333文字)がClaudeへの入力トークンを不必要に押し上げないよう、
+// 冒頭の定義部分のみに切り詰めて渡す。DB上のkeyword_ability.descriptionは全文のまま保持する
+// (URLで元ページを参照できるため、切り詰めても情報は失われない)。
+const KEYWORD_ABILITY_MAX_LENGTH = 1200;
+
+function truncateKeywordAbilityText(text: string): string {
+  if (text.length <= KEYWORD_ABILITY_MAX_LENGTH) return text;
+  const cutAt = text.lastIndexOf("\n", KEYWORD_ABILITY_MAX_LENGTH);
+  const truncated = cutAt > 0 ? text.slice(0, cutAt) : text.slice(0, KEYWORD_ABILITY_MAX_LENGTH);
+  return `${truncated}\n…(以下省略。詳細は元ページのURLを参照)`;
+}
 
 export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEvidence> {
   const cardResults = await Promise.all(
@@ -169,7 +181,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
   const keywordAbilityResults = getKeywordAbilitiesByNames(criteria.ruleConcepts);
   const keywordAbilities: EvidenceSource[] = keywordAbilityResults.map((ability) => ({
     title: ability.name,
-    text: ability.description,
+    text: truncateKeywordAbilityText(ability.description),
     url: ability.url,
     sourceType: "keywordAbility",
     itemKey: ability.name,

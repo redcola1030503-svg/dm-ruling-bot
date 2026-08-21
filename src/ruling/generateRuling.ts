@@ -213,6 +213,7 @@ export function applyCautionNote(explanation: string, confidence: Confidence): s
 export async function generateRuling(
   parsed: ParsedQuestion,
   evidence: RulingEvidence,
+  options?: { useBatchApi?: boolean },
 ): Promise<RulingResult> {
   const hasAnyEvidence =
     evidence.cards.length > 0 ||
@@ -233,7 +234,12 @@ export async function generateRuling(
   }
 
   const userMessage = buildUserMessage(parsed, evidence);
-  const raw = await completeJson({ system: RULING_SYSTEM_PROMPT, userMessage, maxTokens: 4096 });
+  const raw = await completeJson({
+    system: RULING_SYSTEM_PROMPT,
+    userMessage,
+    maxTokens: 4096,
+    useBatchApi: options?.useBatchApi,
+  });
   const validated = llmOutputSchema.parse(JSON.parse(extractJsonBlock(raw)));
 
   // Evidenceに実在するURLのみを根拠として許可する(指示書ルール9: 捏造URL防止)。
