@@ -12,12 +12,8 @@ import '../widgets/loading_banner_ad.dart';
 import '../widgets/question_bubble.dart';
 import '../widgets/ruling_result_view.dart';
 import 'correction_dialog.dart';
-import 'corrections_screen.dart';
-import 'judges_screen.dart';
-import 'card_index_screen.dart';
-import 'login_screen.dart';
 import 'ruling_thread_detail_screen.dart';
-import 'usage_stats_screen.dart';
+import 'settings_screen.dart';
 
 class RulingScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -121,78 +117,14 @@ class _RulingScreenState extends State<RulingScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bar_chart),
-            tooltip: 'ルール確認&利用統計',
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'オプション',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => UsageStatsScreen(apiClient: widget.apiClient),
+                builder: (_) => SettingsScreen(apiClient: widget.apiClient),
               ),
             ),
           ),
-          if (auth.isLoggedIn)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.account_circle),
-              onSelected: (value) {
-                switch (value) {
-                  case 'corrections':
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CorrectionsScreen(apiClient: widget.apiClient),
-                      ),
-                    );
-                    break;
-                  case 'judges':
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            JudgesScreen(apiClient: widget.apiClient),
-                      ),
-                    );
-                    break;
-                  case 'card_index':
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CardIndexScreen(apiClient: widget.apiClient),
-                      ),
-                    );
-                    break;
-                  case 'logout':
-                    context.read<AuthProvider>().logout();
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  enabled: false,
-                  child: Text(
-                    '${auth.session!.judgeId} (${auth.isAdmin ? '管理者' : 'ジャッジ'})',
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'corrections',
-                  child: Text(auth.isAdmin ? '訂正内容(全ジャッジ)' : '自分の訂正内容'),
-                ),
-                if (auth.isAdmin)
-                  const PopupMenuItem(value: 'judges', child: Text('ジャッジ管理')),
-                if (auth.isAdmin)
-                  const PopupMenuItem(
-                    value: 'card_index',
-                    child: Text('カードインデックス管理'),
-                  ),
-                const PopupMenuItem(value: 'logout', child: Text('ログアウト')),
-              ],
-            )
-          else
-            TextButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => LoginScreen(apiClient: widget.apiClient),
-                ),
-              ),
-              child: const Text('ログイン'),
-            ),
         ],
       ),
       body: SingleChildScrollView(
