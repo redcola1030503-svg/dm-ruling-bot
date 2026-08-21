@@ -7,6 +7,8 @@ class SourceReferenceStat {
   final String url;
   final int referenceCount;
   final int lastReferencedAt;
+  /// 総合ルールのみ設定される、条文本文(一覧でのプレビュー表示用)。
+  final String? preview;
 
   const SourceReferenceStat({
     required this.sourceType,
@@ -15,6 +17,7 @@ class SourceReferenceStat {
     required this.url,
     required this.referenceCount,
     required this.lastReferencedAt,
+    this.preview,
   });
 
   factory SourceReferenceStat.fromJson(Map<String, dynamic> json) {
@@ -25,6 +28,7 @@ class SourceReferenceStat {
       url: json['url'] as String,
       referenceCount: json['referenceCount'] as int,
       lastReferencedAt: json['lastReferencedAt'] as int,
+      preview: json['preview'] as String?,
     );
   }
 }

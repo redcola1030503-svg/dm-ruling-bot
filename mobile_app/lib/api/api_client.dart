@@ -286,13 +286,20 @@ class ApiClient {
     return list.map((e) => CardQueryStat.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  /// [query]を指定すると、参照実績の有無に関わらず全件データからキーワード検索する
+  /// (総合ルール/Q&A/ルール変更のみ対応)。未指定なら従来通り参照回数ランキングを返す。
   Future<List<SourceReferenceStat>> getSourceReferenceStats(
     String sourceType, {
     String? token,
     int limit = 50,
+    String? query,
   }) async {
+    final params = {'type': sourceType, 'limit': '$limit'};
+    if (query != null && query.trim().isNotEmpty) {
+      params['q'] = query.trim();
+    }
     final resp = await _client.get(
-      _uri('/api/stats/sources', {'type': sourceType, 'limit': '$limit'}),
+      _uri('/api/stats/sources', params),
       headers: _headers(token),
     );
     final json = _handleObject(resp);

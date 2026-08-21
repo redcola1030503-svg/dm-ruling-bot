@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { getTopCardQueries, getTopSourceReferences } from "../stats/statsRepository";
+import { getTopCardQueries, getTopSourceReferences, searchSourceItems } from "../stats/statsRepository";
 import { getGeneralRuleChunkByRuleNumber } from "../rules/generalRuleRepository";
 import { publicReadRateLimiter } from "../utils/rateLimit";
 
@@ -23,6 +23,8 @@ statsRouter.get("/api/stats/cards", publicReadRateLimiter, (req, res) => {
 });
 
 const sourceTypeSchema = z.enum(["card", "qa", "ruleChange", "generalRule", "correction"]);
+const searchableSourceTypeSchema = z.enum(["generalRule", "qa", "ruleChange"]);
+const keywordSchema = z.string().trim().min(1).max(200);
 
 statsRouter.get("/api/stats/sources", publicReadRateLimiter, (req, res) => {
   const parsedType = sourceTypeSchema.safeParse(req.query.type);
@@ -35,6 +37,25 @@ statsRouter.get("/api/stats/sources", publicReadRateLimiter, (req, res) => {
     res.status(400).json({ error: "invalid_request", details: parsedLimit.error.flatten() });
     return;
   }
+
+  // qが指定された場合は、参照実績の有無に関わらず全件データからキーワード検索する
+  // (総合ルール/Q&A/ルール変更のみ対応。カード・訂正事例は非対応)。
+  if (req.query.q !== undefined) {
+    const parsedKeyword = keywordSchema.safeParse(req.query.q);
+    if (!parsedKeyword.success) {
+      res.status(400).json({ error: "invalid_request", details: parsedKeyword.error.flatten() });
+      return;
+    }
+    const parsedSearchableType = searchableSourceTypeSchema.safeParse(req.query.type);
+    if (!parsedSearchableType.success) {
+      res.status(400).json({ error: "search_not_supported_for_type" });
+      return;
+    }
+    const items = searchSourceItems(parsedSearchableType.data, parsedKeyword.data, parsedLimit.data);
+    res.json({ items });
+    return;
+  }
+
   res.json({ items: getTopSourceReferences(parsedType.data, parsedLimit.data) });
 });
 
