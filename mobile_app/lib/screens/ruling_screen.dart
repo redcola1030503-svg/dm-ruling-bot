@@ -104,9 +104,14 @@ class _RulingScreenState extends State<RulingScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10.5),
-                child: const Image(
-                  image: AssetImage('assets/icon/icon.png'),
-                  fit: BoxFit.cover,
+                // アイコン画像自体に薄い余白があり、枠との間に隙間として
+                // 見えるため、少し拡大してトリミングし余白を消す。
+                child: Transform.scale(
+                  scale: 1.12,
+                  child: const Image(
+                    image: AssetImage('assets/icon/icon.png'),
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             ),
