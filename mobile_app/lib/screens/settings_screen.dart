@@ -17,6 +17,8 @@ const _privacyPolicyUrl =
     'https://redcola1030503-svg.github.io/dm-ruling-bot/mobile-app-privacy-policy.html';
 const _termsOfServiceUrl =
     'https://redcola1030503-svg.github.io/dm-ruling-bot/mobile-app-terms-of-service.html';
+const _adsSettingsUrl = 'https://adssettings.google.com/authenticated?hl=ja';
+const _feedbackEmail = 'red.cola1030503@gmail.com';
 
 class SettingsScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -185,6 +187,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ],
+          const Divider(),
+          const _SectionHeader('広告'),
+          ListTile(
+            leading: const Icon(Icons.ads_click_outlined),
+            title: const Text('パーソナライズ広告の設定'),
+            subtitle: const Text('Googleの広告設定ページを開きます'),
+            onTap: () => openExternalUri(context, Uri.parse(_adsSettingsUrl)),
+          ),
+          const Divider(),
+          const _SectionHeader('サポート'),
+          ListTile(
+            leading: const Icon(Icons.mail_outline),
+            title: const Text('お問い合わせ・フィードバック'),
+            subtitle: const Text('不具合報告やご要望はこちらから'),
+            onTap: () => openExternalUri(
+              context,
+              Uri(
+                scheme: 'mailto',
+                path: _feedbackEmail,
+                query: 'subject=${Uri.encodeComponent('デュエマ裁定確認アプリ お問い合わせ')}',
+              ),
+            ),
+          ),
           const Divider(),
           const _SectionHeader('アプリ情報'),
           FutureBuilder<PackageInfo>(
