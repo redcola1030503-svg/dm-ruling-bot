@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { getJobsByThread } from "../ruling/rulingJobRepository";
-import { getThread, listThreadsByDevice } from "../ruling/rulingThreadRepository";
+import { deleteJobsByThread, getJobsByThread } from "../ruling/rulingJobRepository";
+import { deleteThread, getThread, listThreadsByDevice } from "../ruling/rulingThreadRepository";
 
 export const rulingThreadsRouter = Router();
 
@@ -74,4 +74,24 @@ rulingThreadsRouter.get("/api/ruling/threads/:threadId", (req, res) => {
       finishedAt: job.finished_at,
     })),
   });
+});
+
+// deviceIdは認証情報ではなく自己申告の匿名IDのため、GETと同様に
+// 一致しないスレッドは存在有無を漏らさないよう一律404で扱う。
+rulingThreadsRouter.delete("/api/ruling/threads/:threadId", (req, res) => {
+  const parsed = deviceIdQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return;
+  }
+
+  const thread = getThread(req.params.threadId);
+  if (!thread || thread.device_id !== parsed.data.deviceId) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  deleteJobsByThread(thread.id);
+  deleteThread(thread.id);
+  res.status(204).send();
 });

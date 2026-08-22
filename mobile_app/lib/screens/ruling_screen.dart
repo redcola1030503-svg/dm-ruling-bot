@@ -77,6 +77,39 @@ class _RulingScreenState extends State<RulingScreen> {
     );
   }
 
+  Future<void> _confirmDeleteThread(RulingThreadSummary thread) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('スレッドを削除しますか？'),
+        content: Text('「${thread.title}」を削除します。この操作は取り消せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await context.read<RulingJobsProvider>().deleteThread(thread.threadId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is ApiException ? e.friendlyMessage : '削除に失敗しました: $e',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -226,16 +259,32 @@ class _RulingScreenState extends State<RulingScreen> {
               const SizedBox(height: 24),
               Text('質問スレッド', style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 4),
-              ...threads.map(
-                (thread) => Card(
+              ...threads.map((thread) {
+                final isFavorite = jobsProvider.isFavoriteThread(
+                  thread.threadId,
+                );
+                return Card(
                   child: ListTile(
+                    leading: IconButton(
+                      icon: Icon(
+                        isFavorite ? Icons.star : Icons.star_border,
+                        color: isFavorite ? Colors.amber : null,
+                      ),
+                      tooltip: isFavorite ? 'お気に入りを解除' : 'お気に入りに追加',
+                      onPressed: () =>
+                          jobsProvider.toggleFavoriteThread(thread.threadId),
+                    ),
                     title: Text(
                       thread.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(_threadStatusLabel(thread)),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: 'スレッドを削除',
+                      onPressed: () => _confirmDeleteThread(thread),
+                    ),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) =>
@@ -243,8 +292,8 @@ class _RulingScreenState extends State<RulingScreen> {
                       ),
                     ),
                   ),
-                ),
-              ),
+                );
+              }),
             ],
           ],
         ),

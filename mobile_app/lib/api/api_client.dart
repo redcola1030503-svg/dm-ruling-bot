@@ -140,6 +140,15 @@ class ApiClient {
     return RulingThreadDetail.fromJson(_handleObject(resp));
   }
 
+  Future<void> deleteRulingThread(String threadId, String deviceId) async {
+    final resp = await _client.delete(
+      _uri('/api/ruling/threads/$threadId', {'deviceId': deviceId}),
+      headers: _headers(),
+    );
+    if (resp.statusCode == 204) return;
+    _handleObject(resp);
+  }
+
   Future<void> registerPushToken(String deviceId, String fcmToken) async {
     final resp = await _client.post(
       _uri('/api/push/register-token'),

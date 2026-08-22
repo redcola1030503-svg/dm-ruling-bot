@@ -5,9 +5,14 @@ vi.mock("../src/config/db", () => ({
   db: { prepare: (...args: unknown[]) => prepareMock(...args) },
 }));
 
-const { createThread, getThread, touchThread, listThreadsByDevice, deriveThreadTitle } = await import(
-  "../src/ruling/rulingThreadRepository"
-);
+const {
+  createThread,
+  getThread,
+  touchThread,
+  listThreadsByDevice,
+  deriveThreadTitle,
+  deleteThread,
+} = await import("../src/ruling/rulingThreadRepository");
 
 describe("rulingThreadRepository", () => {
   beforeEach(() => {
@@ -54,6 +59,16 @@ describe("rulingThreadRepository", () => {
 
     expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("ORDER BY updated_at DESC"));
     expect(allFn).toHaveBeenCalledWith("device-1", 100);
+  });
+
+  it("deleteThread: idでDELETEする", () => {
+    const runFn = vi.fn();
+    prepareMock.mockReturnValue({ run: runFn });
+
+    deleteThread("thread-1");
+
+    expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("DELETE FROM ruling_thread"));
+    expect(runFn).toHaveBeenCalledWith("thread-1");
   });
 
   describe("deriveThreadTitle", () => {

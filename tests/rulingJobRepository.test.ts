@@ -5,7 +5,9 @@ vi.mock("../src/config/db", () => ({
   db: { prepare: (...args: unknown[]) => prepareMock(...args) },
 }));
 
-const { createJob, getJobsByThread, pruneOldJobs } = await import("../src/ruling/rulingJobRepository");
+const { createJob, getJobsByThread, deleteJobsByThread, pruneOldJobs } = await import(
+  "../src/ruling/rulingJobRepository"
+);
 
 describe("rulingJobRepository", () => {
   beforeEach(() => {
@@ -32,6 +34,16 @@ describe("rulingJobRepository", () => {
       expect.stringMatching(/WHERE thread_id = \?[\s\S]*ORDER BY created_at ASC/),
     );
     expect(allFn).toHaveBeenCalledWith("thread-1");
+  });
+
+  it("deleteJobsByThread: thread_idで絞り込みDELETEする", () => {
+    const runFn = vi.fn();
+    prepareMock.mockReturnValue({ run: runFn });
+
+    deleteJobsByThread("thread-1");
+
+    expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("WHERE thread_id = ?"));
+    expect(runFn).toHaveBeenCalledWith("thread-1");
   });
 
   it("pruneOldJobs: thread_id IS NULLの孤立ジョブのみを削除対象にする", () => {

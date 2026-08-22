@@ -63,6 +63,12 @@ export function getJobsByThread(threadId: string): RulingJobRow[] {
     .all(threadId) as RulingJobRow[];
 }
 
+// ruling_job.thread_idにFK制約(ON DELETE CASCADE)が無いため、
+// スレッド削除時はこの関数で明示的にジョブ側も削除する必要がある。
+export function deleteJobsByThread(threadId: string): void {
+  db.prepare("DELETE FROM ruling_job WHERE thread_id = ?").run(threadId);
+}
+
 // 完了/失敗から一定期間経過したジョブを削除する(ジョブ作成のたびに機会的に実行)。
 // スレッドに紐づくジョブ(thread_id IS NOT NULL)はスレッド履歴として無期限保持し、
 // スレッド化されていない孤立ジョブ(旧クライアント等でdeviceId未送信の場合)のみ対象とする。

@@ -40,3 +40,7 @@ export function listThreadsByDevice(deviceId: string, limit = 100): RulingThread
     .prepare("SELECT * FROM ruling_thread WHERE device_id = ? ORDER BY updated_at DESC LIMIT ?")
     .all(deviceId, limit) as RulingThreadRow[];
 }
+
+export function deleteThread(id: string): void {
+  db.prepare("DELETE FROM ruling_thread WHERE id = ?").run(id);
+}

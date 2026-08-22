@@ -20,6 +20,7 @@ const _pollInterval = Duration(seconds: 4);
 class RulingJobsProvider extends ChangeNotifier {
   static const _jobsKey = 'ruling_jobs';
   static const _notificationsEnabledKey = 'push_notifications_enabled';
+  static const _favoriteThreadIdsKey = 'favorite_thread_ids';
 
   final ApiClient apiClient;
   final PushService pushService;
@@ -28,6 +29,7 @@ class RulingJobsProvider extends ChangeNotifier {
 
   final List<RulingJob> _jobs = [];
   final List<RulingThreadSummary> _threads = [];
+  final Set<String> _favoriteThreadIds = {};
   final Map<String, Timer> _pollers = {};
   bool _pushRegistered = false;
   bool _restored = false;
@@ -43,8 +45,23 @@ class RulingJobsProvider extends ChangeNotifier {
        _storage = storage ?? const FlutterSecureStorage();
 
   List<RulingJob> get jobs => List.unmodifiable(_jobs);
-  List<RulingThreadSummary> get threads => List.unmodifiable(_threads);
+
+  /// お気に入りのスレッドを先頭にまとめ、それぞれのグループ内では
+  /// 元の順序(更新日時の新しい順)を維持したリストを返す。
+  List<RulingThreadSummary> get threads {
+    final favorites = _threads
+        .where((t) => _favoriteThreadIds.contains(t.threadId))
+        .toList();
+    final others = _threads
+        .where((t) => !_favoriteThreadIds.contains(t.threadId))
+        .toList();
+    return List.unmodifiable([...favorites, ...others]);
+  }
+
   bool get notificationsEnabled => _notificationsEnabled;
+
+  bool isFavoriteThread(String threadId) =>
+      _favoriteThreadIds.contains(threadId);
 
   Future<void> restore() async {
     if (_restored) return;
@@ -66,8 +83,47 @@ class RulingJobsProvider extends ChangeNotifier {
         _notificationsEnabled = enabledValue == 'true';
       }
     } catch (_) {}
+    try {
+      final favRaw = await _storage.read(key: _favoriteThreadIdsKey);
+      if (favRaw != null && favRaw.isNotEmpty) {
+        final list = jsonDecode(favRaw) as List<dynamic>;
+        _favoriteThreadIds.addAll(list.map((e) => e as String));
+      }
+    } catch (_) {}
     notifyListeners();
     unawaited(refreshAllPending());
+  }
+
+  Future<void> _persistFavoriteThreadIds() async {
+    try {
+      await _storage.write(
+        key: _favoriteThreadIdsKey,
+        value: jsonEncode(_favoriteThreadIds.toList()),
+      );
+    } catch (_) {}
+  }
+
+  /// スレッドのお気に入り状態を切り替える。お気に入りは端末ローカルの表示
+  /// 順序のみに影響し、サーバー側のスレッドデータそのものは変更しない。
+  Future<void> toggleFavoriteThread(String threadId) async {
+    if (!_favoriteThreadIds.add(threadId)) {
+      _favoriteThreadIds.remove(threadId);
+    }
+    notifyListeners();
+    await _persistFavoriteThreadIds();
+  }
+
+  /// スレッドをサーバー・ローカル双方から削除する(取り消し不可)。
+  Future<void> deleteThread(String threadId) async {
+    final deviceId = await deviceIdProvider.getOrCreate();
+    await apiClient.deleteRulingThread(threadId, deviceId);
+
+    _threads.removeWhere((t) => t.threadId == threadId);
+    _jobs.removeWhere((j) => j.threadId == threadId);
+    _favoriteThreadIds.remove(threadId);
+    await _persist();
+    await _persistFavoriteThreadIds();
+    notifyListeners();
   }
 
   /// 通知のON/OFFをユーザー操作で切り替える。OFFにする際はサーバー側に
