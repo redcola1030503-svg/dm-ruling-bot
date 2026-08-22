@@ -18,7 +18,8 @@ class RulingThreadDetailScreen extends StatefulWidget {
   const RulingThreadDetailScreen({super.key, required this.threadId});
 
   @override
-  State<RulingThreadDetailScreen> createState() => _RulingThreadDetailScreenState();
+  State<RulingThreadDetailScreen> createState() =>
+      _RulingThreadDetailScreenState();
 }
 
 class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
@@ -51,7 +52,10 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
     try {
       final provider = context.read<RulingJobsProvider>();
       final deviceId = await provider.deviceIdProvider.getOrCreate();
-      final detail = await provider.apiClient.getRulingThread(widget.threadId, deviceId);
+      final detail = await provider.apiClient.getRulingThread(
+        widget.threadId,
+        deviceId,
+      );
       if (!mounted) return;
       setState(() {
         _historicalJobs = detail.jobs;
@@ -74,7 +78,10 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
       _submitError = null;
     });
     try {
-      final jobId = await context.read<RulingJobsProvider>().submitFollowUp(widget.threadId, question);
+      final jobId = await context.read<RulingJobsProvider>().submitFollowUp(
+        widget.threadId,
+        question,
+      );
       if (!mounted) return;
       setState(() {
         _historicalJobs = [
@@ -91,7 +98,9 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
       });
     } catch (e) {
       setState(() {
-        _submitError = e is ApiException ? e.friendlyMessage : '通信エラーが発生しました: $e';
+        _submitError = e is ApiException
+            ? e.friendlyMessage
+            : '通信エラーが発生しました: $e';
       });
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -131,20 +140,25 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _loadError != null
-                    ? Center(child: Text(_loadError!, style: const TextStyle(color: Colors.red)))
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: turns.length,
-                        separatorBuilder: (_, _) => const Divider(height: 32),
-                        itemBuilder: (context, index) {
-                          final job = turns[index];
-                          return RulingTurnView(
-                            job: job,
-                            isLoggedIn: auth.isLoggedIn,
-                            onCorrect: () => _openCorrectionDialog(job),
-                          );
-                        },
-                      ),
+                ? Center(
+                    child: Text(
+                      _loadError!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: turns.length,
+                    separatorBuilder: (_, _) => const Divider(height: 32),
+                    itemBuilder: (context, index) {
+                      final job = turns[index];
+                      return RulingTurnView(
+                        job: job,
+                        isLoggedIn: auth.isLoggedIn,
+                        onCorrect: () => _openCorrectionDialog(job),
+                      );
+                    },
+                  ),
           ),
           const Divider(height: 1),
           Padding(
@@ -165,7 +179,7 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
                   enabled: canSubmit,
                   decoration: const InputDecoration(
                     labelText: '追加で質問する',
-                    helperText: '《の後にカード名を入力すると候補が出ます',
+                    helperText: '長押しでカード名を入力',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -178,14 +192,20 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text('送信'),
                   ),
                 ),
                 if (_submitError != null) ...[
                   const SizedBox(height: 8),
-                  Text(_submitError!, style: const TextStyle(color: Colors.red)),
+                  Text(
+                    _submitError!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 ],
               ],
             ),
