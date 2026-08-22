@@ -95,13 +95,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ],
       child: Consumer<SettingsProvider>(
         builder: (context, settings, _) {
+          // ColorScheme.fromSeedはMaterial3のトーン計算により選択色より
+          // 彩度を落とした色をprimaryにするため、選んだ配色がそのまま
+          // 画面に反映されるようprimary/onPrimaryは選択色で上書きする。
+          final onAccent = settings.accentColor.computeLuminance() > 0.5
+              ? Colors.black
+              : Colors.white;
           final lightScheme = ColorScheme.fromSeed(
             seedColor: settings.accentColor,
-          );
+          ).copyWith(primary: settings.accentColor, onPrimary: onAccent);
           final darkScheme = ColorScheme.fromSeed(
             seedColor: settings.accentColor,
             brightness: Brightness.dark,
-          );
+          ).copyWith(primary: settings.accentColor, onPrimary: onAccent);
           return MaterialApp(
             navigatorKey: navigatorKey,
             title: 'DM裁定確認',

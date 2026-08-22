@@ -137,9 +137,18 @@ class _RulingScreenState extends State<RulingScreen> {
                 // 見えるため、少し拡大してトリミングし余白を消す。
                 child: Transform.scale(
                   scale: 1.12,
-                  child: const Image(
-                    image: AssetImage('assets/icon/icon.png'),
-                    fit: BoxFit.cover,
+                  // カラーパターン変更時にアイコンも同系色になるよう、
+                  // 選択中のアクセントカラーで色相を差し替える
+                  // (BlendMode.colorは元画像の明暗を保ったまま色相・彩度だけ置き換える)。
+                  child: ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      colorScheme.primary,
+                      BlendMode.color,
+                    ),
+                    child: const Image(
+                      image: AssetImage('assets/icon/icon.png'),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),
@@ -173,7 +182,7 @@ class _RulingScreenState extends State<RulingScreen> {
               decoration: const InputDecoration(
                 labelText: '質問を入力',
                 hintText: '例: 《ボルメテウス・ホワイト・ドラゴン》でシールドをブレイクした場合、S・トリガーは使えますか？',
-                helperText: '《の後にカード名を入力すると候補が出ます',
+                helperText: '長押しでカード名を入力',
                 border: OutlineInputBorder(),
               ),
             ),

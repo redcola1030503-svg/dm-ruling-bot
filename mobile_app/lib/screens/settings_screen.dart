@@ -142,7 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Text(
-              '例: 侵略の使用宣言後は重ねない選択もできますか？',
+              '例: 《ボルメテウス・ホワイト・ドラゴン》でシールドをブレイクした場合、S・トリガーは使えますか？',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
