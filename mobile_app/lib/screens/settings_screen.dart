@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
 import '../state/auth_provider.dart';
+import '../state/ruling_jobs_provider.dart';
 import '../state/settings_provider.dart';
 import '../theme/accent_colors.dart';
 import '../utils/external_links.dart';
@@ -37,10 +38,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final apiClient = widget.apiClient;
     final auth = context.watch<AuthProvider>();
     final settings = context.watch<SettingsProvider>();
+    final rulingJobs = context.watch<RulingJobsProvider>();
     return Scaffold(
       appBar: AppBar(title: const Text('オプション')),
       body: ListView(
         children: [
+          const _SectionHeader('通知'),
+          SwitchListTile(
+            secondary: const Icon(Icons.notifications_outlined),
+            title: const Text('プッシュ通知'),
+            subtitle: const Text('裁定生成が完了したときに通知します'),
+            value: rulingJobs.notificationsEnabled,
+            onChanged: (value) => rulingJobs.setNotificationsEnabled(value),
+          ),
+          const Divider(),
           const _SectionHeader('表示'),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),

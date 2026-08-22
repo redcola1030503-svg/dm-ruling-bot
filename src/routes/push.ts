@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { upsertToken } from "../push/pushTokenRepository";
+import { deleteToken, upsertToken } from "../push/pushTokenRepository";
 import { pushRegisterRateLimiter } from "../utils/rateLimit";
 
 export const pushRouter = Router();
@@ -21,3 +21,22 @@ pushRouter.post("/api/push/register-token", pushRegisterRateLimiter, (req, res) 
   upsertToken(parsed.data.deviceId, parsed.data.fcmToken, parsed.data.platform);
   res.status(204).send();
 });
+
+const deviceIdParamSchema = z.object({
+  deviceId: z.string().min(1).max(200),
+});
+
+pushRouter.delete(
+  "/api/push/register-token/:deviceId",
+  pushRegisterRateLimiter,
+  (req, res) => {
+    const parsed = deviceIdParamSchema.safeParse(req.params);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+      return;
+    }
+
+    deleteToken(parsed.data.deviceId);
+    res.status(204).send();
+  },
+);

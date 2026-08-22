@@ -32,9 +32,9 @@ class ApiClient {
   }) : _client = client ?? http.Client();
 
   Map<String, String> _headers([String? token]) => {
-        'Content-Type': 'application/json; charset=utf-8',
-        if (token != null) 'Authorization': 'Bearer $token',
-      };
+    'Content-Type': 'application/json; charset=utf-8',
+    if (token != null) 'Authorization': 'Bearer $token',
+  };
 
   Uri _uri(String path, [Map<String, String>? query]) {
     final uri = Uri.parse('$baseUrl$path');
@@ -52,7 +52,8 @@ class ApiClient {
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       return decoded as Map<String, dynamic>;
     }
-    final message = (decoded is Map<String, dynamic> ? decoded['error'] : null)
+    final message =
+        (decoded is Map<String, dynamic> ? decoded['error'] : null)
             ?.toString() ??
         'リクエストに失敗しました (HTTP ${resp.statusCode})';
     throw ApiException(message, statusCode: resp.statusCode);
@@ -108,7 +109,10 @@ class ApiClient {
   }
 
   Future<RulingJob> getRulingJob(String jobId, {String? question}) async {
-    final resp = await _client.get(_uri('/api/ruling/jobs/$jobId'), headers: _headers());
+    final resp = await _client.get(
+      _uri('/api/ruling/jobs/$jobId'),
+      headers: _headers(),
+    );
     return RulingJob.fromJson(_handleObject(resp), question: question);
   }
 
@@ -120,10 +124,15 @@ class ApiClient {
     );
     final json = _handleObject(resp);
     final list = json['threads'] as List<dynamic>? ?? [];
-    return list.map((e) => RulingThreadSummary.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => RulingThreadSummary.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<RulingThreadDetail> getRulingThread(String threadId, String deviceId) async {
+  Future<RulingThreadDetail> getRulingThread(
+    String threadId,
+    String deviceId,
+  ) async {
     final resp = await _client.get(
       _uri('/api/ruling/threads/$threadId', {'deviceId': deviceId}),
       headers: _headers(),
@@ -135,7 +144,20 @@ class ApiClient {
     final resp = await _client.post(
       _uri('/api/push/register-token'),
       headers: _headers(),
-      body: jsonEncode({'deviceId': deviceId, 'fcmToken': fcmToken, 'platform': 'android'}),
+      body: jsonEncode({
+        'deviceId': deviceId,
+        'fcmToken': fcmToken,
+        'platform': 'android',
+      }),
+    );
+    if (resp.statusCode == 204) return;
+    _handleObject(resp);
+  }
+
+  Future<void> unregisterPushToken(String deviceId) async {
+    final resp = await _client.delete(
+      _uri('/api/push/register-token/$deviceId'),
+      headers: _headers(),
     );
     if (resp.statusCode == 204) return;
     _handleObject(resp);
@@ -152,12 +174,18 @@ class ApiClient {
   }
 
   Future<void> logout(String token) async {
-    final resp = await _client.post(_uri('/api/logout'), headers: _headers(token));
+    final resp = await _client.post(
+      _uri('/api/logout'),
+      headers: _headers(token),
+    );
     _handleObject(resp);
   }
 
   Future<Session> getSession(String token) async {
-    final resp = await _client.get(_uri('/api/session'), headers: _headers(token));
+    final resp = await _client.get(
+      _uri('/api/session'),
+      headers: _headers(token),
+    );
     final json = _handleObject(resp);
     return Session.fromSessionResponse(token, json);
   }
@@ -183,10 +211,15 @@ class ApiClient {
   /// 自分の訂正一覧を取得する。管理者トークンの場合はサーバー側で
   /// 全ジャッジ分の訂正が返る(ロール分岐はバックエンドが行う)。
   Future<List<Correction>> getCorrections(String token) async {
-    final resp = await _client.get(_uri('/api/corrections'), headers: _headers(token));
+    final resp = await _client.get(
+      _uri('/api/corrections'),
+      headers: _headers(token),
+    );
     final json = _handleObject(resp);
     final list = json['corrections'] as List<dynamic>? ?? [];
-    return list.map((e) => Correction.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => Correction.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Correction> updateCorrection({
@@ -223,7 +256,10 @@ class ApiClient {
   }
 
   Future<List<Judge>> getJudges(String token) async {
-    final resp = await _client.get(_uri('/api/judges'), headers: _headers(token));
+    final resp = await _client.get(
+      _uri('/api/judges'),
+      headers: _headers(token),
+    );
     final json = _handleObject(resp);
     final list = json['judges'] as List<dynamic>? ?? [];
     return list.map((e) => Judge.fromJson(e as Map<String, dynamic>)).toList();
@@ -260,30 +296,44 @@ class ApiClient {
   }
 
   Future<void> startReindex(String token) async {
-    final resp = await _client.post(_uri('/api/cards/reindex'), headers: _headers(token));
+    final resp = await _client.post(
+      _uri('/api/cards/reindex'),
+      headers: _headers(token),
+    );
     if (resp.statusCode == 202 || resp.statusCode == 409) return;
     _handleObject(resp);
   }
 
   Future<ReindexStatus> getReindexStatus(String token) async {
-    final resp = await _client.get(_uri('/api/cards/reindex/status'), headers: _headers(token));
+    final resp = await _client.get(
+      _uri('/api/cards/reindex/status'),
+      headers: _headers(token),
+    );
     return ReindexStatus.fromJson(_handleObject(resp));
   }
 
   Future<Map<String, dynamic>> checkReindex(String token) async {
-    final resp = await _client.post(_uri('/api/cards/reindex/check'), headers: _headers(token));
+    final resp = await _client.post(
+      _uri('/api/cards/reindex/check'),
+      headers: _headers(token),
+    );
     return _handleObject(resp);
   }
 
   /// 利用統計は一般ユーザーも閲覧できる公開APIのためトークンは不要。
-  Future<List<CardQueryStat>> getCardQueryStats({String? token, int limit = 50}) async {
+  Future<List<CardQueryStat>> getCardQueryStats({
+    String? token,
+    int limit = 50,
+  }) async {
     final resp = await _client.get(
       _uri('/api/stats/cards', {'limit': '$limit'}),
       headers: _headers(token),
     );
     final json = _handleObject(resp);
     final list = json['cards'] as List<dynamic>? ?? [];
-    return list.map((e) => CardQueryStat.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => CardQueryStat.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// [query]を指定すると、参照実績の有無に関わらず全件データからキーワード検索する
@@ -304,7 +354,9 @@ class ApiClient {
     );
     final json = _handleObject(resp);
     final list = json['items'] as List<dynamic>? ?? [];
-    return list.map((e) => SourceReferenceStat.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => SourceReferenceStat.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// 利用統計画面の「総合ルール」タブで項目をタップした際、条文の全文を取得する。

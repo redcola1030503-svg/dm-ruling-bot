@@ -19,6 +19,7 @@ const _pollInterval = Duration(seconds: 4);
 /// refreshAllPending()で未完了ジョブを再確認するフォールバックも持つ。
 class RulingJobsProvider extends ChangeNotifier {
   static const _jobsKey = 'ruling_jobs';
+  static const _notificationsEnabledKey = 'push_notifications_enabled';
 
   final ApiClient apiClient;
   final PushService pushService;
@@ -30,18 +31,20 @@ class RulingJobsProvider extends ChangeNotifier {
   final Map<String, Timer> _pollers = {};
   bool _pushRegistered = false;
   bool _restored = false;
+  bool _notificationsEnabled = true;
 
   RulingJobsProvider({
     required this.apiClient,
     PushService? pushService,
     DeviceIdProvider? deviceIdProvider,
     FlutterSecureStorage? storage,
-  })  : pushService = pushService ?? PushService(),
-        deviceIdProvider = deviceIdProvider ?? DeviceIdProvider(),
-        _storage = storage ?? const FlutterSecureStorage();
+  }) : pushService = pushService ?? PushService(),
+       deviceIdProvider = deviceIdProvider ?? DeviceIdProvider(),
+       _storage = storage ?? const FlutterSecureStorage();
 
   List<RulingJob> get jobs => List.unmodifiable(_jobs);
   List<RulingThreadSummary> get threads => List.unmodifiable(_threads);
+  bool get notificationsEnabled => _notificationsEnabled;
 
   Future<void> restore() async {
     if (_restored) return;
@@ -50,18 +53,56 @@ class RulingJobsProvider extends ChangeNotifier {
       final raw = await _storage.read(key: _jobsKey);
       if (raw != null && raw.isNotEmpty) {
         final list = jsonDecode(raw) as List<dynamic>;
-        _jobs.addAll(list.map((e) => RulingJob.fromStorageJson(e as Map<String, dynamic>)));
+        _jobs.addAll(
+          list.map((e) => RulingJob.fromStorageJson(e as Map<String, dynamic>)),
+        );
       }
     } catch (_) {
       // 永続化データが壊れていても致命的ではないため、空の状態から始める
     }
+    try {
+      final enabledValue = await _storage.read(key: _notificationsEnabledKey);
+      if (enabledValue != null) {
+        _notificationsEnabled = enabledValue == 'true';
+      }
+    } catch (_) {}
     notifyListeners();
     unawaited(refreshAllPending());
   }
 
+  /// 通知のON/OFFをユーザー操作で切り替える。OFFにする際はサーバー側に
+  /// 登録済みのプッシュトークンも解除し、以後の質問投稿では再登録しない。
+  /// ONに戻した際は次回の質問投稿を待たずその場で再登録する。
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    if (_notificationsEnabled == enabled) return;
+    _notificationsEnabled = enabled;
+    notifyListeners();
+    try {
+      await _storage.write(
+        key: _notificationsEnabledKey,
+        value: enabled.toString(),
+      );
+    } catch (_) {}
+
+    final deviceId = await deviceIdProvider.getOrCreate();
+    _pushRegistered = false;
+    if (enabled) {
+      unawaited(_setUpPush(deviceId));
+    } else {
+      try {
+        await apiClient.unregisterPushToken(deviceId);
+      } catch (_) {
+        // オフライン等で解除に失敗しても、ローカルの設定(OFF)は維持する
+      }
+    }
+  }
+
   Future<void> _persist() async {
     try {
-      final list = _jobs.take(_maxStoredJobs).map((j) => j.toStorageJson()).toList();
+      final list = _jobs
+          .take(_maxStoredJobs)
+          .map((j) => j.toStorageJson())
+          .toList();
       await _storage.write(key: _jobsKey, value: jsonEncode(list));
     } catch (_) {
       // 永続化に失敗しても、このセッション内のメモリ上の状態は維持される
@@ -71,7 +112,7 @@ class RulingJobsProvider extends ChangeNotifier {
   /// 新規質問を送信する。常に新規スレッドとして開始される。
   Future<String> submitQuestion(String question) async {
     final deviceId = await deviceIdProvider.getOrCreate();
-    if (!_pushRegistered) {
+    if (!_pushRegistered && _notificationsEnabled) {
       unawaited(_setUpPush(deviceId));
     }
 
@@ -85,7 +126,12 @@ class RulingJobsProvider extends ChangeNotifier {
     );
     _jobs.insert(0, job);
     if (submission.threadId != null) {
-      _upsertThreadOptimistic(submission.threadId!, question, job, isNewJob: true);
+      _upsertThreadOptimistic(
+        submission.threadId!,
+        question,
+        job,
+        isNewJob: true,
+      );
     }
     await _persist();
     notifyListeners();
@@ -97,11 +143,15 @@ class RulingJobsProvider extends ChangeNotifier {
   /// 既存スレッドへの追加質問(フォローアップ)を送信する。
   Future<String> submitFollowUp(String threadId, String question) async {
     final deviceId = await deviceIdProvider.getOrCreate();
-    if (!_pushRegistered) {
+    if (!_pushRegistered && _notificationsEnabled) {
       unawaited(_setUpPush(deviceId));
     }
 
-    final submission = await apiClient.submitRulingJob(question, deviceId, threadId: threadId);
+    final submission = await apiClient.submitRulingJob(
+      question,
+      deviceId,
+      threadId: threadId,
+    );
     final job = RulingJob(
       jobId: submission.jobId,
       question: question,
@@ -217,7 +267,12 @@ class RulingJobsProvider extends ChangeNotifier {
       _jobs.insert(0, updated);
     }
     if (updated.threadId != null) {
-      _upsertThreadOptimistic(updated.threadId!, updated.question, updated, isNewJob: false);
+      _upsertThreadOptimistic(
+        updated.threadId!,
+        updated.question,
+        updated,
+        isNewJob: false,
+      );
     }
     await _persist();
     notifyListeners();
@@ -232,7 +287,10 @@ class RulingJobsProvider extends ChangeNotifier {
   /// 通知を取りこぼした場合のフォールバック。未完了として保存されている
   /// ジョブを全て再確認する(アプリ起動時・AppLifecycleState.resumed復帰時に呼ぶ)。
   Future<void> refreshAllPending() async {
-    final pendingIds = _jobs.where((j) => !j.isFinished).map((j) => j.jobId).toList();
+    final pendingIds = _jobs
+        .where((j) => !j.isFinished)
+        .map((j) => j.jobId)
+        .toList();
     for (final jobId in pendingIds) {
       await _pollOnce(jobId);
     }
