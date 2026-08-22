@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/ruling_job.dart';
+import '../utils/share_ruling.dart';
 import 'loading_banner_ad.dart';
 import 'question_bubble.dart';
 import 'ruling_result_view.dart';
@@ -43,13 +44,23 @@ class RulingTurnView extends StatelessWidget {
           )
         else if (job.result != null) ...[
           RulingResultView(result: job.result!),
-          if (isLoggedIn && onCorrect != null) ...[
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: onCorrect,
-              child: const Text('この裁定を訂正する'),
-            ),
-          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => shareRuling(job.question, job.result!),
+                icon: const Icon(Icons.share_outlined, size: 18),
+                label: const Text('共有'),
+              ),
+              if (isLoggedIn && onCorrect != null)
+                OutlinedButton(
+                  onPressed: onCorrect,
+                  child: const Text('この裁定を訂正する'),
+                ),
+            ],
+          ),
         ],
       ],
     );

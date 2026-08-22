@@ -11,6 +11,7 @@ import '../widgets/inline_card_suggest_field.dart';
 import '../widgets/loading_banner_ad.dart';
 import '../widgets/question_bubble.dart';
 import '../widgets/ruling_result_view.dart';
+import '../utils/share_ruling.dart';
 import 'correction_dialog.dart';
 import 'ruling_thread_detail_screen.dart';
 import 'settings_screen.dart';
@@ -255,13 +256,24 @@ class _RulingScreenState extends State<RulingScreen> {
                 )
               else if (latestJob.result != null) ...[
                 RulingResultView(result: latestJob.result!),
-                if (auth.isLoggedIn) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: () => _openCorrectionDialog(latestJob),
-                    child: const Text('この裁定を訂正する'),
-                  ),
-                ],
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          shareRuling(latestJob.question, latestJob.result!),
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      label: const Text('共有'),
+                    ),
+                    if (auth.isLoggedIn)
+                      OutlinedButton(
+                        onPressed: () => _openCorrectionDialog(latestJob),
+                        child: const Text('この裁定を訂正する'),
+                      ),
+                  ],
+                ),
               ],
             ],
             if (threads.isNotEmpty) ...[
