@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { deleteToken, upsertToken } from "../push/pushTokenRepository";
+import { sendPushNotification } from "../push/fcm";
+import { deleteToken, getToken, upsertToken } from "../push/pushTokenRepository";
 import { pushRegisterRateLimiter } from "../utils/rateLimit";
 
 export const pushRouter = Router();
@@ -37,6 +38,45 @@ pushRouter.delete(
     }
 
     deleteToken(parsed.data.deviceId);
+    res.status(204).send();
+  },
+);
+
+const sendTestSchema = z.object({
+  deviceId: z.string().min(1).max(200),
+});
+
+pushRouter.post(
+  "/api/push/send-test",
+  pushRegisterRateLimiter,
+  async (req, res) => {
+    const parsed = sendTestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+      return;
+    }
+
+    const token = getToken(parsed.data.deviceId);
+    if (!token) {
+      res.status(404).json({ error: "push_token_not_found" });
+      return;
+    }
+
+    const result = await sendPushNotification({
+      token,
+      title: "テスト通知",
+      body: "この通知が届いていれば、プッシュ通知は正常に動作しています。",
+      data: {},
+    });
+
+    if (!result.ok) {
+      if (result.shouldRemoveToken) {
+        deleteToken(parsed.data.deviceId);
+      }
+      res.status(502).json({ error: "push_send_failed" });
+      return;
+    }
+
     res.status(204).send();
   },
 );

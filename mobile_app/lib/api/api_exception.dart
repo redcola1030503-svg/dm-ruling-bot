@@ -12,6 +12,10 @@ class ApiException implements Exception {
         return '無効なジャッジIDです。';
       case 'already_running':
         return '既に処理が実行中です。';
+      case 'push_token_not_found':
+        return '通知の登録が確認できませんでした。通知をONにしてから再度お試しください。';
+      case 'push_send_failed':
+        return '通知の送信に失敗しました。時間をおいて再度お試しください。';
       default:
         if (statusCode == 429) {
           return 'リクエストが多すぎます。しばらく待ってから再度お試しください。';

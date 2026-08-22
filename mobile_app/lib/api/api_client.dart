@@ -163,6 +163,16 @@ class ApiClient {
     _handleObject(resp);
   }
 
+  Future<void> sendTestPushNotification(String deviceId) async {
+    final resp = await _client.post(
+      _uri('/api/push/send-test'),
+      headers: _headers(),
+      body: jsonEncode({'deviceId': deviceId}),
+    );
+    if (resp.statusCode == 204) return;
+    _handleObject(resp);
+  }
+
   Future<Session> login(String judgeId) async {
     final resp = await _client.post(
       _uri('/api/login'),

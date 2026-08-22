@@ -97,6 +97,12 @@ class RulingJobsProvider extends ChangeNotifier {
     }
   }
 
+  /// 現在の端末宛にテスト通知を送信する(オプション画面の動作確認用)。
+  Future<void> sendTestNotification() async {
+    final deviceId = await deviceIdProvider.getOrCreate();
+    await apiClient.sendTestPushNotification(deviceId);
+  }
+
   Future<void> _persist() async {
     try {
       final list = _jobs
