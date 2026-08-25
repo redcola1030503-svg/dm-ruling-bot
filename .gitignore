@@ -8,3 +8,9 @@ APIKey.txt
 *.key
 *secret*
 *.pem
+# Apple の秘密鍵類(APNs認証キー・配布証明書)。誤ってPublicリポジトリへ
+# コミットされるのを防ぐため、拡張子単位で除外する。
+# 実体は C:\Users\redco\Documents\dm-ruling-bot-secrets\ に保管している。
+*.p8
+*.p12
+*.jks
