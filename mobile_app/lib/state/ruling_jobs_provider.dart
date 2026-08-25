@@ -287,17 +287,22 @@ class RulingJobsProvider extends ChangeNotifier {
   }
 
   Future<void> _setUpPush(String deviceId) async {
-    _pushRegistered = true;
     try {
       final token = await pushService.requestPermissionAndGetToken();
-      if (token != null) {
-        await apiClient.registerPushToken(deviceId, token);
+      if (token == null) {
+        // 許可が下りない/トークンを取得できない場合は失敗として扱い、
+        // 次回の質問投稿時に再試行できるよう_pushRegisteredはfalseのままにする。
+        return;
       }
+      await apiClient.registerPushToken(deviceId, token);
+      // ここまで成功して初めて「登録済み」とみなす。
+      _pushRegistered = true;
       pushService.listenTokenRefresh((newToken) {
         unawaited(apiClient.registerPushToken(deviceId, newToken));
       });
     } catch (_) {
-      // プッシュ通知の初期化に失敗しても、ポーリングでの結果取得は引き続き機能する
+      // プッシュ通知の初期化に失敗しても、ポーリングでの結果取得は引き続き機能する。
+      // _pushRegisteredはfalseのままにして、次回の質問投稿時に再試行させる。
     }
   }
 
