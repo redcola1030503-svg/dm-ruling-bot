@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages/messages";
 import { env } from "../config/env";
+import { logger } from "../utils/logger";
 
 let client: Anthropic | null = null;
 
@@ -33,11 +34,29 @@ function extractText(message: Message): string {
   return textBlock.text;
 }
 
+/**
+ * コスト試算(アクティブユーザー数・質問数と組み合わせた概算)のため、
+ * LLM呼び出し1回ごとのトークン使用量をログに残す。labelで呼び出し元
+ * (analyze_question/generate_ruling)を区別できるようにする。
+ */
+function logUsage(label: string, message: Message, batch: boolean): void {
+  logger.info("llm_usage", {
+    label,
+    model: MODEL,
+    batch,
+    inputTokens: message.usage.input_tokens,
+    outputTokens: message.usage.output_tokens,
+    cacheCreationInputTokens: message.usage.cache_creation_input_tokens ?? 0,
+    cacheReadInputTokens: message.usage.cache_read_input_tokens ?? 0,
+  });
+}
+
 export async function completeJson(params: {
   system: string;
   userMessage: string;
   maxTokens?: number;
   useBatchApi?: boolean;
+  label: string;
 }): Promise<string> {
   if (params.useBatchApi) {
     return completeJsonViaBatch(params);
@@ -51,6 +70,7 @@ export async function completeJson(params: {
     thinking: { type: "disabled" },
   });
 
+  logUsage(params.label, response, false);
   return extractText(response);
 }
 
@@ -64,6 +84,7 @@ async function completeJsonViaBatch(params: {
   system: string;
   userMessage: string;
   maxTokens?: number;
+  label: string;
 }): Promise<string> {
   const anthropic = getClient();
   const batch = await anthropic.messages.batches.create({
@@ -92,6 +113,7 @@ async function completeJsonViaBatch(params: {
     if (item.result.type !== "succeeded") {
       throw new Error(`LLM batch request did not succeed (result type: ${item.result.type})`);
     }
+    logUsage(params.label, item.result.message, true);
     return extractText(item.result.message);
   }
   throw new Error("LLM batch result not found for custom_id");

@@ -39,6 +39,7 @@ export async function analyzeQuestion(originalText: string): Promise<ParsedQuest
     const raw = await completeJson({
       system: ANALYZE_SYSTEM_PROMPT,
       userMessage: originalText,
+      label: "analyze_question",
     });
     const parsed = parsedQuestionSchema.parse(JSON.parse(extractJsonBlock(raw)));
 

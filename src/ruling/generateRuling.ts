@@ -239,6 +239,7 @@ export async function generateRuling(
     userMessage,
     maxTokens: 4096,
     useBatchApi: options?.useBatchApi,
+    label: "generate_ruling",
   });
   const validated = llmOutputSchema.parse(JSON.parse(extractJsonBlock(raw)));
 
