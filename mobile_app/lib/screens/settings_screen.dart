@@ -3,7 +3,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
-import '../api/api_exception.dart';
 import '../state/auth_provider.dart';
 import '../state/ruling_jobs_provider.dart';
 import '../state/settings_provider.dart';
@@ -51,19 +50,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text('裁定生成が完了したときに通知します'),
             value: rulingJobs.notificationsEnabled,
             onChanged: (value) => rulingJobs.setNotificationsEnabled(value),
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications_active_outlined),
-            title: const Text('通知テストを送信'),
-            subtitle: Text(
-              rulingJobs.notificationsEnabled
-                  ? '実際に通知が届くか確認できます'
-                  : '通知がOFFのため送信できません',
-            ),
-            enabled: rulingJobs.notificationsEnabled,
-            onTap: rulingJobs.notificationsEnabled
-                ? () => _sendTestNotification(rulingJobs)
-                : null,
           ),
           const Divider(),
           const _SectionHeader('表示'),
@@ -267,23 +253,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _sendTestNotification(RulingJobsProvider rulingJobs) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await rulingJobs.sendTestNotification();
-      if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('テスト通知を送信しました')));
-    } catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            e is ApiException ? e.friendlyMessage : '送信に失敗しました: $e',
-          ),
-        ),
-      );
-    }
-  }
 }
 
 class _SectionHeader extends StatelessWidget {
