@@ -194,6 +194,12 @@ db.exec(`
     description TEXT NOT NULL,
     updated_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS device_subscription (
+    device_id TEXT PRIMARY KEY,
+    active_until INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
 `);
 
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。
