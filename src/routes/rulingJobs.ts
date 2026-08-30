@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
-import { createJob, getJob, getJobsByThread } from "../ruling/rulingJobRepository";
+import { createJob, getJob, getJobsByThread, countJobsThisMonth } from "../ruling/rulingJobRepository";
 import { runRulingJobInBackground, canAcceptNewJob } from "../ruling/rulingJob";
 import { createThread, getThread, touchThread, deriveThreadTitle } from "../ruling/rulingThreadRepository";
 import { buildFollowUpQuestion } from "../ruling/threadContext";
 import { logger } from "../utils/logger";
 import { rulingRateLimiter } from "../utils/rateLimit";
+import { getActiveUntil } from "../billing/deviceSubscriptionRepository";
+import { evaluateRulingAccess } from "../billing/accessControl";
 
 export const rulingJobsRouter = Router();
 
@@ -30,6 +32,18 @@ rulingJobsRouter.post("/api/ruling/jobs", rulingRateLimiter, (req, res) => {
 
   const { question, deviceId: rawDeviceId, threadId: requestedThreadId } = parsed.data;
   const deviceId = rawDeviceId ?? null;
+
+  // deviceId未送信(旧バージョン等)は既存仕様通り無料枠チェックの対象外とする。
+  if (deviceId) {
+    const now = Date.now();
+    const jobCountThisMonth = countJobsThisMonth(deviceId, now);
+    const activeUntilMs = getActiveUntil(deviceId);
+    const { allowed } = evaluateRulingAccess({ jobCountThisMonth, activeUntilMs, nowMs: now });
+    if (!allowed) {
+      res.status(402).json({ error: "subscription_required" });
+      return;
+    }
+  }
 
   // threadIdはユーザー(端末)を認証するものではなく自己申告の匿名IDのため、
   // device_idが一致しない(=他人のスレッドへの投稿、または存在しないスレッド)場合は
