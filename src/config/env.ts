@@ -77,6 +77,17 @@ const envSchema = z.object({
 
   // 無料で利用できる月間の質問数。これを超えるとサブスクリプションが必須になる。
   RULING_FREE_MONTHLY_LIMIT: z.coerce.number().default(10),
+
+  // RevenueCat WebhookのAuthorizationヘッダに設定する共有シークレット。
+  // RevenueCatダッシュボード(Project > Integrations > Webhooks)で同じ値を設定する。
+  // 未設定の場合、Webhookエンドポイントは全リクエストを401で拒否する(安全側デフォルト)。
+  REVENUECAT_WEBHOOK_SECRET: z.string().optional(),
+
+  // RevenueCatのREST API(GetCustomerInfo)呼び出し用のSecret API Key。
+  REVENUECAT_API_KEY: z.string().optional(),
+
+  // RevenueCatダッシュボードで設定した、月額サブスクリプションのエンタイトルメントID。
+  REVENUECAT_ENTITLEMENT_ID: z.string().default("unlimited_questions"),
 });
 
 export const env = envSchema.parse(process.env);
