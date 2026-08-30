@@ -30,5 +30,6 @@ export async function fetchCustomerEntitlementExpiry(appUserId: string): Promise
   );
   const entitlement = response.data?.subscriber?.entitlements?.[env.REVENUECAT_ENTITLEMENT_ID];
   if (!entitlement?.expires_date) return null;
-  return Date.parse(entitlement.expires_date);
+  const parsed = Date.parse(entitlement.expires_date);
+  return Number.isFinite(parsed) ? parsed : null;
 }

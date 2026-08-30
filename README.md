@@ -328,6 +328,10 @@ Render/Railwayでは「Persistent Disk」「Volume」機能を`/app/data`にマ�
 | `DATABASE_URL` | 永続ボリューム上のパスを指定(例: `/app/data/cache.db`) |
 | `RULING_USE_BATCH_API` | 任意、既定`false`。`true`にするとモバイルアプリの非同期裁定ジョブ(Push通知経路)のみAnthropic Message Batches API(入出力とも50%割引)を使う。LINE Bot・同期`/api/ruling`は対象外(常に通常API)。バッチは通常1時間以内に完了するが保証はなく最大24時間かかりうるため、レイテンシ悪化が問題になれば`false`に戻すだけで即座に通常APIへ復帰できる |
 | `PORT` | Renderはコンテナに`PORT`環境変数を自動注入し、そのポートで待ち受ける(明示的な設定は不要。本番では10000番ポートが割り当てられている) |
+| `REVENUECAT_WEBHOOK_SECRET` | RevenueCatダッシュボード(Project > Integrations > Webhooks)の「Authorization header value」と同じ値を設定。未設定のままだと`/api/billing/revenuecat-webhook`は全リクエストを401で拒否し続ける(起動時に警告ログが出る) |
+| `REVENUECAT_API_KEY` | RevenueCatのSecret API Key(REST API呼び出し用)。未設定だと`/api/billing/sync`が常に失敗する(起動時に警告ログが出る) |
+| `REVENUECAT_ENTITLEMENT_ID` | 任意、既定`unlimited_questions`。RevenueCatダッシュボードで設定した月額サブスクリプションのエンタイトルメントIDと一致させること |
+| `RULING_FREE_MONTHLY_LIMIT` | 任意、既定`10`。無料で利用できる月間の質問数。超過後はアクティブなサブスクリプションが必須になる |
 
 ### デプロイ後の確認
 

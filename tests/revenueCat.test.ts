@@ -84,4 +84,18 @@ describe("fetchCustomerEntitlementExpiry", () => {
 
     expect(await fetchCustomerEntitlementExpiry("device-1")).toBeNull();
   });
+
+  it("expires_dateが不正な日付形式の場合はNaNではなくnullを返す", async () => {
+    axiosGetMock.mockResolvedValue({
+      data: {
+        subscriber: {
+          entitlements: {
+            unlimited_questions: { expires_date: "not-a-valid-date" },
+          },
+        },
+      },
+    });
+
+    expect(await fetchCustomerEntitlementExpiry("device-1")).toBeNull();
+  });
 });

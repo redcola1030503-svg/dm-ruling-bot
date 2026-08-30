@@ -49,6 +49,17 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(500).json({ error: "internal_server_error" });
 });
 
+if (env.NODE_ENV === "production" && !env.REVENUECAT_WEBHOOK_SECRET) {
+  logger.warn("revenuecat_webhook_secret_missing", {
+    detail: "REVENUECAT_WEBHOOK_SECRET未設定のため、RevenueCat Webhookは全て401で拒否され続けます。",
+  });
+}
+if (env.NODE_ENV === "production" && !env.REVENUECAT_API_KEY) {
+  logger.warn("revenuecat_api_key_missing", {
+    detail: "REVENUECAT_API_KEY未設定のため、/api/billing/syncは常に失敗します。",
+  });
+}
+
 app.listen(env.PORT, () => {
   logger.info("server_started", { port: env.PORT });
 });
