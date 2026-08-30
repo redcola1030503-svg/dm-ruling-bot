@@ -40,15 +40,21 @@ class _RulingScreenState extends State<RulingScreen> {
     super.initState();
     final provider = context.read<RulingJobsProvider>();
     Future.microtask(() => provider.loadThreads());
-    Future.microtask(() async {
+    Future.microtask(() => _refreshUsage(provider));
+  }
+
+  /// 残り無料質問回数を取り直す。初期表示・質問送信後・スレッド詳細から
+  /// 戻った直後(フォローアップ質問も無料枠を消費する)に呼ぶ。
+  /// 失敗しても表示を据え置くだけで、例外は外へ出さない
+  /// (unawaitedで呼んでも未処理の非同期エラーにならない)。
+  Future<void> _refreshUsage(RulingJobsProvider provider) async {
+    try {
       final deviceId = await provider.deviceIdProvider.getOrCreate();
-      try {
-        final usage = await widget.apiClient.getRulingUsage(deviceId);
-        if (mounted) setState(() => _usage = usage);
-      } catch (_) {
-        // 取得失敗時は表示を省略する(質問送信自体には影響しない)
-      }
-    });
+      final usage = await widget.apiClient.getRulingUsage(deviceId);
+      if (mounted) setState(() => _usage = usage);
+    } catch (_) {
+      // 取得失敗時は表示を更新しない(質問送信自体には影響しない)
+    }
   }
 
   @override
@@ -69,11 +75,7 @@ class _RulingScreenState extends State<RulingScreen> {
     try {
       await jobsProvider.submitQuestion(question);
       _questionController.clear();
-      unawaited(
-        jobsProvider.deviceIdProvider.getOrCreate().then(widget.apiClient.getRulingUsage).then((usage) {
-          if (mounted) setState(() => _usage = usage);
-        }),
-      );
+      unawaited(_refreshUsage(jobsProvider));
     } catch (e) {
       if (e is ApiException && e.isSubscriptionRequired) {
         if (!mounted) return;
@@ -348,12 +350,18 @@ class _RulingScreenState extends State<RulingScreen> {
                       tooltip: 'スレッドを削除',
                       onPressed: () => _confirmDeleteThread(thread),
                     ),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            RulingThreadDetailScreen(threadId: thread.threadId),
-                      ),
-                    ),
+                    onTap: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => RulingThreadDetailScreen(
+                            threadId: thread.threadId,
+                          ),
+                        ),
+                      );
+                      // スレッド詳細でのフォローアップ質問も無料枠を消費するため、
+                      // 戻ってきたタイミングで残り回数を取り直す。
+                      await _refreshUsage(jobsProvider);
+                    },
                   ),
                 );
               }),
