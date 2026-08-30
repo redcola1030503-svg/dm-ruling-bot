@@ -82,14 +82,3 @@ export function pruneOldJobs(retentionMs: number): void {
        AND thread_id IS NULL`,
   ).run(threshold);
 }
-
-// 無料枠(月n問)の判定用。UTC暦月の月初からnowMsまでの件数を数える。
-// JSTとの数時間のズレは無料枠判定の精度として許容する(意図的な簡略化)。
-export function countJobsThisMonth(deviceId: string, nowMs: number): number {
-  const now = new Date(nowMs);
-  const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0);
-  const row = db
-    .prepare("SELECT COUNT(*) as count FROM ruling_job WHERE device_id = ? AND created_at >= ?")
-    .get(deviceId, monthStart) as { count: number };
-  return row.count;
-}

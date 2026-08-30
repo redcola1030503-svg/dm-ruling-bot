@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
-import { createJob, getJob, getJobsByThread, countJobsThisMonth } from "../ruling/rulingJobRepository";
+import { createJob, getJob, getJobsByThread } from "../ruling/rulingJobRepository";
 import { runRulingJobInBackground, canAcceptNewJob } from "../ruling/rulingJob";
 import { createThread, getThread, touchThread, deriveThreadTitle } from "../ruling/rulingThreadRepository";
 import { buildFollowUpQuestion } from "../ruling/threadContext";
@@ -9,6 +9,7 @@ import { logger } from "../utils/logger";
 import { rulingRateLimiter } from "../utils/rateLimit";
 import { getActiveUntil } from "../billing/deviceSubscriptionRepository";
 import { evaluateRulingAccess } from "../billing/accessControl";
+import { getMonthlyUsageCount, incrementMonthlyUsage } from "../billing/deviceMonthlyUsageRepository";
 
 export const rulingJobsRouter = Router();
 
@@ -36,7 +37,7 @@ rulingJobsRouter.post("/api/ruling/jobs", rulingRateLimiter, (req, res) => {
   // deviceId未送信(旧バージョン等)は既存仕様通り無料枠チェックの対象外とする。
   if (deviceId) {
     const now = Date.now();
-    const jobCountThisMonth = countJobsThisMonth(deviceId, now);
+    const jobCountThisMonth = getMonthlyUsageCount(deviceId, now);
     const activeUntilMs = getActiveUntil(deviceId);
     const { allowed } = evaluateRulingAccess({ jobCountThisMonth, activeUntilMs, nowMs: now });
     if (!allowed) {
@@ -72,6 +73,11 @@ rulingJobsRouter.post("/api/ruling/jobs", rulingRateLimiter, (req, res) => {
 
   const jobId = randomUUID();
   createJob(jobId, question, deviceId, resolvedThreadId);
+  // 無料枠ゲートを通過した(=実際にジョブが作成された)場合のみ、1リクエスト=1件として
+  // 独立カウンタに加算する(スレッド削除でruling_jobの行が消えてもこのカウントは減らない)。
+  if (deviceId) {
+    incrementMonthlyUsage(deviceId, Date.now());
+  }
   logger.info("ruling_job_created", {
     jobId,
     questionLength: question.length,

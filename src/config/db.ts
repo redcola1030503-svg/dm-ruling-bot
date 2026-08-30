@@ -200,6 +200,13 @@ db.exec(`
     active_until INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS device_monthly_usage (
+    device_id TEXT NOT NULL,
+    month_key TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device_id, month_key)
+  );
 `);
 
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。
