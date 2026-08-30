@@ -12,6 +12,7 @@ import { judgesRouter } from "./routes/judges";
 import { correctionsRouter } from "./routes/corrections";
 import { cardsRouter } from "./routes/cards";
 import { statsRouter } from "./routes/stats";
+import { billingRouter } from "./routes/billing";
 import { logger } from "./utils/logger";
 
 const app = express();
@@ -41,6 +42,7 @@ app.use(judgesRouter);
 app.use(correctionsRouter);
 app.use(cardsRouter);
 app.use(statsRouter);
+app.use(billingRouter);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error("unhandled_error", { error: err instanceof Error ? err.message : String(err) });
