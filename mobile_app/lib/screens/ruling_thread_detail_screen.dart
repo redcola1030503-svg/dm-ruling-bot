@@ -99,6 +99,7 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
       });
     } catch (e) {
       if (e is ApiException && e.isSubscriptionRequired) {
+        if (!mounted) return;
         final apiClient = context.read<RulingJobsProvider>().apiClient;
         final purchased = await Navigator.push<bool>(
           context,

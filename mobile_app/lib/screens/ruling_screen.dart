@@ -58,6 +58,7 @@ class _RulingScreenState extends State<RulingScreen> {
       _questionController.clear();
     } catch (e) {
       if (e is ApiException && e.isSubscriptionRequired) {
+        if (!mounted) return;
         final purchased = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
