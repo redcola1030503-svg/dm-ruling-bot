@@ -22,6 +22,24 @@ class RulingJobSubmission {
   const RulingJobSubmission({required this.jobId, this.threadId});
 }
 
+class RulingUsage {
+  final int remainingFree;
+  final bool subscriptionActive;
+  final bool canAskQuestion;
+
+  const RulingUsage({
+    required this.remainingFree,
+    required this.subscriptionActive,
+    required this.canAskQuestion,
+  });
+
+  factory RulingUsage.fromJson(Map<String, dynamic> json) => RulingUsage(
+    remainingFree: json['remainingFree'] as int,
+    subscriptionActive: json['subscriptionActive'] as bool,
+    canAskQuestion: json['canAskQuestion'] as bool,
+  );
+}
+
 class ApiClient {
   final String baseUrl;
   final http.Client _client;
@@ -144,6 +162,26 @@ class ApiClient {
     final resp = await _client.delete(
       _uri('/api/ruling/threads/$threadId', {'deviceId': deviceId}),
       headers: _headers(),
+    );
+    if (resp.statusCode == 204) return;
+    _handleObject(resp);
+  }
+
+  Future<RulingUsage> getRulingUsage(String deviceId) async {
+    final resp = await _client.get(
+      _uri('/api/ruling/usage', {'deviceId': deviceId}),
+      headers: _headers(),
+    );
+    return RulingUsage.fromJson(_handleObject(resp));
+  }
+
+  /// 購入直後にRevenueCatの購読状態をバックエンドへ即時反映させる
+  /// (Webhook到達までの数秒〜数十秒のタイムラグを埋めるため)。
+  Future<void> syncBilling(String deviceId) async {
+    final resp = await _client.post(
+      _uri('/api/billing/sync'),
+      headers: _headers(),
+      body: jsonEncode({'deviceId': deviceId}),
     );
     if (resp.statusCode == 204) return;
     _handleObject(resp);
