@@ -31,6 +31,12 @@ describe("verifyWebhookAuthorization", () => {
     expect(verifyWebhookAuthorization("wrong-secret")).toBe(false);
   });
 
+  it("シークレットと同じ長さで内容だけが異なる場合はfalse(timingSafeEqualの等長比較パスを通す)", () => {
+    // "test-secret"(11文字)と末尾1文字だけ異なる同じ11文字の値。
+    // 長さガードで短絡せず、timingSafeEqualによる実際の内容比較が実行されることを検証する。
+    expect(verifyWebhookAuthorization("test-secreX")).toBe(false);
+  });
+
   it("ヘッダーが無ければfalse", () => {
     expect(verifyWebhookAuthorization(undefined)).toBe(false);
   });
