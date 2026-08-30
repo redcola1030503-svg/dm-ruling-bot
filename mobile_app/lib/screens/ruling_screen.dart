@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -31,12 +33,22 @@ class _RulingScreenState extends State<RulingScreen> {
   final _questionFocusNode = FocusNode();
   bool _submitting = false;
   String? _submitError;
+  RulingUsage? _usage;
 
   @override
   void initState() {
     super.initState();
     final provider = context.read<RulingJobsProvider>();
     Future.microtask(() => provider.loadThreads());
+    Future.microtask(() async {
+      final deviceId = await provider.deviceIdProvider.getOrCreate();
+      try {
+        final usage = await widget.apiClient.getRulingUsage(deviceId);
+        if (mounted) setState(() => _usage = usage);
+      } catch (_) {
+        // 取得失敗時は表示を省略する(質問送信自体には影響しない)
+      }
+    });
   }
 
   @override
@@ -49,13 +61,19 @@ class _RulingScreenState extends State<RulingScreen> {
   Future<void> _submit() async {
     final question = _questionController.text.trim();
     if (question.isEmpty) return;
+    final jobsProvider = context.read<RulingJobsProvider>();
     setState(() {
       _submitting = true;
       _submitError = null;
     });
     try {
-      await context.read<RulingJobsProvider>().submitQuestion(question);
+      await jobsProvider.submitQuestion(question);
       _questionController.clear();
+      unawaited(
+        jobsProvider.deviceIdProvider.getOrCreate().then(widget.apiClient.getRulingUsage).then((usage) {
+          if (mounted) setState(() => _usage = usage);
+        }),
+      );
     } catch (e) {
       if (e is ApiException && e.isSubscriptionRequired) {
         if (!mounted) return;
@@ -191,6 +209,14 @@ class _RulingScreenState extends State<RulingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_usage != null && !_usage!.subscriptionActive)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '今月の残り無料質問回数: ${_usage!.remainingFree}回',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             InlineCardSuggestField(
               apiClient: widget.apiClient,
               controller: _questionController,
