@@ -13,6 +13,7 @@ import '../widgets/question_bubble.dart';
 import '../widgets/ruling_result_view.dart';
 import '../utils/share_ruling.dart';
 import 'correction_dialog.dart';
+import 'paywall_screen.dart';
 import 'ruling_thread_detail_screen.dart';
 import 'settings_screen.dart';
 
@@ -56,11 +57,25 @@ class _RulingScreenState extends State<RulingScreen> {
       await context.read<RulingJobsProvider>().submitQuestion(question);
       _questionController.clear();
     } catch (e) {
-      setState(() {
-        _submitError = e is ApiException
-            ? e.friendlyMessage
-            : '通信エラーが発生しました: $e';
-      });
+      if (e is ApiException && e.isSubscriptionRequired) {
+        final purchased = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PaywallScreen(apiClient: widget.apiClient),
+          ),
+        );
+        if (purchased == true) {
+          // 購読完了後、同じ質問を自動的に再送信する。
+          await _submit();
+          return;
+        }
+      } else {
+        setState(() {
+          _submitError = e is ApiException
+              ? e.friendlyMessage
+              : '通信エラーが発生しました: $e';
+        });
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
