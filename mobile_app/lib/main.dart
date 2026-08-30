@@ -4,6 +4,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 import 'api/api_client.dart';
+import 'billing/subscription_provider.dart';
+import 'push/device_id.dart';
 import 'push/push_service.dart';
 import 'screens/ruling_job_detail_screen.dart';
 import 'screens/ruling_screen.dart';
@@ -30,6 +32,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late final PushService _pushService;
   late final RulingJobsProvider _rulingJobsProvider;
   late final SettingsProvider _settingsProvider;
+  late final SubscriptionProvider _subscriptionProvider;
 
   @override
   void initState() {
@@ -48,6 +51,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     });
     _rulingJobsProvider.restore();
     _settingsProvider.restore();
+    _subscriptionProvider = SubscriptionProvider();
+    // deviceIdの取得を含め非同期処理をawaitせずバックグラウンドで実行する。
+    // ここでawaitすると起動時のUI表示(test/widget_test.dartのpumpAndSettle)が
+    // ブロックされるため、既存のflutter_secure_storage系Providerと同様に
+    // 「起動は即座に完了し、購読状態は後から反映される」設計にする。
+    // catchErrorは、RevenueCat未対応プラットフォーム(テスト環境のホストOS等)や
+    // ネットワーク不通時にinitialize()が例外を投げても、fire-and-forget実行の
+    // 結果Future内で処理されずクラッシュ/テスト失敗につながらないようにするため。
+    DeviceIdProvider().getOrCreate().then(_subscriptionProvider.initialize).catchError((_) {});
     MobileAds.instance.initialize();
   }
 
@@ -91,6 +103,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
         ChangeNotifierProvider<SettingsProvider>.value(
           value: _settingsProvider,
+        ),
+        ChangeNotifierProvider<SubscriptionProvider>.value(
+          value: _subscriptionProvider,
         ),
       ],
       child: Consumer<SettingsProvider>(
