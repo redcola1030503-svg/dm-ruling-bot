@@ -8,20 +8,49 @@ import 'revenue_cat_keys.dart';
 /// REVENUECAT_ENTITLEMENT_ID環境変数と同じ値にすること)。
 const _entitlementId = 'unlimited_questions';
 
+/// 初期化に失敗している状態で購入・復元が呼ばれた際に投げるメッセージ。
+/// ネイティブSDKの不透明な例外をそのまま見せず、日本語の指示を返す。
+const _notConfiguredMessage = 'サブスクリプションの初期化に失敗しています。アプリを再起動してください。';
+
 class SubscriptionProvider extends ChangeNotifier {
   bool _configured = false;
   bool _isSubscribed = false;
+
+  /// initialize()に渡された最後のappUserId。初期化に失敗した場合でも
+  /// 後から同じIDで再初期化できるよう保持する。
+  String? _appUserId;
 
   bool get isSubscribed => _isSubscribed;
 
   /// RevenueCat SDKを初期化する。アプリ起動をブロックしないよう、
   /// 呼び出し元でawaitせずバックグラウンドで実行すること。
   Future<void> initialize(String appUserId) async {
+    _appUserId = appUserId;
     await Purchases.configure(
       PurchasesConfiguration(RevenueCatKeys.publicSdkKey)..appUserID = appUserId,
     );
     _configured = true;
     await checkEntitlement();
+  }
+
+  /// 起動時のinitialize()が失敗していた場合(RevenueCatキー未設定・
+  /// 通信断など)に、同じappUserIdで一度だけ再初期化を試みる。
+  /// それでも初期化できない場合は日本語のStateErrorを投げ、
+  /// 未初期化のSDKを呼び出して不可解なネイティブ例外が出るのを防ぐ。
+  Future<void> _ensureConfigured() async {
+    if (_configured) return;
+    final appUserId = _appUserId;
+    if (appUserId == null) {
+      throw StateError(_notConfiguredMessage);
+    }
+    try {
+      await initialize(appUserId);
+    } catch (_) {
+      throw StateError(_notConfiguredMessage);
+    }
+    if (!_configured) {
+      throw StateError(_notConfiguredMessage);
+    }
   }
 
   /// サーバーに問い合わせず、RevenueCat SDKのキャッシュ済み顧客情報から
@@ -35,21 +64,31 @@ class SubscriptionProvider extends ChangeNotifier {
     return _isSubscribed;
   }
 
-  /// 商品を購入する。RevenueCatダッシュボードで作成済みの現在のOfferingから
-  /// 唯一のパッケージ(単一プランのため)を購入する。オファリングが
-  /// 空の場合は例外を投げる。
-  Future<void> purchase() async {
+  /// 現在のOfferingから購入対象のパッケージ(単一プランのため先頭)を返す。
+  /// Offeringが未設定・空の場合はnullを返す(ペイウォール側で案内を出す)。
+  Future<Package?> loadCurrentPackage() async {
+    await _ensureConfigured();
     final offerings = await Purchases.getOfferings();
     final current = offerings.current;
-    if (current == null || current.availablePackages.isEmpty) {
+    if (current == null || current.availablePackages.isEmpty) return null;
+    return current.availablePackages.first;
+  }
+
+  /// 商品を購入する。ペイウォールが表示のために取得済みのパッケージを
+  /// 渡すこと。省略した場合は現在のOfferingから取得する。
+  Future<void> purchase([Package? package]) async {
+    await _ensureConfigured();
+    final target = package ?? await loadCurrentPackage();
+    if (target == null) {
       throw StateError('購入可能なプランが見つかりませんでした。');
     }
-    await Purchases.purchasePackage(current.availablePackages.first);
+    await Purchases.purchase(PurchaseParams.package(target));
     await checkEntitlement();
   }
 
   /// 購入の復元(再インストール後・機種変更時)。復元後の購読有無を返す。
   Future<bool> restorePurchases() async {
+    await _ensureConfigured();
     await Purchases.restorePurchases();
     return checkEntitlement();
   }
