@@ -74,6 +74,9 @@ const envSchema = z.object({
     .string()
     .default("false")
     .transform((value) => value === "true"),
+
+  // 無料で利用できる月間の質問数。これを超えるとサブスクリプションが必須になる。
+  RULING_FREE_MONTHLY_LIMIT: z.coerce.number().default(10),
 });
 
 export const env = envSchema.parse(process.env);
