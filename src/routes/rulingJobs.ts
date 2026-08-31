@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
-import { z } from "zod";
-import { createJob, getJob, getJobsByThread } from "../ruling/rulingJobRepository";
+import { getJob, getJobsByThread } from "../ruling/rulingJobRepository";
 import { runRulingJobInBackground, canAcceptNewJob } from "../ruling/rulingJob";
 import { createThread, getThread, touchThread, deriveThreadTitle } from "../ruling/rulingThreadRepository";
 import { buildFollowUpQuestion } from "../ruling/threadContext";
@@ -9,15 +8,11 @@ import { logger } from "../utils/logger";
 import { rulingRateLimiter } from "../utils/rateLimit";
 import { getActiveUntil } from "../billing/deviceSubscriptionRepository";
 import { evaluateRulingAccess } from "../billing/accessControl";
-import { getMonthlyUsageCount, incrementMonthlyUsage } from "../billing/deviceMonthlyUsageRepository";
+import { getMonthlyUsageCount } from "../billing/deviceMonthlyUsageRepository";
+import { createJobTransactionally } from "../billing/billingTransaction";
+import { createJobSchema } from "./rulingJobsSchema";
 
 export const rulingJobsRouter = Router();
-
-const createJobSchema = z.object({
-  question: z.string().min(1).max(1000),
-  deviceId: z.string().min(1).max(200).optional(),
-  threadId: z.string().min(1).max(200).optional(),
-});
 
 rulingJobsRouter.post("/api/ruling/jobs", rulingRateLimiter, (req, res) => {
   const parsed = createJobSchema.safeParse(req.body);
@@ -31,19 +26,15 @@ rulingJobsRouter.post("/api/ruling/jobs", rulingRateLimiter, (req, res) => {
     return;
   }
 
-  const { question, deviceId: rawDeviceId, threadId: requestedThreadId } = parsed.data;
-  const deviceId = rawDeviceId ?? null;
+  const { question, deviceId, threadId: requestedThreadId } = parsed.data;
 
-  // deviceId未送信(旧バージョン等)は既存仕様通り無料枠チェックの対象外とする。
-  if (deviceId) {
-    const now = Date.now();
-    const jobCountThisMonth = getMonthlyUsageCount(deviceId, now);
-    const activeUntilMs = getActiveUntil(deviceId);
-    const { allowed } = evaluateRulingAccess({ jobCountThisMonth, activeUntilMs, nowMs: now });
-    if (!allowed) {
-      res.status(402).json({ error: "subscription_required" });
-      return;
-    }
+  const now = Date.now();
+  const jobCountThisMonth = getMonthlyUsageCount(deviceId, now);
+  const activeUntilMs = getActiveUntil(deviceId);
+  const access = evaluateRulingAccess({ jobCountThisMonth, activeUntilMs, nowMs: now });
+  if (!access.allowed) {
+    res.status(402).json({ error: "subscription_required" });
+    return;
   }
 
   // threadIdはユーザー(端末)を認証するものではなく自己申告の匿名IDのため、
@@ -53,10 +44,6 @@ rulingJobsRouter.post("/api/ruling/jobs", rulingRateLimiter, (req, res) => {
   let resolvedThreadId: string | null = null;
 
   if (requestedThreadId) {
-    if (!deviceId) {
-      res.status(400).json({ error: "invalid_request", detail: "threadIdを指定する場合はdeviceIdが必須です。" });
-      return;
-    }
     const thread = getThread(requestedThreadId);
     if (!thread || thread.device_id !== deviceId) {
       res.status(404).json({ error: "not_found" });
@@ -66,22 +53,25 @@ rulingJobsRouter.post("/api/ruling/jobs", rulingRateLimiter, (req, res) => {
     const priorJobs = getJobsByThread(thread.id);
     promptQuestion = buildFollowUpQuestion(priorJobs, question);
     touchThread(thread.id);
-  } else if (deviceId) {
+  } else {
     resolvedThreadId = randomUUID();
     createThread(resolvedThreadId, deviceId, deriveThreadTitle(question));
   }
 
   const jobId = randomUUID();
-  createJob(jobId, question, deviceId, resolvedThreadId);
-  // 無料枠ゲートを通過した(=実際にジョブが作成された)場合のみ、1リクエスト=1件として
-  // 独立カウンタに加算する(スレッド削除でruling_jobの行が消えてもこのカウントは減らない)。
-  if (deviceId) {
-    incrementMonthlyUsage(deviceId, Date.now());
-  }
+  // ジョブ作成と無料枠カウンタ加算は1トランザクションで行う(billing/billingTransaction.ts参照)。
+  // 購読中(hasActiveSubscription)は無料枠を消費しない(D-001: 無料枠10問+購読中は使い放題)。
+  createJobTransactionally({
+    jobId,
+    question,
+    deviceId,
+    threadId: resolvedThreadId,
+    consumeFreeQuota: !access.hasActiveSubscription,
+    nowMs: now,
+  });
   logger.info("ruling_job_created", {
     jobId,
     questionLength: question.length,
-    hasDeviceId: !!deviceId,
     threadId: resolvedThreadId,
   });
 

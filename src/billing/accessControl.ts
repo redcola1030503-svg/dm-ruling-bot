@@ -9,6 +9,9 @@ export type RulingAccessInput = {
 export type RulingAccessResult = {
   allowed: boolean;
   remainingFree: number;
+  // 呼び出し側(rulingJobsルート)が、この判定を無料枠消費として
+  // カウントすべきかどうかを決めるために使う(購読中は無料枠を消費しない)。
+  hasActiveSubscription: boolean;
 };
 
 export function evaluateRulingAccess(input: RulingAccessInput): RulingAccessResult {
@@ -20,5 +23,6 @@ export function evaluateRulingAccess(input: RulingAccessInput): RulingAccessResu
   return {
     allowed: withinFreeLimit || hasActiveSubscription,
     remainingFree,
+    hasActiveSubscription,
   };
 }
