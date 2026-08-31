@@ -47,3 +47,13 @@ export const publicReadRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "rate_limited" },
 });
+
+// 課金関連(Webhook・購入直後の同期)。RevenueCatからのWebhookとアプリからの
+// 同期呼び出しのみが対象で、通常利用では低頻度なため他のAPIより緩めに制限する。
+export const billingRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "rate_limited" },
+});

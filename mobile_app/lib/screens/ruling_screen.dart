@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -13,6 +15,7 @@ import '../widgets/question_bubble.dart';
 import '../widgets/ruling_result_view.dart';
 import '../utils/share_ruling.dart';
 import 'correction_dialog.dart';
+import 'paywall_screen.dart';
 import 'ruling_thread_detail_screen.dart';
 import 'settings_screen.dart';
 
@@ -30,12 +33,28 @@ class _RulingScreenState extends State<RulingScreen> {
   final _questionFocusNode = FocusNode();
   bool _submitting = false;
   String? _submitError;
+  RulingUsage? _usage;
 
   @override
   void initState() {
     super.initState();
     final provider = context.read<RulingJobsProvider>();
     Future.microtask(() => provider.loadThreads());
+    Future.microtask(() => _refreshUsage(provider));
+  }
+
+  /// 残り無料質問回数を取り直す。初期表示・質問送信後・スレッド詳細から
+  /// 戻った直後(フォローアップ質問も無料枠を消費する)に呼ぶ。
+  /// 失敗しても表示を据え置くだけで、例外は外へ出さない
+  /// (unawaitedで呼んでも未処理の非同期エラーにならない)。
+  Future<void> _refreshUsage(RulingJobsProvider provider) async {
+    try {
+      final deviceId = await provider.deviceIdProvider.getOrCreate();
+      final usage = await widget.apiClient.getRulingUsage(deviceId);
+      if (mounted) setState(() => _usage = usage);
+    } catch (_) {
+      // 取得失敗時は表示を更新しない(質問送信自体には影響しない)
+    }
   }
 
   @override
@@ -48,19 +67,36 @@ class _RulingScreenState extends State<RulingScreen> {
   Future<void> _submit() async {
     final question = _questionController.text.trim();
     if (question.isEmpty) return;
+    final jobsProvider = context.read<RulingJobsProvider>();
     setState(() {
       _submitting = true;
       _submitError = null;
     });
     try {
-      await context.read<RulingJobsProvider>().submitQuestion(question);
+      await jobsProvider.submitQuestion(question);
       _questionController.clear();
+      unawaited(_refreshUsage(jobsProvider));
     } catch (e) {
-      setState(() {
-        _submitError = e is ApiException
-            ? e.friendlyMessage
-            : '通信エラーが発生しました: $e';
-      });
+      if (e is ApiException && e.isSubscriptionRequired) {
+        if (!mounted) return;
+        final purchased = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PaywallScreen(apiClient: widget.apiClient),
+          ),
+        );
+        if (purchased == true) {
+          // 購読完了後、同じ質問を自動的に再送信する。
+          await _submit();
+          return;
+        }
+      } else {
+        setState(() {
+          _submitError = e is ApiException
+              ? e.friendlyMessage
+              : '通信エラーが発生しました: $e';
+        });
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -175,6 +211,14 @@ class _RulingScreenState extends State<RulingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_usage != null && !_usage!.subscriptionActive)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '今月の残り無料質問回数: ${_usage!.remainingFree}回',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             InlineCardSuggestField(
               apiClient: widget.apiClient,
               controller: _questionController,
@@ -306,12 +350,18 @@ class _RulingScreenState extends State<RulingScreen> {
                       tooltip: 'スレッドを削除',
                       onPressed: () => _confirmDeleteThread(thread),
                     ),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            RulingThreadDetailScreen(threadId: thread.threadId),
-                      ),
-                    ),
+                    onTap: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => RulingThreadDetailScreen(
+                            threadId: thread.threadId,
+                          ),
+                        ),
+                      );
+                      // スレッド詳細でのフォローアップ質問も無料枠を消費するため、
+                      // 戻ってきたタイミングで残り回数を取り直す。
+                      await _refreshUsage(jobsProvider);
+                    },
                   ),
                 );
               }),

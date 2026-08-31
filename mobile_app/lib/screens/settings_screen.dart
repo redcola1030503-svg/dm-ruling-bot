@@ -3,6 +3,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../billing/subscription_provider.dart';
+import '../push/device_id.dart';
 import '../state/auth_provider.dart';
 import '../state/ruling_jobs_provider.dart';
 import '../state/settings_provider.dart';
@@ -32,6 +34,40 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late final Future<PackageInfo> _packageInfo = PackageInfo.fromPlatform();
+  bool _restoring = false;
+
+  /// 購入の復元。ペイウォールに到達しなくても復元できるようにする
+  /// (Appleの要件。またAndroidは再インストールでdeviceIdが変わるため、
+  /// 購読者が無料枠を使い切るまでペイウォールに到達できない問題を回避する)。
+  Future<void> _handleRestorePurchases() async {
+    if (_restoring) return;
+    final subscription = context.read<SubscriptionProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _restoring = true);
+    String message;
+    try {
+      final restored = await subscription.restorePurchases();
+      if (restored) {
+        try {
+          final deviceId = await DeviceIdProvider().getOrCreate();
+          await widget.apiClient.syncBilling(deviceId);
+        } catch (_) {
+          // 同期に失敗してもRevenueCatのWebhookが後追いで反映するため無視する
+        }
+        message = '購読を復元しました。';
+      } else {
+        message = '復元できる購読が見つかりませんでした。';
+      }
+    } catch (e) {
+      // 未初期化などアプリ側で投げた日本語メッセージはそのまま表示する。
+      message = e is StateError
+          ? e.message
+          : '購入の復元に失敗しました。しばらくしてから再度お試しください。';
+    }
+    if (!mounted) return;
+    setState(() => _restoring = false);
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -198,6 +234,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ],
+          const Divider(),
+          const _SectionHeader('購読'),
+          ListTile(
+            leading: const Icon(Icons.restore),
+            title: const Text('購入を復元する'),
+            subtitle: const Text('機種変更・再インストール後に購読を引き継ぎます'),
+            trailing: _restoring
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: _restoring ? null : _handleRestorePurchases,
+          ),
           const Divider(),
           const _SectionHeader('広告'),
           ListTile(
