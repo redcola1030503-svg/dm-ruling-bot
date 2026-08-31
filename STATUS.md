@@ -19,8 +19,12 @@ Reviewer: Codex(PR #1の独立レビューを実施済み)
 
 ## In Progress
 
-- PR #1: Codexレビューで判明したP0/P1指摘への対応方針検討(実装側でのコード照合・反映判断が未着手)
 - LINE Bot廃止方針(即時停止か移行期間を設けるか)が未確定
+
+## Decided (このセッション)
+
+- 残るP1(無料枠上限判定の原子性)とP2(ジョブ失敗時のスレッドロールバック)は今回のPRのスコープ外とし、`actions/dm-ruling-bot_残作業リスト.md`(Vault側)へfollow-upとして切り出した(2026-08-31、ユーザー判断)。理由: 現状のRender starterプラン(単一インスタンス)かつハンドラー内に`await`が無いため実害が低いと判断
+- PR #1はマージ判断へ進んでよい状態
 
 ## Blocked
 
@@ -28,35 +32,40 @@ Reviewer: Codex(PR #1の独立レビューを実施済み)
 
 ## Verification
 
-PR #1時点(subscription-billingブランチ):
-- `npm test`: PASS(227/227)
+PR #1、修正反映後(subscription-billingブランチ、コミット`fdae217`/`d018dd4`):
+- `npm test`: PASS(237/237、修正前227から+10)
 - `npm run typecheck`: PASS
-- `flutter analyze`: PASS(0 issues)
-- モバイル `flutter test test/widget_test.dart`: FAIL(この機能と無関係のmaster由来の既知の問題。`ruling_screen.dart`のネットワーク呼び出しがテスト環境でブロックされるため)
+- `flutter analyze`: 未実施(モバイル側は今回変更していない)
+- モバイル `flutter test test/widget_test.dart`: FAIL(この機能と無関係のmaster由来の既知の問題、未変更)
 
 ## Reviewer Findings
 
-Codexによる独立レビュー実施済み(2026-08-31、詳細は `.ai/reviews/2026-08-31-pr1-subscription-billing.md`)。総評: マージ非推奨、P0 1件・P1 4件・P2 1件。
+Codexによる独立レビューを2回実施。
 
-- P0: `deviceId`省略で無料枠制限・課金ゲートを完全に迂回できる(`src/routes/rulingJobs.ts`)
-- P1: 購読中の質問でも無料枠カウンタを消費してしまう(`src/routes/rulingJobs.ts`)
-- P1: 遅延した`EXPIRATION`/`REFUND`イベントが新しい更新状態を巻き戻す(`src/billing/revenueCatEventPolicy.ts`, `src/routes/billing.ts`)
-- P1: ジョブ作成とカウンタ加算が同一トランザクションでない(`src/routes/rulingJobs.ts`, `src/billing/deviceMonthlyUsageRepository.ts`)
-- P1: 課金ルートの統合テストが不足
-- P2: Webhookとアプリ同期が同一IPレート制限枠を共有
+**1回目(2026-08-31、`.ai/reviews/2026-08-31-pr1-subscription-billing.md`)**: マージ非推奨、P0 1件・P1 4件・P2 1件。
+
+**対応(コミット`fdae217`/`d018dd4`)**:
+- P0: `deviceId`必須化(`src/routes/rulingJobsSchema.ts`新設)。モバイルアプリは既にdeviceIdを常に送信済みのため実質影響なし
+- P1: 購読中は無料枠を消費しない(`accessControl.ts`に`hasActiveSubscription`追加)
+- P1: 遅延`EXPIRATION`/`REFUND`はRevenueCat REST APIから再取得してから反映(`revenueCatEventPolicy.ts`, `billing.ts`)
+- P1: ジョブ作成とカウンタ加算をトランザクション化(`billing/billingTransaction.ts`新設)
+
+**2回目(2026-08-31、`.ai/reviews/2026-08-31-pr1-subscription-billing-round2.md`)**: 上記3件は解消確認。残課題:
+
+- **P1(未解消)**: 無料枠の上限判定(`getMonthlyUsageCount`/`evaluateRulingAccess`)がトランザクション開始前に行われており、上限直前の並行リクエストで枠超過があり得る。**ただし現在の本番構成(Render `plan: starter`、単一インスタンス)かつハンドラー内に`await`が無い(同期SQLite呼び出しのみ)ため、実際には他リクエストが割り込む余地が無く、今この瞬間の実害は無いと考えられる(将来インスタンスを複数に増やす場合は要対応)**
+- **P2(新規)**: ジョブ作成失敗時、先に作成/更新したスレッド(`createThread`/`touchThread`)がロールバックされず残る。課金回避にはならないが、失敗時に空スレッドが残るUXの不整合
+- P1: 課金ルートの統合テストが不足(未対応、予定どおりスコープ外)
+- P2: Webhookとアプリ同期が同一IPレート制限枠を共有(未対応、予定どおりスコープ外)
 
 **注記**: このレビューはWindows環境で`--sandbox read-only`がローカルのgit/ファイル読み取りコマンド自体を全面拒否したため、diffとAGENTS.md/STATUS.md/DECISIONS.mdをプロンプトへ直接埋め込む方式で実施した(`scripts/codex-review.ps1`そのままでは動作しなかった)。
 
 ## Next
 
-1. 上記Codex指摘をClaude Codeが実コードと照合し、妥当なものを分類する(まだ未着手)
-2. **P0(`deviceId`必須化)の対応方針を人間に確認する**: 既に配信済みのv1.4.0〜v1.6.1との互換性に影響するため、強制アップデートか移行期間を設けるかの判断が必要
-3. 採用する指摘を反映し、`npm test`/`npm run typecheck`/`flutter analyze`を再実行
-4. 必要ならCodexへ再レビューを依頼
-5. PR #1のマージ可否を判断する
-6. LINE Bot廃止の進め方を決定する(詳細は `actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)
-7. RevenueCatダッシュボード・ストア側のサブスク商品を設定する
-8. `scripts/codex-review.ps1`のWindows read-onlyサンドボックス問題を恒久対応する(diff埋め込み方式へ変更するか、read-only省略+プロンプト制約のみに切り替えるか検討)
+1. PR #1のマージを実行する(人間の最終承認待ち)
+2. マージ後、RevenueCatダッシュボード・ストア側のサブスク商品を設定する
+3. LINE Bot廃止の進め方を決定する(詳細は `actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)
+4. `scripts/codex-review.ps1`のWindows read-onlyサンドボックス問題を恒久対応する(diff埋め込み方式へ変更するか、read-only省略+プロンプト制約のみに切り替えるか検討)
+5. (follow-up、詳細は`actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)課金ルートのExpress統合テスト整備、無料枠上限判定の原子化、ジョブ失敗時のスレッドロールバック、Webhook/同期APIのレート制限分離
 
 ## Do Not Repeat
 
