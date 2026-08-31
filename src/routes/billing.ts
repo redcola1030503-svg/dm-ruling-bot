@@ -4,7 +4,11 @@ import { verifyWebhookAuthorization, applyEntitlement, fetchCustomerEntitlementE
 import { getActiveUntil } from "../billing/deviceSubscriptionRepository";
 import { getMonthlyUsageCount } from "../billing/deviceMonthlyUsageRepository";
 import { evaluateRulingAccess } from "../billing/accessControl";
-import { isApplicableEventType, shouldApplyEntitlementUpdate } from "../billing/revenueCatEventPolicy";
+import {
+  isApplicableEventType,
+  isRevocationEventType,
+  shouldApplyEntitlementUpdate,
+} from "../billing/revenueCatEventPolicy";
 import { billingRateLimiter } from "../utils/rateLimit";
 import { logger } from "../utils/logger";
 
@@ -39,10 +43,17 @@ billingRouter.post("/api/billing/revenuecat-webhook", billingRateLimiter, async 
     return;
   }
 
+  // EXPIRATION/REFUND(明示的な失効)は、webhookペイロード自身のexpiration_at_msが
+  // 古い期間を指している可能性がある(RENEWAL反映後に旧期間のEXPIRATIONが遅延到着する等)。
+  // そのため、webhookの値を信用せず必ずRevenueCat REST APIから現在の権威的な
+  // エンタイトルメントを再取得する(PR #1レビュー指摘P1対応)。
+  const isRevocation = isRevocationEventType(type);
   let expiresAtMs = expiresAtMsFromEvent ?? null;
-  if (expiresAtMs === null) {
+  let isFreshFromApi = false;
+  if (expiresAtMs === null || isRevocation) {
     try {
       expiresAtMs = await fetchCustomerEntitlementExpiry(appUserId);
+      isFreshFromApi = true;
     } catch (error) {
       // RevenueCatへの問い合わせに失敗した場合、購読状態を誤って
       // 書き換えるより再送に賭けたほうが安全なため502で応答し、
@@ -58,10 +69,10 @@ billingRouter.post("/api/billing/revenuecat-webhook", billingRateLimiter, async 
   }
 
   // RENEWAL到達後に遅延したCANCELLATION(古い有効期限を持つ)等で購読状態が
-  // 巻き戻らないよう、明示的な失効(EXPIRATION/REFUND)以外は現在値より
-  // 新しい場合のみ書き込む(判定ロジックはbilling/revenueCatEventPolicy.tsで単体テスト済み)。
+  // 巻き戻らないよう、REST APIから再取得した権威的な値(isFreshFromApi)でない限り
+  // 現在値より新しい場合のみ書き込む(判定ロジックはbilling/revenueCatEventPolicy.tsで単体テスト済み)。
   const currentActiveUntil = getActiveUntil(appUserId) ?? 0;
-  const shouldWrite = shouldApplyEntitlementUpdate({ type, expiresAtMs, currentActiveUntil });
+  const shouldWrite = shouldApplyEntitlementUpdate({ expiresAtMs, currentActiveUntil, isFreshFromApi });
 
   if (shouldWrite) {
     applyEntitlement(appUserId, expiresAtMs);
