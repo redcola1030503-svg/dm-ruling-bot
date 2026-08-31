@@ -2,7 +2,7 @@
 
 Updated: 2026-08-31
 Owner: Claude Code
-Reviewer: (Codex導入直後のため実績なし。次回の重要な変更から開始する)
+Reviewer: Codex(PR #1の独立レビューを実施済み)
 
 ## Current Goal
 
@@ -19,7 +19,7 @@ Reviewer: (Codex導入直後のため実績なし。次回の重要な変更か�
 
 ## In Progress
 
-- PR #1のレビュー・マージ判断待ち
+- PR #1: Codexレビューで判明したP0/P1指摘への対応方針検討(実装側でのコード照合・反映判断が未着手)
 - LINE Bot廃止方針(即時停止か移行期間を設けるか)が未確定
 
 ## Blocked
@@ -36,15 +36,27 @@ PR #1時点(subscription-billingブランチ):
 
 ## Reviewer Findings
 
-(Codexによる独立レビューはまだ実施していない)
+Codexによる独立レビュー実施済み(2026-08-31、詳細は `.ai/reviews/2026-08-31-pr1-subscription-billing.md`)。総評: マージ非推奨、P0 1件・P1 4件・P2 1件。
+
+- P0: `deviceId`省略で無料枠制限・課金ゲートを完全に迂回できる(`src/routes/rulingJobs.ts`)
+- P1: 購読中の質問でも無料枠カウンタを消費してしまう(`src/routes/rulingJobs.ts`)
+- P1: 遅延した`EXPIRATION`/`REFUND`イベントが新しい更新状態を巻き戻す(`src/billing/revenueCatEventPolicy.ts`, `src/routes/billing.ts`)
+- P1: ジョブ作成とカウンタ加算が同一トランザクションでない(`src/routes/rulingJobs.ts`, `src/billing/deviceMonthlyUsageRepository.ts`)
+- P1: 課金ルートの統合テストが不足
+- P2: Webhookとアプリ同期が同一IPレート制限枠を共有
+
+**注記**: このレビューはWindows環境で`--sandbox read-only`がローカルのgit/ファイル読み取りコマンド自体を全面拒否したため、diffとAGENTS.md/STATUS.md/DECISIONS.mdをプロンプトへ直接埋め込む方式で実施した(`scripts/codex-review.ps1`そのままでは動作しなかった)。
 
 ## Next
 
-1. **`codex login`の完了確認**(このセッションの終了時点で未完了。ブラウザでのOAuth認可待ちの状態でセッションを終えた。次回開始時に`codex --version`・`codex exec "Reply only: CODEX_OK"`で疎通確認すること)
-2. `AGENTS.md`/`CLAUDE.md`/`STATUS.md`/`DECISIONS.md`/`.ai/`/`scripts/`一式をコミットしてよいか、ユーザーに確認する(このセッション終了時点でまだ未コミット)
-3. PR #1をレビューしマージ可否を判断する
-4. LINE Bot廃止の進め方を決定する(詳細は `actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)
-5. RevenueCatダッシュボード・ストア側のサブスク商品を設定する
+1. 上記Codex指摘をClaude Codeが実コードと照合し、妥当なものを分類する(まだ未着手)
+2. **P0(`deviceId`必須化)の対応方針を人間に確認する**: 既に配信済みのv1.4.0〜v1.6.1との互換性に影響するため、強制アップデートか移行期間を設けるかの判断が必要
+3. 採用する指摘を反映し、`npm test`/`npm run typecheck`/`flutter analyze`を再実行
+4. 必要ならCodexへ再レビューを依頼
+5. PR #1のマージ可否を判断する
+6. LINE Bot廃止の進め方を決定する(詳細は `actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)
+7. RevenueCatダッシュボード・ストア側のサブスク商品を設定する
+8. `scripts/codex-review.ps1`のWindows read-onlyサンドボックス問題を恒久対応する(diff埋め込み方式へ変更するか、read-only省略+プロンプト制約のみに切り替えるか検討)
 
 ## Do Not Repeat
 
