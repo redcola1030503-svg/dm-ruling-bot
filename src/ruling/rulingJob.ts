@@ -27,11 +27,15 @@ export function runRulingJobInBackground(
   question: string,
   deviceId: string | null,
   threadId: string | null,
+  // 購読者向け特典(優先処理): 呼び出し元(rulingJobsルート)が購読状態を見て
+  // falseを渡すことで、購読者は非購読者向けのBatch API(低コストだが低レイテンシ非保証)を
+  // 経由せず常に通常APIを使う。既定値はenv.RULING_USE_BATCH_API(既存の全体設定を踏襲)。
+  useBatchApi: boolean = env.RULING_USE_BATCH_API,
 ): void {
   runningCount++;
   markRunning(jobId);
 
-  produceRuling(question, { useBatchApi: env.RULING_USE_BATCH_API })
+  produceRuling(question, { useBatchApi })
     .then(async (outcome) => {
       markDone(jobId, outcome.status, outcome.result);
 

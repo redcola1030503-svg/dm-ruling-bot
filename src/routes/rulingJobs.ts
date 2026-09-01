@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
+import { env } from "../config/env";
 import { getJob, getJobsByThread } from "../ruling/rulingJobRepository";
 import { runRulingJobInBackground, canAcceptNewJob } from "../ruling/rulingJob";
 import { createThread, getThread, touchThread, deriveThreadTitle } from "../ruling/rulingThreadRepository";
@@ -75,7 +76,10 @@ rulingJobsRouter.post("/api/ruling/jobs", rulingRateLimiter, (req, res) => {
     threadId: resolvedThreadId,
   });
 
-  runRulingJobInBackground(jobId, promptQuestion, deviceId, resolvedThreadId);
+  // 購読者向け特典(優先処理): 購読中はBatch API(低コストだが低レイテンシ非保証)を
+  // 経由せず、常に通常APIで高速に処理する。
+  const useBatchApi = access.hasActiveSubscription ? false : env.RULING_USE_BATCH_API;
+  runRulingJobInBackground(jobId, promptQuestion, deviceId, resolvedThreadId, useBatchApi);
 
   res.status(202).json({ jobId, status: "pending", threadId: resolvedThreadId });
 });

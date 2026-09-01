@@ -30,6 +30,12 @@ Reviewer: Codex(PR #1の独立レビューを実施済み)
   - RevenueCat側にApp Store商品`monthly_plan`を作成、`unlimited_questions` Entitlementへ紐付け、`default`オファリングの`Monthly`パッケージにAndroid/iOS/Test Store全プラットフォームの商品が揃った状態にした
   - App Store Connect側で「審査用に追加」を実行し、ステータスが「審査準備完了」に。ただし「最初の自動更新サブスクリプションは新しいアプリバージョンとともに提出する必要がある」という警告が出ており、実際の審査提出にはCodemagicで新しいiOSビルドを作成しアップロードする作業が別途必要(今回は未実施)
   - **技術メモ(ペイウォール画面のスクリーンショット撮影)**: 無料枠(月10問)を使い切るまで実際に質問を送信する方式は時間・コストがかかりすぎるため、`main.dart`のホーム画面を一時的に`PaywallScreen`に差し替え、`paywall_screen.dart`の`_buildPlanInfo()`もRevenueCatのオファリング取得に依存せずハードコードした表示に一時変更してビルド・撮影し、撮影後は`git checkout --`で完全に元へ戻した(コミットはしていない)。エミュレータ(Google Play非対応システムイメージ)ではRevenueCatのオファリング取得自体が`purchaseNotAllowedError`で失敗するため、この一時変更が必要だった
+- **ペイウォール画面のテキスト改善**(2026-09-01、コミット`73d93f1`): 実機での不自然な改行(見出しの「た」が孤立、「App Store / Google Play」が店舗名の途中で分断)をユーザー報告に基づき修正。見出しは文節境界で明示改行、店舗名の括弧書きは改行禁止スペースで1つのまとまりとして扱うように変更。購入ボタンの文言も「購読する」から「アップグレード」表記に変更
+- **有料プランの特典を2件追加**(2026-09-01): 「有料版への訴求が弱い」というユーザー課題感を受け、`paywalls`スキルとコードベース実態調査(広告表示箇所・Batch API分岐・履歴上限の有無を確認)に基づき特典案を起案・実装。
+  1. **広告非表示**(`mobile_app/lib/widgets/loading_banner_ad.dart`): `LoadingBannerAd`が`SubscriptionProvider.isSubscribed`を見て、購読中は広告を読み込み・表示しない(`initState`でロード自体をスキップ、`build`でも二重に非表示化)。呼び出し元2箇所(`ruling_screen.dart`/`ruling_turn_view.dart`)は無変更
+  2. **優先処理(高速回答)**: 従来`RULING_USE_BATCH_API`は全ユーザー一律のグローバル設定だったが、`runRulingJobInBackground`(`src/ruling/rulingJob.ts`)に`useBatchApi`引数を追加し、`src/routes/rulingJobs.ts`側で`access.hasActiveSubscription`(既存の無料枠判定と同じ変数)を見て購読者は常に`false`(通常API、低レイテンシ)を渡すように変更。非購読者は従来通り環境変数の設定に従う
+  - 検証: バックエンド`npm test`(477件全パス)・`npm run typecheck`クリーン、`rulingJob.test.ts`に`useBatchApi`分岐の新規テスト3件追加。モバイル`flutter analyze`(mobile_app全体)クリーン。広告非表示の実機視覚確認は、購読状態をエミュレータで実際に作れないため未実施(コードレビュー+静的解析のみ)
+  - 検討したが見送った案: 質問履歴・お気に入り上限の拡張(既にほぼ無制限で訴求材料として弱い)、新機能の先行ベータ提供(無料会員の裁定精度をあえて劣後させることになり信頼性に反するため非推奨と判断)
 
 ## In Progress
 

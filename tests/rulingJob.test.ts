@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProduceRulingOutcome } from "../src/ruling/produceRuling";
 import type { RulingResult } from "../src/ruling/types";
 
-const produceRuling = vi.fn<(question: string) => Promise<ProduceRulingOutcome>>();
+const produceRuling =
+  vi.fn<(question: string, options?: { useBatchApi?: boolean }) => Promise<ProduceRulingOutcome>>();
 vi.mock("../src/ruling/produceRuling", () => ({
-  produceRuling: (question: string) => produceRuling(question),
+  produceRuling: (question: string, options?: { useBatchApi?: boolean }) => produceRuling(question, options),
 }));
 
 const markRunning = vi.fn<(id: string) => void>();
@@ -155,6 +156,36 @@ describe("rulingJob", () => {
 
     expect(getRunningJobCount()).toBe(0);
     expect(pruneOldJobs).toHaveBeenCalled();
+  });
+
+  it("useBatchApiを省略するとenv.RULING_USE_BATCH_API(既定false)がproduceRulingに渡る", async () => {
+    const { runRulingJobInBackground } = await import("../src/ruling/rulingJob");
+    produceRuling.mockResolvedValue(okOutcome());
+
+    runRulingJobInBackground("job-1", "質問", null, null);
+    await flushMicrotasks();
+
+    expect(produceRuling).toHaveBeenCalledWith("質問", { useBatchApi: false });
+  });
+
+  it("useBatchApi=falseを明示すると(購読者向け優先処理)そのままproduceRulingに渡る", async () => {
+    const { runRulingJobInBackground } = await import("../src/ruling/rulingJob");
+    produceRuling.mockResolvedValue(okOutcome());
+
+    runRulingJobInBackground("job-1", "質問", null, null, false);
+    await flushMicrotasks();
+
+    expect(produceRuling).toHaveBeenCalledWith("質問", { useBatchApi: false });
+  });
+
+  it("useBatchApi=trueを渡すとそのままproduceRulingに渡る", async () => {
+    const { runRulingJobInBackground } = await import("../src/ruling/rulingJob");
+    produceRuling.mockResolvedValue(okOutcome());
+
+    runRulingJobInBackground("job-1", "質問", null, null, true);
+    await flushMicrotasks();
+
+    expect(produceRuling).toHaveBeenCalledWith("質問", { useBatchApi: true });
   });
 
   it("canAcceptNewJobは同時実行数が上限(既定5)に達するとfalseになる", async () => {
