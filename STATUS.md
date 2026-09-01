@@ -36,11 +36,15 @@ Reviewer: Codex(PR #1の独立レビューを実施済み)
   2. **優先処理(高速回答)**: 従来`RULING_USE_BATCH_API`は全ユーザー一律のグローバル設定だったが、`runRulingJobInBackground`(`src/ruling/rulingJob.ts`)に`useBatchApi`引数を追加し、`src/routes/rulingJobs.ts`側で`access.hasActiveSubscription`(既存の無料枠判定と同じ変数)を見て購読者は常に`false`(通常API、低レイテンシ)を渡すように変更。非購読者は従来通り環境変数の設定に従う
   - 検証: バックエンド`npm test`(477件全パス)・`npm run typecheck`クリーン、`rulingJob.test.ts`に`useBatchApi`分岐の新規テスト3件追加。モバイル`flutter analyze`(mobile_app全体)クリーン。広告非表示の実機視覚確認は、購読状態をエミュレータで実際に作れないため未実施(コードレビュー+静的解析のみ)
   - 検討したが見送った案: 質問履歴・お気に入り上限の拡張(既にほぼ無制限で訴求材料として弱い)、新機能の先行ベータ提供(無料会員の裁定精度をあえて劣後させることになり信頼性に反するため非推奨と判断)
+- **v1.7.1+17を両OSに配信完了**(2026-09-01): ペイウォールのテキスト改善・広告非表示特典を含めてバージョンを上げ、両OSまとめてビルド・配信。
+  - Android: リリースAPK(x64)をエミュレータへクリーンインストールしFATALなし・プロセス生存を確認後、`flutter build appbundle --release`でAAB(60.8MB)作成。ファイルサイズがfile_uploadツールの10MB上限を超えるため、Play Consoleでのファイル選択のみユーザー本人に依頼し、それ以外(アップロード後の確認・保存して公開)はClaudeが実施。内部テストトラックへ即時公開完了
+  - iOS: Codemagicで`ios-release`ワークフローのビルド(#14、コミット`75b12df`)を実行。ビルド・IPAアップロードは成功したが、想定通りPost-processingで輸出コンプライアンス未提出のため失敗(過去と同じパターン)。ビルド17の輸出コンプライアンス情報を提出(標準的な暗号化のみ使用/フランス配信予定なし)して解消し、外部テストグループ「クローズドテスト」の「ビルド」タブからビルド17を追加、テスト内容を日本語で入力して「審査へ提出」まで完了。ステータスは「審査待ち」
+  - **How to apply**: 次に両OSの審査状況を聞かれたら、Play Console(内部テストトラック)とApp Store Connect(TestFlight外部テストグループ「クローズドテスト」のビルド一覧)を実際に開いて確認すること(過去の教訓通り、メモリ・STATUS.mdの記述を鵜呑みにしない)
 
 ## In Progress
 
 - LINE Bot廃止方針(即時停止か移行期間を設けるか)が未確定
-- iOS側: Codemagicで新しいビルドを作成・アップロードし、サブスクリプションと一緒に審査提出する作業が未着手
+- iOS版v1.7.1(17)の審査結果待ち。通過後、実機でプッシュ通知・広告非表示・優先処理特典が正しく動作するか確認するとよい
 - Android側のService Account Credentials JSON(Google Cloud、RevenueCatの自動インポート・Webhook検証に必要)が未アップロード
 - 有料化の形態(価格・プラン設計)の見直し検討(下記「Pricing検討」参照)
 
@@ -145,9 +149,9 @@ Codexによる独立レビューを2回実施。
 
 ## Next
 
-1. ~~iOS側のRevenueCat/App Store Connectサブスクリプション商品設定~~ → **2026-09-01完了**(上記Completed参照)。残りはCodemagicでの新規ビルド作成・アップロードと審査提出
+1. ~~iOS側のRevenueCat/App Store Connectサブスクリプション商品設定~~ → **2026-09-01完了**(上記Completed参照)。~~残りはCodemagicでの新規ビルド作成・アップロードと審査提出~~ → **2026-09-01完了**(v1.7.1+17を審査提出済み、審査結果待ち)
 2. Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード
-3. (任意、緊急性は下がった)Pricing案A(価格を¥980程度へ引き上げ+広告非表示を有料特典化)の実施要否をユーザーと最終判断
+3. (任意、緊急性は下がった)Pricing案A残り(価格を¥980程度へ引き上げ)の実施要否をユーザーと最終判断。広告非表示は2026-09-01に有料特典として実装済み
 4. LINE Bot廃止の進め方を決定する(詳細は `actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)
 5. ~~`scripts/codex-review.ps1`のWindows read-onlyサンドボックス問題を恒久対応する~~ → **2026-08-31完了**(下記Reviewer Findings参照)
 6. (follow-up、詳細は`actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)課金ルートのExpress統合テスト整備、無料枠上限判定の原子化、ジョブ失敗時のスレッドロールバック、Webhook/同期APIのレート制限分離
