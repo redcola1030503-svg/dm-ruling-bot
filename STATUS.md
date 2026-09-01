@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-08-31
+Updated: 2026-09-01
 Owner: Claude Code
 Reviewer: Codex(PR #1の独立レビューを実施済み)
 
@@ -24,11 +24,17 @@ Reviewer: Codex(PR #1の独立レビューを実施済み)
   - `mobile_app/lib/billing/revenue_cat_keys.dart` を実際のPublic API Key(Android/iOS両方)に更新
   - バージョン1.7.0+16をビルドし、エミュレータでクラッシュ無し確認後、Play Console内部テストトラックへ公開
   - iOS側は App Store Connect の In-App Purchase Key(Key ID `7ZPG6FCZBW`)を発行しRevenueCatに設定済みだが、サブスクリプション商品自体はApp Store Connect側で未作成
+- **iOS側のRevenueCat/App Store Connectサブスクリプション商品設定**(2026-09-01):
+  - App Store Connectで既存のサブスクリプショングループ「月額プラン」内に商品を新規作成(製品ID `monthly_plan`、参照名「月額プラン(¥300)」、期間1か月、配信国を日本のみに限定、価格¥300、日本語ローカリゼーション設定)
+  - 審査用スクリーンショットが必要と判明(Apple公式のScreenshot specifications: JPEG/PNG・アルファチャンネル無し・実機解像度と厳密一致した寸法のみ受理、640x920等の任意サイズは不可)。Android実機で撮影したペイウォール画面のスクリーンショットを、PowerShellの`System.Drawing.Bitmap`で6.5"ディスプレイ向けの`1284x2778`(24bppRgb、アルファチャンネル無し)へリサイズしてアップロードし解消
+  - RevenueCat側にApp Store商品`monthly_plan`を作成、`unlimited_questions` Entitlementへ紐付け、`default`オファリングの`Monthly`パッケージにAndroid/iOS/Test Store全プラットフォームの商品が揃った状態にした
+  - App Store Connect側で「審査用に追加」を実行し、ステータスが「審査準備完了」に。ただし「最初の自動更新サブスクリプションは新しいアプリバージョンとともに提出する必要がある」という警告が出ており、実際の審査提出にはCodemagicで新しいiOSビルドを作成しアップロードする作業が別途必要(今回は未実施)
+  - **技術メモ(ペイウォール画面のスクリーンショット撮影)**: 無料枠(月10問)を使い切るまで実際に質問を送信する方式は時間・コストがかかりすぎるため、`main.dart`のホーム画面を一時的に`PaywallScreen`に差し替え、`paywall_screen.dart`の`_buildPlanInfo()`もRevenueCatのオファリング取得に依存せずハードコードした表示に一時変更してビルド・撮影し、撮影後は`git checkout --`で完全に元へ戻した(コミットはしていない)。エミュレータ(Google Play非対応システムイメージ)ではRevenueCatのオファリング取得自体が`purchaseNotAllowedError`で失敗するため、この一時変更が必要だった
 
 ## In Progress
 
 - LINE Bot廃止方針(即時停止か移行期間を設けるか)が未確定
-- iOS側のRevenueCat/App Store Connectサブスクリプション商品設定(Android側と同等の作業が未着手)
+- iOS側: Codemagicで新しいビルドを作成・アップロードし、サブスクリプションと一緒に審査提出する作業が未着手
 - Android側のService Account Credentials JSON(Google Cloud、RevenueCatの自動インポート・Webhook検証に必要)が未アップロード
 - 有料化の形態(価格・プラン設計)の見直し検討(下記「Pricing検討」参照)
 
@@ -133,7 +139,7 @@ Codexによる独立レビューを2回実施。
 
 ## Next
 
-1. iOS側のRevenueCat/App Store Connectサブスクリプション商品設定(Android側と同等の作業)
+1. ~~iOS側のRevenueCat/App Store Connectサブスクリプション商品設定~~ → **2026-09-01完了**(上記Completed参照)。残りはCodemagicでの新規ビルド作成・アップロードと審査提出
 2. Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード
 3. (任意、緊急性は下がった)Pricing案A(価格を¥980程度へ引き上げ+広告非表示を有料特典化)の実施要否をユーザーと最終判断
 4. LINE Bot廃止の進め方を決定する(詳細は `actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)
