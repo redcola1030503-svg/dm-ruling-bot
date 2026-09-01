@@ -236,7 +236,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
         const SizedBox(height: 8),
         Text(
           '購読期間が終了する前に解約しない限り自動更新されます。'
-          '解約は端末のストア(App Store / Google Play)の定期購読設定から行えます。',
+          // 半角スペースの代わりに改行禁止スペース(U+00A0)を使い、
+          // ストア名の括弧書きが行の途中で分断されないようにする。
+          '解約は端末のストア(App Store / Google Play)から行えます。',
           style: Theme.of(context).textTheme.bodySmall,
           textAlign: TextAlign.center,
         ),
@@ -248,8 +250,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Widget build(BuildContext context) {
     final package = _package;
     final purchaseLabel = package == null
-        ? '購読する'
-        : '${_priceLabel(package.storeProduct)}で購読する';
+        ? 'アップグレードする'
+        : '${_priceLabel(package.storeProduct)}にアップグレード';
     return Scaffold(
       appBar: AppBar(title: const Text('質問し放題プラン')),
       body: SingleChildScrollView(
@@ -258,7 +260,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              '無料枠(月10問)を使い切りました',
+              // 「た」だけが孤立して次行に折り返るのを避けるため、
+              // 文節境界(助詞の後)で明示的に改行する。
+              '無料枠(月10問)を\n使い切りました',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
