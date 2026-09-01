@@ -92,4 +92,13 @@ class SubscriptionProvider extends ChangeNotifier {
     await Purchases.restorePurchases();
     return checkEntitlement();
   }
+
+  /// 端末のストア(App Store / Google Play)上のサブスクリプション管理画面URL。
+  /// 解約・支払い方法変更等はアプリ内では行えず、必ずこの画面へ誘導する。
+  /// 取得できない場合(未購読・通信断等)はnullを返す。
+  Future<String?> getManagementUrl() async {
+    if (!_configured) return null;
+    final customerInfo = await Purchases.getCustomerInfo();
+    return customerInfo.managementURL;
+  }
 }

@@ -14,6 +14,7 @@ import 'card_index_screen.dart';
 import 'corrections_screen.dart';
 import 'judges_screen.dart';
 import 'login_screen.dart';
+import 'paywall_screen.dart';
 import 'usage_stats_screen.dart';
 
 const _privacyPolicyUrl =
@@ -75,6 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final auth = context.watch<AuthProvider>();
     final settings = context.watch<SettingsProvider>();
     final rulingJobs = context.watch<RulingJobsProvider>();
+    final subscription = context.watch<SubscriptionProvider>();
     return Scaffold(
       appBar: AppBar(title: const Text('オプション')),
       body: ListView(
@@ -236,6 +238,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
           const Divider(),
           const _SectionHeader('購読'),
+          ListTile(
+            leading: Icon(
+              subscription.isSubscribed
+                  ? Icons.workspace_premium
+                  : Icons.workspace_premium_outlined,
+            ),
+            title: Text(
+              subscription.isSubscribed ? '質問し放題プラン(ご利用中)' : '質問し放題プランにアップグレード',
+            ),
+            subtitle: Text(
+              subscription.isSubscribed
+                  ? 'サブスクリプションの管理'
+                  : '無料枠(月10問)超過・広告非表示・優先処理(高速回答)',
+            ),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => PaywallScreen(apiClient: apiClient),
+              ),
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.restore),
             title: const Text('購入を復元する'),

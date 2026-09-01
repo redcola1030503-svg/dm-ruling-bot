@@ -16,8 +16,10 @@ const _privacyPolicyUrl =
 const _termsOfServiceUrl =
     'https://redcola1030503-svg.github.io/dm-ruling-bot/mobile-app-terms-of-service.html';
 
-/// 無料枠(月10問)を超えた際に表示するペイウォール画面。
-/// 購入・復元のいずれかが成功すると呼び出し元にtrueを返して閉じる。
+/// 無料枠(月10問)を超えた際、またはオプション画面から能動的にアクセスされた
+/// 際に表示するプラン画面。購入・復元のいずれかが成功すると呼び出し元にtrueを
+/// 返して閉じる。既に購読中の場合は購入導線ではなく、サブスクリプション管理
+/// (端末のストア設定を開く)導線を表示する。
 ///
 /// 価格・期間はハードコードせず、ストアが返すローカライズ済みの値
 /// (StoreProduct.priceString / subscriptionPeriod)をそのまま表示する
@@ -25,7 +27,17 @@ const _termsOfServiceUrl =
 class PaywallScreen extends StatefulWidget {
   final ApiClient apiClient;
 
-  const PaywallScreen({super.key, required this.apiClient});
+  /// 無料枠超過(402)によって呼び出されたかどうか。trueの場合のみ
+  /// 「無料枠を使い切りました」という導入文を表示する。オプション画面等から
+  /// 能動的にアクセスされた場合(false)は、まだ枠を使い切っていないユーザーに
+  /// 誤解を与えないためこの文言を出さない。
+  final bool triggeredByQuotaLimit;
+
+  const PaywallScreen({
+    super.key,
+    required this.apiClient,
+    this.triggeredByQuotaLimit = false,
+  });
 
   @override
   State<PaywallScreen> createState() => _PaywallScreenState();
@@ -37,6 +49,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   String? _error;
   String? _offeringError;
   Package? _package;
+  bool _loadingManagementUrl = false;
 
   @override
   void initState() {
@@ -173,6 +186,31 @@ class _PaywallScreenState extends State<PaywallScreen> {
     Navigator.pop(context, true);
   }
 
+  /// 端末のストア(App Store / Google Play)のサブスクリプション管理画面を開く。
+  /// 解約・支払い方法変更はアプリ内では行えず、常にストア側の画面へ委ねる。
+  Future<void> _handleManageSubscription() async {
+    if (_loadingManagementUrl) return;
+    final subscription = context.read<SubscriptionProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _loadingManagementUrl = true);
+    String? url;
+    try {
+      url = await subscription.getManagementUrl();
+    } catch (_) {
+      url = null;
+    }
+    if (!mounted) return;
+    setState(() => _loadingManagementUrl = false);
+    if (url == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('管理画面を開けませんでした。しばらくしてから再度お試しください。')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    await openExternalUri(context, Uri.parse(url));
+  }
+
   /// ISO 8601のサブスクリプション期間(P1M等)を日本語の期間ラベルへ変換する。
   /// 未知の値やAmazon(期間がnull)の場合は空文字を返す。
   String _periodLabel(String? period) {
@@ -246,8 +284,61 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
+  Widget _buildSubscribedView(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('質問し放題プラン')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.check_circle,
+              color: Theme.of(context).colorScheme.primary,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              // 「す」だけが孤立して次行に折り返るのを避けるため、
+              // 文節境界(助詞の後)で明示的に改行する。
+              '質問し放題プランを\nご利用中です',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '無料枠を超えて質問し放題・広告非表示・優先処理(高速回答)が有効です。',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            FilledButton(
+              onPressed: _loadingManagementUrl ? null : _handleManageSubscription,
+              child: _loadingManagementUrl
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('サブスクリプションを管理'),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '解約・支払い方法の変更は端末のストア(App Store / Google Play)の'
+              '定期購読設定から行えます。',
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isSubscribed = context.watch<SubscriptionProvider>().isSubscribed;
+    if (isSubscribed) return _buildSubscribedView(context);
+
     final package = _package;
     final purchaseLabel = package == null
         ? 'アップグレードする'
@@ -259,14 +350,16 @@ class _PaywallScreenState extends State<PaywallScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              // 「た」だけが孤立して次行に折り返るのを避けるため、
-              // 文節境界(助詞の後)で明示的に改行する。
-              '無料枠(月10問)を\n使い切りました',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
+            if (widget.triggeredByQuotaLimit) ...[
+              const Text(
+                // 「た」だけが孤立して次行に折り返るのを避けるため、
+                // 文節境界(助詞の後)で明示的に改行する。
+                '無料枠(月10問)を\n使い切りました',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+            ],
             _buildPlanInfo(),
             const SizedBox(height: 32),
             if (_error != null) ...[

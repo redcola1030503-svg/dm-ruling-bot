@@ -82,7 +82,10 @@ class _RulingScreenState extends State<RulingScreen> {
         final purchased = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
-            builder: (_) => PaywallScreen(apiClient: widget.apiClient),
+            builder: (_) => PaywallScreen(
+              apiClient: widget.apiClient,
+              triggeredByQuotaLimit: true,
+            ),
           ),
         );
         if (purchased == true) {

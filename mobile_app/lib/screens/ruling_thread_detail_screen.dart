@@ -104,7 +104,10 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
         final purchased = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
-            builder: (_) => PaywallScreen(apiClient: apiClient),
+            builder: (_) => PaywallScreen(
+              apiClient: apiClient,
+              triggeredByQuotaLimit: true,
+            ),
           ),
         );
         if (purchased == true) {
