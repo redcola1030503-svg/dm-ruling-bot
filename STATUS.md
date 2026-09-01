@@ -2,7 +2,7 @@
 
 Updated: 2026-09-02
 Owner: Claude Code
-Reviewer: Codex(PR #1・LINE Bot廃止の独立レビューを実施済み)
+Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性の独立レビューを実施済み)
 
 ## Current Goal
 
@@ -11,6 +11,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止の独立レビューを実施済み)
 1. モバイルアプリ(Android/iOS)のストア審査対応
 2. 有料化の形態(価格・プラン設計)の見直し検討
 3. LINE Bot廃止の残作業(Render環境変数・LINE Developersコンソール側の後始末)
+4. T002 設計整合性の是正（裁定根拠・deviceId・課金仕様・プライバシー・デプロイ設定）
 
 ## Completed
 
@@ -76,6 +77,8 @@ Reviewer: Codex(PR #1・LINE Bot廃止の独立レビューを実施済み)
 - PR #1はマージ判断へ進んでよい状態
 - **今後の開発は原則として共同体制(Claude実装→Codex独立レビュー→Claude修正→再検証)で行う**(2026-09-02、ユーザー方針)。従来「重要な変更のときだけ」だった`AGENTS.md`のReviewセクションを、これを標準の流れとする内容へ更新済み。レビューは`scripts/codex-review.ps1`を使う
 - LINE Bot版は告知無しで即時廃止する(2026-09-02、ユーザー最終判断。詳細は`DECISIONS.md`のD-002参照)
+- 公認ジャッジによる訂正は、本プロジェクト上の「公式参考情報」として扱う。タカラトミー公開物である「公式一次情報」と用語を区別するが、論点が明確に一致する場合は直接の裁定根拠・`high` confidenceの材料にできる(2026-09-02、ユーザー判断。詳細は`DECISIONS.md`のD-004参照)
+- Androidの`deviceId`は永続的な端末/ユーザーIDではなくインストール単位IDとして扱う。アプリデータ削除・再インストールによる無料枠リセットは既知の限界として受容し、購入復元はRevenueCatの`Transfer to new App User ID`と`restorePurchases()`へ分離する案Aを採用する(2026-09-02、ユーザー判断。詳細は`DECISIONS.md`のD-005参照)
 
 ## Blocked
 
@@ -83,9 +86,13 @@ Reviewer: Codex(PR #1・LINE Bot廃止の独立レビューを実施済み)
 
 ## Verification
 
-**LINE Bot廃止後(2026-09-02、未コミット、HEAD時点)**:
+**T002 P2/P3ドキュメント・設定是正(2026-09-02、未コミット、HEAD時点)**:
 - `npm run typecheck`: PASS
-- `npm test`: PASS(469/469。廃止前477件から、削除した`formatRuling.test.ts`4件・`verifySignature.test.ts`4件の-8件)
+- `npm test`: PASS(`vitest.config.ts`新設により`.worktrees/**`除外、ルート単体40ファイル/232テスト。以前の「82ファイル/469テスト」は`.worktrees/subscription-billing`分を含んでいた誤った集計だったと判明)
+
+**LINE Bot廃止後(2026-09-02、コミット`9ee9601`、master/originにpush済み)**:
+- `npm run typecheck`: PASS
+- `npm test`: PASS(469/469。廃止前477件から、削除した`formatRuling.test.ts`4件・`verifySignature.test.ts`4件の-8件。**注記**: この469件という数字は`.worktrees/subscription-billing`配下のテストが混入した誤った集計だった。上記T002対応後の正しいルート単体件数は232件)
 - `cd mobile_app && flutter analyze`: PASS(0 issues。未使用の`getRuling()`削除に伴う未使用import`ruling_result.dart`も検出・修正済み)
 - 実機確認(`npm run dev`起動後にcurl): `POST /webhook/line`→404、`POST /api/ruling`→404、`POST /api/ruling/jobs`→202、`GET /health`→200
 
@@ -96,6 +103,12 @@ PR #1、修正反映後(subscription-billingブランチ、コミット`fdae217`
 - モバイル `flutter test test/widget_test.dart`: FAIL(この機能と無関係のmaster由来の既知の問題、未変更)
 
 ## Reviewer Findings
+
+**開発方針・設計・実装の横断レビュー(2026-09-02)**: Codexが関連資料・バックエンド・Flutter・Render・プライバシー/ストア資料を突合し、当初P1 5領域、P2 3領域、P3 1領域の齟齬を確認した。Claude実装→Codex再レビューで対応する共同残タスクを`.ai/tasks/T002-design-consistency-remediation.md`、根拠を`.ai/reviews/2026-09-02-design-consistency-review.md`へ記録した。P1のうちジャッジ訂正の信頼階層はD-004で解消済み。Android deviceIdはD-005でインストール単位IDとする方針を決定し、メモリキャッシュ・Auto Backup除外・RevenueCat購入復元E2Eが実装待ち。D-003と逆の課金資料は「現行specをD-003へ更新し、旧planはHistorical/Partially supersededの警告付き履歴として保持する」方針をClaudeへ共有済み。ほかの最優先は、RevenueCatのプライバシー/Data Safety記載漏れ、Render Blueprintの課金環境変数不足。
+
+**個別裁定ハードコードの改善提案(2026-09-02、採用判断待ち)**: ルール15〜20を単純削除せず、出典・適用/除外条件・確認日・正例/負例を持つ「検証済み裁定原則」へ移し、関連質問にだけ検索・注入する案をClaudeへ共有した。旧プロンプトと新方式を一時併用し、検索評価と回答評価を通した原則から1件ずつ移行する。詳細は`.ai/reviews/2026-09-02-ruling-knowledge-migration-proposal.md`、追跡はT002参照。
+
+**LINE Bot廃止の独立レビュー(2026-09-02)**: 共同タスクを`.ai/tasks/T001-line-bot-removal.md`、追跡用レビューサマリーを`.ai/reviews/2026-09-02-line-bot-removal.md`へ保存した。CodexのP1指摘を修正し、P2は手動検証後にfollow-up化。P1はジャッジ削除手順のセキュリティ不備、P2は廃止エンドポイントの404を保証する自動統合テスト不足。
 
 Codexによる独立レビューを2回実施。
 
@@ -116,7 +129,7 @@ Codexによる独立レビューを2回実施。
 
 **注記**: このレビューはWindows環境で`--sandbox read-only`がローカルのgit/ファイル読み取りコマンド自体を全面拒否したため、diffとAGENTS.md/STATUS.md/DECISIONS.mdをプロンプトへ直接埋め込む方式で実施した(`scripts/codex-review.ps1`そのままでは動作しなかった)。
 
-**`scripts/codex-review.ps1`のWindows不具合を恒久修正(2026-08-31、コミット待ち)**: 上記の注記どおり、Codexに「自分でgit diff/ファイルを読ませる」設計だとWindowsのread-onlyサンドボックスがgit実行自体を拒否し使用不能だった。恒久対応として、スクリプト側でdiff・AGENTS.md・STATUS.md・DECISIONS.md・タスクファイルを取得しプロンプトへ直接埋め込む方式に変更(read-onlyサンドボックス自体は防御多層化として維持)。
+**`scripts/codex-review.ps1`のWindows不具合を恒久修正(2026-08-31、コミット`d5ccfe9`)**: 上記の注記どおり、Codexに「自分でgit diff/ファイルを読ませる」設計だとWindowsのread-onlyサンドボックスがgit実行自体を拒否し使用不能だった。恒久対応として、スクリプト側でdiff・AGENTS.md・STATUS.md・DECISIONS.md・タスクファイルを取得しプロンプトへ直接埋め込む方式に変更(read-onlyサンドボックス自体は防御多層化として維持)。
 
 実装中に**新たに4件の実機バグ**を発見・修正した(いずれも本番投入前に発覚、コード変更なしでは気づけなかった):
 1. **BOM無しUTF-8ファイルの文字化け**: Windows PowerShell 5.1の`Get-Content`(および`.ps1`スクリプト自体の読み込み)は、BOM無しUTF-8ファイルを既定でシステムのANSIコードページ(Shift-JIS)として誤読する。スクリプト自体にBOMを再付与し、`Get-Content -Raw -Encoding UTF8`を明示することで解消(元のスクリプトファイルは実はBOM付きだったが、編集時に一度失われていたことも判明)
@@ -179,15 +192,16 @@ Codexによる独立レビューを2回実施。
 
 ## Next
 
-1. iOS版v1.7.1(17)・v1.7.2(18)の審査結果をApp Store Connectで確認する(2026-09-02、ログインセッション切れのため未確認・ユーザー指示でスキップ中)
-2. ~~Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード~~ → **2026-09-02検証解消を確認**(上記Completed参照、「Valid credentials」表示)。任意でRevenueCatの「Google developer notifications」(Pub/Subトピック接続)を設定するとよい
-3. (任意、緊急性は下がった)Pricing案A残り(価格を¥980程度へ引き上げ)の実施要否をユーザーと最終判断。広告非表示は2026-09-01に有料特典として実装済み
-4. ~~LINE Bot廃止の進め方を決定する~~ → **2026-09-02完了**(告知無しで即時廃止、上記Completed・`DECISIONS.md`のD-002参照)。残作業: Render本番環境変数からの`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`削除、LINE Developersコンソールでのチャネルの扱い決定
-5. ~~`scripts/codex-review.ps1`のWindows read-onlyサンドボックス問題を恒久対応する~~ → **2026-08-31完了**(下記Reviewer Findings参照)
-6. (follow-up、詳細は`actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)課金ルートのExpress統合テスト整備、無料枠上限判定の原子化、ジョブ失敗時のスレッドロールバック、Webhook/同期APIのレート制限分離
-7. 正式公開後、実際の課金ユーザーの利用データでPricing分析を再実施する
-8. (follow-up)`scripts/codex-review.ps1`の残課題(下記Reviewer Findings参照): `-Base`指定時に作業ツリーの変更が漏れる、未追跡ディレクトリ配下のファイルが列挙されない、`.ai/tasks/T*.md`を無条件に全件埋め込む、新しい分岐への自動テストが無い
-9. (follow-up、LINE Bot廃止のCodexレビューP2指摘)廃止した`POST /webhook/line`・`POST /api/ruling`が404で到達不能なことを保証する自動テストが無い(今回はサーバー起動+curlで手動確認のみ、上記Verification参照)。既存コードベースにHTTP統合テストの慣行が無い(supertest等未導入)ため今回は見送り。導入するなら`src/index.ts`の`app`構築とサーバー起動(`listen`)の分離が前提
+1. **T002 設計整合性の是正**をClaudeが実装し、Codexが独立再レビューする。優先順・受入条件は`.ai/tasks/T002-design-consistency-remediation.md`、根拠は`.ai/reviews/2026-09-02-design-consistency-review.md`参照
+2. iOS版v1.7.1(17)・v1.7.2(18)の審査結果をApp Store Connectで確認する(2026-09-02、ログインセッション切れのため未確認・ユーザー指示でスキップ中)
+3. ~~Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード~~ → **2026-09-02検証解消を確認**(上記Completed参照、「Valid credentials」表示)。任意でRevenueCatの「Google developer notifications」(Pub/Subトピック接続)を設定するとよい
+4. (任意、緊急性は下がった)Pricing案A残り(価格を¥980程度へ引き上げ)の実施要否をユーザーと最終判断。広告非表示は2026-09-01に有料特典として実装済み
+5. ~~LINE Bot廃止の進め方を決定する~~ → **2026-09-02完了**(告知無しで即時廃止、上記Completed・`DECISIONS.md`のD-002参照)。残作業: Render本番環境変数からの`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`削除、LINE Developersコンソールでのチャネルの扱い決定
+6. ~~`scripts/codex-review.ps1`のWindows read-onlyサンドボックス問題を恒久対応する~~ → **2026-08-31完了**(下記Reviewer Findings参照)
+7. (follow-up、詳細は`actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)課金ルートのExpress統合テスト整備、無料枠上限判定の原子化、ジョブ失敗時のスレッドロールバック、Webhook/同期APIのレート制限分離
+8. 正式公開後、実際の課金ユーザーの利用データでPricing分析を再実施する
+9. (follow-up)`scripts/codex-review.ps1`の残課題(下記Reviewer Findings参照): `-Base`指定時に作業ツリーの変更が漏れる、未追跡ディレクトリ配下のファイルが列挙されない、`.ai/tasks/T*.md`を無条件に全件埋め込む、新しい分岐への自動テストが無い
+10. (follow-up、LINE Bot廃止のCodexレビューP2指摘)廃止した`POST /webhook/line`・`POST /api/ruling`が404で到達不能なことを保証する自動テストが無い(今回はサーバー起動+curlで手動確認のみ、上記Verification参照)。既存コードベースにHTTP統合テストの慣行が無い(supertest等未導入)ため今回は見送り。導入するなら`src/index.ts`の`app`構築とサーバー起動(`listen`)の分離が前提
 
 ## Do Not Repeat
 

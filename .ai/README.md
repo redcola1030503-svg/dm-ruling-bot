@@ -18,7 +18,7 @@ DECISIONS.md            長期的な設計判断(ADR-lite)
 ├─ README.md            このファイル
 ├─ tasks/
 │  └─ README.md         タスクファイルの書き方
-├─ reviews/              レビュー結果の保存先(空、運用しながら溜める)
+├─ reviews/              Codex/Claudeによる独立レビュー結果の保存先
 ├─ prompts/
 │  ├─ codex-review.md   Claude→Codexへのレビュー依頼プロンプト
 │  ├─ claude-review.md  Codex→Claudeへのレビュー依頼プロンプト
@@ -108,8 +108,8 @@ git status
 - Windows環境では `codex exec --sandbox read-only` を「絶対安全」とは考えない。実行前後に`git status`/`git diff`を確認し、reviewerには常に「変更禁止」を明示する
 - 並列で実装させる場合は同じファイルを同時編集させない。git worktreeで分離するか、片方をread-onlyレビュー専任にする
 
-## 9. 現状の制約(2026-08-31時点)
+## 9. 現状の制約
 
-- Codex CLIは導入直後で、実際のレビュー運用実績はまだ無い
+- Codex CLIによる独立レビューは運用済み。レビュー結果は`.ai/reviews/`へ保存する
 - `.ai/skills-src/` は空。採用するSkillは今後、実際に頻繁に使うもの(code-review, security-review, test-first等)から順に追加していく方針
 - Codex CLIに`.claude/skills/`相当の自動検出Skillディレクトリがあるかは未確認のため、`sync-ai-skills.ps1`はCodex向けを`.ai/skills-compiled/codex/`への集約に留めている(自動読み込みは保証しない)

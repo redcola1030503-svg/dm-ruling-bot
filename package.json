@@ -2,7 +2,7 @@
   "name": "dm-ruling-bot",
   "version": "0.1.0",
   "private": true,
-  "description": "デュエル・マスターズ裁定確認API + LINE Bot",
+  "description": "デュエル・マスターズ裁定確認API + モバイルアプリ",
   "main": "dist/index.js",
   "engines": {
     "node": ">=22.5.0"

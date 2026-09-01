@@ -6,9 +6,10 @@ const envSchema = z.object({
 
   PORT: z.coerce.number().default(3000),
 
-  // 初回起動時のみ、ジャッジ/管理者としてDB(judgeテーブル)にシードするIDの
-  // カンマ区切りリスト。以後の登録・削除はDB側(モバイルアプリの管理者機能、
-  // /api/judges)で管理するため、ここを変更しても既存DBには反映されない。
+  // 起動のたびに、まだDB(judgeテーブル)に存在しないIDだけを差分シードする
+  // カンマ区切りリスト(既存の行は上書きしない、src/config/db.ts参照)。
+  // 以後の登録・削除はDB側(モバイルアプリの管理者機能、/api/judges)で行う。
+  // 削除したIDがここに残っていると、次回起動時に再シードされ復活する点に注意。
   VALID_JUDGE_IDS: z
     .string()
     .default("")
