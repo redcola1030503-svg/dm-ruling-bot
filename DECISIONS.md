@@ -31,8 +31,8 @@ Claude API原価がAdMob広告収益を大きく上回る赤字構造(詳細はV
 
 ## D-002 LINE Bot版の廃止、モバイルアプリへの一本化
 
-Date: 2026-08-31
-Status: Accepted(進め方は未確定)
+Date: 2026-08-31(廃止完了: 2026-09-02)
+Status: Accepted
 
 ### Context
 
@@ -40,17 +40,19 @@ Status: Accepted(進め方は未確定)
 
 ### Decision
 
-LINE Bot版を廃止し、モバイルアプリへ一本化する方針。
+LINE Bot版を廃止し、モバイルアプリへ一本化する方針。進め方は「告知無しで即時廃止」とユーザーが最終判断(2026-09-02)。理由: LINE Bot経由の利用状況を追跡するログ・DBテーブルが存在せず実利用者数が不明な点、モバイルアプリが既に機能面で上回っている点、無認証・無制限の同期APIがコスト面のリスクである点を踏まえ、告知による移行期間よりも即時停止を優先した。
 
 ### Rejected Alternatives
 
 - LINE Bot版にも別途課金導線を実装する(LINE PayとRevenueCat/ストア課金の二重運用はコストに見合わない)
 - LINE Bot版を無料のまま存続させる(コスト負担源として残り続ける、無認証・無制限の`POST /api/ruling`が課金回避の抜け道になりうる)
+- 告知1回+移行期間を設けてから停止する(Claude提案、ユーザーが不採用。即時停止を選択)
 
 ### Consequences
 
-- 廃止の具体的な進め方(即時停止/移行期間/利用者への告知要否)は未決定。詳細はVault内「dm-ruling-bot_残作業リスト」参照
-- 廃止完了後、`src/routes/lineWebhook.ts`・`src/line/`・同期API`POST /api/ruling`等のLINE専用コードを削除できる
+- **2026-09-02完了**: `src/routes/lineWebhook.ts`・`src/line/`(5ファイル)・同期API`src/routes/ruling.ts`(`POST /api/ruling`)・対応テスト2件を削除。`@line/bot-sdk`依存、`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`環境変数、`webhookRateLimiter`を削除
+- ジャッジ機能(ログイン・訂正記録・ジャッジ管理)はモバイルアプリ側API(`/api/login`等)で既に代替済みのため、LINE版の`/login`等コマンド削除による機能喪失は無い
+- 残作業: Render本番環境変数からのLINE関連キー削除、LINE Developersコンソールでのチャネルの扱い決定(削除/凍結、緊急性は低い)
 
 ## D-003 無料枠カウントは独立カウンタテーブルで管理する(ruling_jobの行数を数えない)
 

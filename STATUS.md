@@ -1,16 +1,16 @@
 # Project Status
 
-Updated: 2026-09-01
+Updated: 2026-09-02
 Owner: Claude Code
-Reviewer: Codex(PR #1の独立レビューを実施済み)
+Reviewer: Codex(PR #1・LINE Bot廃止の独立レビューを実施済み)
 
 ## Current Goal
 
 複数の並行課題があり、単一の目標に絞れていない状態。
 
-1. サブスクリプション課金機能(PR #1)のレビュー・マージ判断
-2. LINE Bot廃止の進め方決定・実施
-3. モバイルアプリ(Android/iOS)のストア審査対応
+1. モバイルアプリ(Android/iOS)のストア審査対応
+2. 有料化の形態(価格・プラン設計)の見直し検討
+3. LINE Bot廃止の残作業(Render環境変数・LINE Developersコンソール側の後始末)
 
 ## Completed
 
@@ -46,26 +46,50 @@ Reviewer: Codex(PR #1の独立レビューを実施済み)
   - 検証: `flutter analyze`(mobile_app全体)クリーン、`flutter test test/widget_test.dart`は既存の無関係な既知failureのみ(新規リグレッションなし)。エミュレータで両状態(未購読/購読中)を`SubscriptionProvider`の一時的な上書きで再現し視覚確認、確認後は完全に元へ戻した(コミットなし)。確認中に見出しの新規テキストで同様の孤立文字・店舗名分断が発生したため、既存の教訓(明示改行・改行禁止スペース)を同様に適用して解消
   - ~~**未反映**: この変更はv1.7.1+17のビルドには含まれていない~~ → **2026-09-01完了**、v1.7.2+18として配信済み(下記参照)
 - **v1.7.2+18を両OSに配信完了**(2026-09-01): 能動的アップグレード導線を含めてバージョンを上げ、v1.7.1+17と同じ手順(Android内部テストトラック即時公開、iOS Codemagicビルド→輸出コンプライアンス提出→クローズドテスト審査提出)で両OSへ配信。Codemagicビルド#15(コミット`a0da73a`)、iOSビルド18のステータスは「審査待ち」。Android v1.7.2(18)は内部テストトラックへ即時公開完了。**iOS版は1.7.1(17)・1.7.2(18)の2件が同時に審査待ちの状態**
+- **Android側のService Account Credentials JSON(Google Cloud)を作成・アップロード**(2026-09-01): RevenueCatのGoogle Play自動インポート・Webhook署名検証に必要な設定を完了。
+  - Google Cloud Console(プロジェクト`dmrulingbot-aiteacher`)で以下3つのAPIを有効化: Google Play Android Developer API、Google Play Developer Reporting API、Cloud Pub/Sub API(最後の1つはRevenueCat公式ガイドに未記載だったが、アップロード時のエラーメッセージ「Google Cloud Pub/Sub API must first be enabled」で判明)
+  - サービスアカウント`revenuecat-play-billing@dmrulingbot-aiteacher.iam.gserviceaccount.com`を作成、ロール「Pub/Sub 編集者」「モニタリング閲覧者」を付与(RevenueCat公式ガイド`https://www.revenuecat.com/docs/service-credentials/creating-play-service-credentials`に準拠)
+  - JSON秘密鍵を作成・ダウンロードし、`dm-ruling-bot-secrets/dmrulingbot-aiteacher-c03e5cc40727.json`に保存(リポジトリ外、Git管理対象外)
+  - Play Console「ユーザーと権限」で当該サービスアカウントを招待。アカウント権限4つ(アプリ情報の閲覧・一括レポートのダウンロード/売上データ・注文・解約アンケートの回答の閲覧/注文と定期購入の管理/ストアでの表示の管理)を付与
+  - **つまずいた点**: アカウント権限のみでは不十分で、RevenueCat側の検証(Debug error)が「Can validate Google Play subscription purchases」で失敗し続けた。詳細ヒントに「Grant this service account app access plus ...」とあり、ユーザー詳細画面の「アプリの権限」タブでアプリ(デュエマ裁定確認アプリ AIティーチャーくん)個別のアクセスも明示的に追加する必要があると判明・対応
+  - RevenueCatへJSONファイルをアップロードし保存。当初は「Service account credentials need attention」のまま未解消だったが、**2026-09-02再確認したところ「Valid credentials」に変わっており解消済みと確認**(反映待ちの想定通り)
+  - **残作業**: RevenueCatの同じ設定画面下部「Google developer notifications」セクションがまだ未設定(Topic IDの選択欄が空欄)。RevenueCatはリアルタイムのPub/Sub通知連携を強く推奨しているため、後日設定するとよい(Webhook経由の同期自体は動作するため必須ではない)
+- **LINE Bot版の廃止・削除**(2026-09-02、ユーザー判断「告知無しで今廃止」): モバイルアプリへの一本化に伴い実施。詳細は`DECISIONS.md`のD-002参照。
+  - コード削除: `src/routes/lineWebhook.ts`・`src/line/`(5ファイル)・同期API`src/routes/ruling.ts`(`POST /api/ruling`、モバイル側で未使用のデッドコードだったことを確認済み)・対応テスト2件(`tests/formatRuling.test.ts`・`tests/verifySignature.test.ts`)
+  - 依存関係・設定削除: `@line/bot-sdk`(package.json)、`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`(env.ts・render.yaml・.env.example)、`webhookRateLimiter`(rateLimit.ts、`rulingRateLimiter`は`/api/cards/suggest`等で引き続き使用のため残置)
+  - モバイル側: 未使用だった`ApiClient.getRuling()`(同期`/api/ruling`呼び出し、UIから未参照のデッドコードと確認)を削除
+  - ドキュメント整理: `docs/LINE Bot利用ガイド（完全版/簡易版）.md`削除、`README.md`・`docs/judge-login-setup.md`・`docs/ジャッジID追加手順.md`のLINE前提の記述をモバイルアプリ前提に更新
+  - 検証: `npm run typecheck`・`npm test`(469件全パス、削除した2テストファイル分-8件を除き従来通り)・`flutter analyze`(0件)。加えて実際に`npm run dev`でサーバーを起動し、`POST /webhook/line`・`POST /api/ruling`が404、`POST /api/ruling/jobs`が202、`GET /health`が200であることをcurlで実機確認済み(廃止エンドポイントがセキュリティ境界として実際に閉じたことの検証)
+  - Codex独立レビューで発見・対応した重大な問題: `docs/ジャッジID追加手順.md`の削除手順が誤っていた(`VALID_JUDGE_IDS`から除外するだけでは`judge`テーブルの行は消えず、パスワード無し認証のジャッジIDが有効なまま残ってしまう)。`getSession`が`judge`テーブルとのJOINでroleを取得する実装(`src/judges/repository.ts`)であることを確認し、「`DELETE /api/judges/:judgeId`でDB削除→`VALID_JUDGE_IDS`からも除外」の正しい2段階手順に修正
+  - **残作業**: Render本番環境変数からの`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`削除(ブラウザ操作が必要、未実施)、LINE Developersコンソールでのチャネルの扱い決定(削除/凍結、緊急性は低い)
 
 ## In Progress
 
-- LINE Bot廃止方針(即時停止か移行期間を設けるか)が未確定
-- iOS版v1.7.1(17)・v1.7.2(18)の審査結果待ち(2件同時審査待ち)。通過後、実機でプッシュ通知・広告非表示・優先処理特典・能動的アップグレード導線が正しく動作するか確認するとよい
-- Android側のService Account Credentials JSON(Google Cloud、RevenueCatの自動インポート・Webhook検証に必要)が未アップロード
+- iOS版v1.7.1(17)・v1.7.2(18)の審査結果待ち(2件同時審査待ち)。**2026-09-02時点、App Store Connectのログインセッションが切れており未再確認(ユーザー指示でスキップ)**。通過後、実機でプッシュ通知・広告非表示・優先処理特典・能動的アップグレード導線が正しく動作するか確認するとよい
+- RevenueCatの「Google developer notifications」(Pub/Subトピック接続)が未設定(上記Completed参照)
 - 有料化の形態(価格・プラン設計)の見直し検討(下記「Pricing検討」参照)
+- LINE Bot廃止の残作業(Render環境変数削除・LINE Developersコンソール側の後始末、上記Completed参照)
 
 ## Decided (このセッション)
 
 - 残るP1(無料枠上限判定の原子性)とP2(ジョブ失敗時のスレッドロールバック)は今回のPRのスコープ外とし、`actions/dm-ruling-bot_残作業リスト.md`(Vault側)へfollow-upとして切り出した(2026-08-31、ユーザー判断)。理由: 現状のRender starterプラン(単一インスタンス)かつハンドラー内に`await`が無いため実害が低いと判断
 - PR #1はマージ判断へ進んでよい状態
+- **今後の開発は原則として共同体制(Claude実装→Codex独立レビュー→Claude修正→再検証)で行う**(2026-09-02、ユーザー方針)。従来「重要な変更のときだけ」だった`AGENTS.md`のReviewセクションを、これを標準の流れとする内容へ更新済み。レビューは`scripts/codex-review.ps1`を使う
+- LINE Bot版は告知無しで即時廃止する(2026-09-02、ユーザー最終判断。詳細は`DECISIONS.md`のD-002参照)
 
 ## Blocked
 
-- なし(RevenueCatダッシュボード未作成のため実キー未設定だが、これは「次にやること」であってブロッカーではない)
+- なし
 
 ## Verification
 
-PR #1、修正反映後(subscription-billingブランチ、コミット`fdae217`/`d018dd4`):
+**LINE Bot廃止後(2026-09-02、未コミット、HEAD時点)**:
+- `npm run typecheck`: PASS
+- `npm test`: PASS(469/469。廃止前477件から、削除した`formatRuling.test.ts`4件・`verifySignature.test.ts`4件の-8件)
+- `cd mobile_app && flutter analyze`: PASS(0 issues。未使用の`getRuling()`削除に伴う未使用import`ruling_result.dart`も検出・修正済み)
+- 実機確認(`npm run dev`起動後にcurl): `POST /webhook/line`→404、`POST /api/ruling`→404、`POST /api/ruling/jobs`→202、`GET /health`→200
+
+PR #1、修正反映後(subscription-billingブランチ、コミット`fdae217`/`d018dd4`、参考・過去の記録):
 - `npm test`: PASS(237/237、修正前227から+10)
 - `npm run typecheck`: PASS
 - `flutter analyze`: 未実施(モバイル側は今回変更していない)
@@ -155,14 +179,15 @@ Codexによる独立レビューを2回実施。
 
 ## Next
 
-1. ~~iOS側のRevenueCat/App Store Connectサブスクリプション商品設定~~ → **2026-09-01完了**(上記Completed参照)。~~残りはCodemagicでの新規ビルド作成・アップロードと審査提出~~ → **2026-09-01完了**(v1.7.1+17を審査提出済み、審査結果待ち)
-2. Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード
+1. iOS版v1.7.1(17)・v1.7.2(18)の審査結果をApp Store Connectで確認する(2026-09-02、ログインセッション切れのため未確認・ユーザー指示でスキップ中)
+2. ~~Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード~~ → **2026-09-02検証解消を確認**(上記Completed参照、「Valid credentials」表示)。任意でRevenueCatの「Google developer notifications」(Pub/Subトピック接続)を設定するとよい
 3. (任意、緊急性は下がった)Pricing案A残り(価格を¥980程度へ引き上げ)の実施要否をユーザーと最終判断。広告非表示は2026-09-01に有料特典として実装済み
-4. LINE Bot廃止の進め方を決定する(詳細は `actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)
+4. ~~LINE Bot廃止の進め方を決定する~~ → **2026-09-02完了**(告知無しで即時廃止、上記Completed・`DECISIONS.md`のD-002参照)。残作業: Render本番環境変数からの`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`削除、LINE Developersコンソールでのチャネルの扱い決定
 5. ~~`scripts/codex-review.ps1`のWindows read-onlyサンドボックス問題を恒久対応する~~ → **2026-08-31完了**(下記Reviewer Findings参照)
 6. (follow-up、詳細は`actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)課金ルートのExpress統合テスト整備、無料枠上限判定の原子化、ジョブ失敗時のスレッドロールバック、Webhook/同期APIのレート制限分離
 7. 正式公開後、実際の課金ユーザーの利用データでPricing分析を再実施する
 8. (follow-up)`scripts/codex-review.ps1`の残課題(下記Reviewer Findings参照): `-Base`指定時に作業ツリーの変更が漏れる、未追跡ディレクトリ配下のファイルが列挙されない、`.ai/tasks/T*.md`を無条件に全件埋め込む、新しい分岐への自動テストが無い
+9. (follow-up、LINE Bot廃止のCodexレビューP2指摘)廃止した`POST /webhook/line`・`POST /api/ruling`が404で到達不能なことを保証する自動テストが無い(今回はサーバー起動+curlで手動確認のみ、上記Verification参照)。既存コードベースにHTTP統合テストの慣行が無い(supertest等未導入)ため今回は見送り。導入するなら`src/index.ts`の`app`構築とサーバー起動(`listen`)の分離が前提
 
 ## Do Not Repeat
 

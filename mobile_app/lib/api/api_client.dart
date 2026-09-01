@@ -9,7 +9,6 @@ import '../models/correction.dart';
 import '../models/judge.dart';
 import '../models/reindex_status.dart';
 import '../models/ruling_job.dart';
-import '../models/ruling_result.dart';
 import '../models/ruling_thread.dart';
 import '../models/session.dart';
 import '../models/source_reference_stat.dart';
@@ -75,30 +74,6 @@ class ApiClient {
             ?.toString() ??
         'リクエストに失敗しました (HTTP ${resp.statusCode})';
     throw ApiException(message, statusCode: resp.statusCode);
-  }
-
-  Future<RulingResult> getRuling(String question) async {
-    http.Response resp;
-    try {
-      resp = await _client
-          .post(
-            _uri('/api/ruling'),
-            headers: _headers(),
-            body: jsonEncode({'question': question}),
-          )
-          .timeout(const Duration(seconds: 300));
-    } on TimeoutException {
-      throw const ApiException('サーバーの応答がありませんでした。時間をおいて再度お試しください。');
-    }
-    // 裁定生成はLLM呼び出しを含み60秒を超える場合があり、Renderのプロキシが
-    // タイムアウトして502を返すことがあるが、その場合でも処理自体は完了して
-    // レスポンス本体(conclusion等)が正しく返ってくることがあるため、
-    // ステータスコードに関わらずconclusionを含む有効なJSONなら採用する。
-    final decoded = _decodeBody(resp);
-    if (decoded is Map<String, dynamic> && decoded.containsKey('conclusion')) {
-      return RulingResult.fromJson(decoded);
-    }
-    return RulingResult.fromJson(_handleObject(resp));
   }
 
   /// 質問を非同期ジョブとして投稿する。即座にjobIdが返り、結果は

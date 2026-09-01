@@ -22,9 +22,8 @@ const correctionRequestSchema = z.object({
   correctRuling: z.string().min(1).max(2000),
 });
 
-// LINE版は会話履歴DB(LINE userId紐付け)から直前のQ&Aを推測するが、モバイル版は
-// ステートレスな/api/ruling呼び出しのみで会話履歴を持たないため、クライアントが
-// 画面表示済みのoriginalQuestion/botConclusionを直接送る設計にする。
+// 訂正対象をスレッド履歴(threadContext.ts)から自動特定する仕組みは無いため、
+// クライアントが画面表示済みのoriginalQuestion/botConclusionを直接送る設計にする。
 correctionsRouter.post("/api/corrections", requireJudgeSession, (req, res) => {
   const parsed = correctionRequestSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -55,7 +54,7 @@ correctionsRouter.get("/api/corrections", requireJudgeSession, (_req, res) => {
 });
 
 // 利用統計画面で「訂正事例」タブの項目をタップした際、訂正1件の全文を表示するために使う。
-// 一般ユーザーも閲覧できる公開情報として扱うが、correctedBy(LINEユーザーID)は
+// 一般ユーザーも閲覧できる公開情報として扱うが、correctedBy(ジャッジのセッション識別子)は
 // 内部識別子のため公開レスポンスには含めない。
 correctionsRouter.get("/api/corrections/:id", publicReadRateLimiter, (req, res) => {
   const id = Number(req.params.id);

@@ -6,11 +6,9 @@ const envSchema = z.object({
 
   PORT: z.coerce.number().default(3000),
 
-  LINE_CHANNEL_SECRET: z.string().optional(),
-  LINE_CHANNEL_ACCESS_TOKEN: z.string().optional(),
   // 初回起動時のみ、ジャッジ/管理者としてDB(judgeテーブル)にシードするIDの
-  // カンマ区切りリスト。以後の登録・削除はDB側(/judge_add, /judge_remove
-  // コマンド)で管理するため、ここを変更しても既存DBには反映されない。
+  // カンマ区切りリスト。以後の登録・削除はDB側(モバイルアプリの管理者機能、
+  // /api/judges)で管理するため、ここを変更しても既存DBには反映されない。
   VALID_JUDGE_IDS: z
     .string()
     .default("")
@@ -68,7 +66,7 @@ const envSchema = z.object({
   // モバイルアプリの非同期裁定ジョブ(rulingJob.ts)経由の裁定生成のうち、非購読ユーザーの
   // ジョブのみ、Anthropic Message Batches APIを使う(入出力とも50%割引)。購読者は
   // 優先処理特典として常に通常APIを使う(src/routes/rulingJobs.tsのuseBatchApi算出を参照)。
-  // LINE Bot・同期API(/api/ruling)は低レイテンシが必要なため対象外で常に通常APIを使う。
+  // LINE Bot・同期API(/api/ruling)は廃止済み(2026-09-02)。
   // バッチは「ほとんど1時間以内に完了」だが保証はなく最大24時間かかりうるため、
   // レイテンシ悪化が許容できない場合はfalseに戻すだけで即座に通常APIへ復帰できる。
   RULING_USE_BATCH_API: z

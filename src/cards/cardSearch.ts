@@ -48,7 +48,7 @@ export async function fetchTotalCardCount(): Promise<number | null> {
 
 /**
  * カード名はモバイルアプリの事前構築インデックス(card_index)からのサジェスト
- * 選択、またはLINE入力時のコピペにより正式名称で渡されることを前提とする。
+ * 選択により正式名称で渡されることを前提とする。
  * 表記ゆれのfallback探索は行わず、公式サイト検索の結果をそのまま返す。
  */
 export async function searchOfficialCards(

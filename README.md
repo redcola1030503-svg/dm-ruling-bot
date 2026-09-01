@@ -1,8 +1,10 @@
 # dm-ruling-bot
 
-デュエル・マスターズの対戦中に発生したルール裁定について、LINEから自然文で質問すると、公式サイト(dm.takaratomy.co.jp)の情報を一次根拠として裁定候補を回答するAPI + LINE Botです。
+デュエル・マスターズの対戦中に発生したルール裁定について、モバイルアプリから自然文で質問すると、公式サイト(dm.takaratomy.co.jp)の情報を一次根拠として裁定候補を回答するAPI + モバイルアプリ(Android/iOS)です。
 
 このBotはAIの記憶だけで裁定を回答しません。必ず公式カード情報・公式Q&A・公式ルール変更を取得し、それらを根拠として回答します(RAG方式)。
+
+> **注記**: 元々はLINE Botとして開発しましたが、2026-09-02にモバイルアプリへ一本化しLINE Bot版を廃止しました(詳細は`DECISIONS.md`のD-002参照)。
 
 > **AI開発者向け**: このリポジトリはClaude CodeとCodexの協働開発環境を採用しています。作業前に`AGENTS.md`・`STATUS.md`・`DECISIONS.md`を読んでください。セットアップ・使い方は`.ai/README.md`参照。
 
@@ -15,15 +17,15 @@
 - [x] Phase 3: 公式Q&A検索(`POST /api/debug/search`)
 - [x] Phase 4: ルール変更検索(`POST /api/debug/search`)
 - [x] Phase 5: LLM裁定(Claude API) — 実機確認済み
-- [x] Phase 6: LINE Bot — 実機確認済み(ngrok経由でWebhook動作確認 → 現在は本番Webhookで運用中)
+- [x] Phase 6: LINE Bot — 実機確認済み(ngrok経由でWebhook動作確認 → 本番Webhookで運用 → **2026-09-02廃止、モバイルアプリへ一本化**)
 - [x] 総合ルールPDF検索 — 実機確認済み。裁定の優先順位を「総合ルールへの当てはめ最優先→類似Q&A事例→ルール変更→カードテキスト」に変更
 - [x] Phase 7: 品質改善(一部) — レート制限・ログ整備・カード読み仮名検索を実装。Q&A rerank(LLM)は既存のスコアリングで十分な精度が出ているため見送り
 - [x] カード専用Q&A一覧の活用 — 実際の誤答事例から発見。カード詳細ページに埋め込まれた「このカードのよくある質問」への直接リンクを活用し、キーワード検索で漏れていたQ&Aを拾えるように改善(実機確認済み)
 - [x] confidence信頼性の改善 — 「表面的にキーワードは一致するが論点が異なるQ&A」を誤って強い根拠にしてしまう問題を実際の誤答事例から発見。LLM自身にconfidenceを自己評価させ、機械的スコアとの慎重な方を採用するよう変更。medium/lowの場合は「推論を含む」「ジャッジに確認を」という注記を自動付与するよう改善(実機確認済み)
 - [x] JSON出力順序の変更 — conclusionとexplanationが矛盾する出力(結論見出しと理由説明で逆のことを言う)を実際の誤答事例で発見。JSON出力順を steps→explanation→conclusion に変更し、推論してから結論を書く構造にして矛盾を防止
-- [x] ジャッジ訂正の蓄積・参照機能 — LINEで`/訂正 <正しい裁定>`コマンドにより、ログイン中のジャッジが直前のBot回答への訂正を記録できる。蓄積された訂正は「非公式な過去の誤答実績」として、以降の類似質問でLLMに参考提示され、同じ誤りの再発を防ぐ(公式情報の根拠としては使わない設計)
-- [x] 公認ジャッジのログイン機能 — `/login <ジャッジID>`で`VALID_JUDGE_IDS`に登録済みのジャッジIDのみログインでき、ログイン中のLINEユーザーのみ`/訂正`コマンドを実行できる。ログイン状態はDBにセッションとして保存し、`/logout`で解除できる
-- [x] **本番リリース** — Render(Starterプラン)にデプロイ済み。LINE Webhookを本番URLに切り替え、実機での質問応答を確認済み
+- [x] ジャッジ訂正の蓄積・参照機能 — モバイルアプリの`POST /api/corrections`により、ログイン中のジャッジが直前のBot回答への訂正を記録できる。蓄積された訂正は「非公式な過去の誤答実績」として、以降の類似質問でLLMに参考提示され、同じ誤りの再発を防ぐ(公式情報の根拠としては使わない設計)
+- [x] 公認ジャッジのログイン機能 — `POST /api/login`で`VALID_JUDGE_IDS`に登録済みのジャッジIDのみログインでき、セッショントークンを持つユーザーのみ訂正記録APIを実行できる。ログイン状態はDBにセッションとして保存し、`POST /api/logout`で解除できる
+- [x] **本番リリース** — Render(Starterプラン)にデプロイ済み
 
 ## 本番稼働状況
 
@@ -31,7 +33,6 @@
 - ホスティング: [Render](https://render.com)(`render.yaml` によるBlueprint定義をリポジトリに同梱)
 - masterブランチへのPushで自動デプロイ(Auto-Deploy: On Commit)
 - 永続ディスク(`/app/data`、1GB)をマウントし、SQLiteのキャッシュ・会話履歴・ジャッジ訂正データを永続化
-- LINE Webhook URLは `https://dm-ruling-bot.onrender.com/webhook/line` を設定・検証済み
 
 ## 必要環境
 
@@ -48,35 +49,13 @@ npm run dev
 `.env` に以下を設定してください。
 
 ```env
-LINE_CHANNEL_SECRET=
-LINE_CHANNEL_ACCESS_TOKEN=
 LLM_API_KEY=
 ```
 
-- `LLM_API_KEY`: Anthropic Console(console.anthropic.com)で発行したAPIキー。Phase 5(`POST /api/ruling`)に必要
-- `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN`: LINE Developersコンソールで作成したMessaging APIチャネルの値。Phase 6(`POST /webhook/line`)に必要
-- `VALID_JUDGE_IDS`: `/login`コマンドでログインできる、有効な公認ジャッジIDのカンマ区切りリスト(例: `J001,J002`)。ここに登録されたジャッジIDでログインしたユーザーのみ`/訂正`コマンドを実行できます
+- `LLM_API_KEY`: Anthropic Console(console.anthropic.com)で発行したAPIキー。裁定生成に必要
+- `VALID_JUDGE_IDS`: ログインできる、有効な公認ジャッジIDのカンマ区切りリスト(例: `J001,J002`)。ここに登録されたジャッジIDでログインしたユーザーのみ訂正記録APIを実行できます
 
-### LINE Bot設定手順(概要)
-
-1. [LINE Developers Console](https://developers.line.biz/console/)でプロバイダー・チャネル(Messaging API)を作成
-2. チャネルシークレットとチャネルアクセストークン(長期)を発行し、`.env` に設定
-3. サーバーを公開URLで起動(ローカル開発時は ngrok 等でトンネルする)
-4. LINE Developers ConsoleのWebhook URLに `https://<公開URL>/webhook/line` を設定し、Webhookを有効化
-5. 応答メッセージ機能はOFFにする(Bot からの返信のみを使うため)
-
-### LINE Botのコマンド
-
-- 通常のメッセージ: ルール質問として裁定を返す
-- `/whoami`: 自分のLINEユーザーIDを返す(デバッグ用)
-- `/login <ジャッジID>`: 公認ジャッジ・管理者としてログインする。DB(`judge`テーブル)に登録されたジャッジIDのみ成功する
-- `/logout`: ログアウトする
-- `/訂正 <正しい裁定>`: ログイン中のジャッジ・管理者が実行可能。直前のBot回答に対する訂正を、ログイン中のジャッジIDと紐付けて記録する。例:「`/訂正 1体目は出せますが2体目は出せません`」
-- `/judge_add <ジャッジID>`: **管理者のみ**実行可能。指定したIDを新しい公認ジャッジとして登録する
-- `/judge_remove <ジャッジID>`: **管理者のみ**実行可能。指定したIDの登録を削除する(自分自身は削除不可)
-- `/judge_list`: **管理者のみ**実行可能。登録済みジャッジ・管理者の一覧(ID・ロール)を表示する
-
-**ジャッジ/管理者の管理について**: `VALID_JUDGE_IDS`(ジャッジ)・`ADMIN_JUDGE_IDS`(管理者)環境変数は、起動のたびにDB(`judge`テーブル)へ差分シードされます(まだDBに存在しないIDのみ追加、既存の行は上書きしません)。以後の追加・削除は基本的に`/judge_add`・`/judge_remove`コマンド(管理者のみ)で行います。**`/judge_remove`で削除したIDが環境変数にまだ残っていると、次回の再デプロイ時に再び追加されてしまう**ため、削除する際は環境変数側からも忘れずに外してください。既存のジャッジIDを管理者に昇格させたい場合は、DBを直接操作するか、`ADMIN_JUDGE_IDS`にIDを追加してから該当行をDBから削除して再起動する必要があります(現時点でロール変更コマンドは未実装)。
+**ジャッジ/管理者の管理について**: `VALID_JUDGE_IDS`(ジャッジ)・`ADMIN_JUDGE_IDS`(管理者)環境変数は、起動のたびにDB(`judge`テーブル)へ差分シードされます(まだDBに存在しないIDのみ追加、既存の行は上書きしません)。以後の追加・削除は基本的にモバイルアプリの管理者機能(`/api/judges`)で行います。既存のジャッジIDを管理者に昇格させたい場合は、DBを直接操作するか、`ADMIN_JUDGE_IDS`にIDを追加してから該当行をDBから削除して再起動する必要があります(現時点でロール変更コマンドは未実装)。
 
 ## API
 
@@ -86,34 +65,13 @@ LLM_API_KEY=
 { "status": "ok" }
 ```
 
-### POST /api/ruling
+### モバイルアプリ向けAPI(裁定質問・ジャッジ認証・訂正・カード名サジェスト)
 
-request:
-
-```json
-{ "question": "ボルメテウス・ホワイト・ドラゴンでシールドをブレイクした場合、S・トリガーは使えますか？" }
-```
-
-response:
-
-```json
-{
-  "conclusion": "...",
-  "explanation": "...",
-  "steps": [],
-  "confidence": "low",
-  "cards": [],
-  "sources": []
-}
-```
-
-### モバイルアプリ向けAPI(ジャッジ認証・訂正・カード名サジェスト)
-
-LINE Bot以外のクライアント(将来のFlutterモバイルアプリ等)向けのJSON APIです。`/api/ruling`はログイン不要でそのまま利用できますが、ジャッジ限定機能(訂正記録・ジャッジ管理)はログインが必要です。
+モバイルアプリ(Android/iOS)向けのJSON APIです。裁定質問(`/api/ruling/jobs`)はログイン不要ですが、ジャッジ限定機能(訂正記録・ジャッジ管理)はログインが必要です。
 
 #### POST /api/login
 
-ジャッジID(公認ジャッジ・管理者)でログインし、以降のAPI呼び出しに使うセッショントークンを取得します。LINEコマンドの`/login`と同様、パスワードは無くジャッジIDのみで認証するため、総当たり対策として1分あたり5回までのレート制限がかかっています。
+ジャッジID(公認ジャッジ・管理者)でログインし、以降のAPI呼び出しに使うセッショントークンを取得します。パスワードは無くジャッジIDのみで認証するため、総当たり対策として1分あたり5回までのレート制限がかかっています。
 
 request:
 
@@ -139,7 +97,7 @@ response:
 
 #### POST /api/corrections
 
-`Authorization: Bearer <token>` が必要(ジャッジ・管理者どちらも可)。LINE版の`/訂正`コマンドと異なり会話履歴を参照しないため、画面に表示済みの質問・Botの結論をクライアント側から明示的に送ります。
+`Authorization: Bearer <token>` が必要(ジャッジ・管理者どちらも可)。訂正対象をスレッド履歴から自動特定する仕組みは無いため、画面に表示済みの質問・Botの結論をクライアント側から明示的に送ります。
 
 request:
 
@@ -155,7 +113,7 @@ response: `{ "status": "ok" }`
 
 #### GET/POST /api/judges, DELETE /api/judges/:judgeId
 
-`Authorization: Bearer <token>`(管理者のみ)が必要。LINEコマンドの`/judge_list`・`/judge_add`・`/judge_remove`のAPI版です。`POST`で追加できるロールは`"judge"`固定(管理者への昇格は不可)、`DELETE`で自分自身を削除しようとすると`409`が返ります。
+`Authorization: Bearer <token>`(管理者のみ)が必要。ジャッジの一覧取得・追加・削除を行うAPIです。`POST`で追加できるロールは`"judge"`固定(管理者への昇格は不可)、`DELETE`で自分自身を削除しようとすると`409`が返ります。
 
 ```json
 // GET /api/judges response
@@ -243,7 +201,7 @@ VOYAGE_API_KEY=your-voyage-api-key
 VOYAGE_EMBEDDING_MODEL=voyage-4
 ```
 
-**`VOYAGE_API_KEY` が未設定の場合、embedding検索は自動的に無効化され、キーワード検索のみで動作します。** Voyage APIがタイムアウト・レート制限・障害等で失敗した場合も同様にキーワード検索へフォールバックし、LINE Botの応答自体は止まりません。
+**`VOYAGE_API_KEY` が未設定の場合、embedding検索は自動的に無効化され、キーワード検索のみで動作します。** Voyage APIがタイムアウト・レート制限・障害等で失敗した場合も同様にキーワード検索へフォールバックし、応答自体は止まりません。
 
 ### embeddingの生成・更新
 
@@ -296,10 +254,9 @@ npm test
 ### Renderへのデプロイ(実施済みの手順)
 
 1. Renderダッシュボードで GitHubリポジトリ(`redcola1030503-svg/dm-ruling-bot`)と連携し、Web Serviceを作成(Docker、Starterプラン以上 — 永続ディスクはFreeプラン非対応)
-2. `render.yaml`に定義済みの環境変数のうち、機密情報(`LLM_API_KEY`/`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`/`VALID_JUDGE_IDS`)をRenderダッシュボード上で入力
+2. `render.yaml`に定義済みの環境変数のうち、機密情報(`LLM_API_KEY`/`VALID_JUDGE_IDS`)をRenderダッシュボード上で入力
 3. Disk設定で`/app/data`に1GBをマウント、Health Check Pathに`/health`を設定
-4. デプロイ後、LINE Developers ConsoleのWebhook URLを`https://<Renderが割り当てたURL>/webhook/line`に変更し「検証」で成功を確認
-5. Auto-Deployは「On Commit」設定のため、以後は`master`へのPushで自動的に再デプロイされる
+4. Auto-Deployは「On Commit」設定のため、以後は`master`へのPushで自動的に再デプロイされる
 
 ### ローカルでのDockerビルド確認
 
@@ -323,12 +280,11 @@ Render/Railwayでは「Persistent Disk」「Volume」機能を`/app/data`にマ�
 | 変数 | 本番での注意点 |
 |---|---|
 | `LLM_API_KEY` | Anthropicアカウントのクレジット残高を確認 |
-| `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN` | LINE Developers Consoleの本番チャネルの値を設定 |
 | `VALID_JUDGE_IDS` | 実際に運用する公認ジャッジIDのみを列挙 |
 | `VOYAGE_API_KEY` | 任意。未設定でもキーワード検索のみで動作する。設定する場合はデプロイ後に`npm run embeddings:rules`でembeddingを生成すること |
 | `ENABLE_DEBUG_ROUTES` | **必ず未設定または`false`にする**(`/api/debug/*`は本番で無効化)。なお`NODE_ENV=production`(Dockerfileで設定済み)の場合はこの値が`true`でもコード側で強制的に無効化される(多層防御) |
 | `DATABASE_URL` | 永続ボリューム上のパスを指定(例: `/app/data/cache.db`) |
-| `RULING_USE_BATCH_API` | 任意、既定`false`。`true`にするとモバイルアプリの非同期裁定ジョブ(Push通知経路)のみAnthropic Message Batches API(入出力とも50%割引)を使う。LINE Bot・同期`/api/ruling`は対象外(常に通常API)。バッチは通常1時間以内に完了するが保証はなく最大24時間かかりうるため、レイテンシ悪化が問題になれば`false`に戻すだけで即座に通常APIへ復帰できる |
+| `RULING_USE_BATCH_API` | 任意、既定`false`。`true`にするとモバイルアプリの非同期裁定ジョブ(Push通知経路)のうち非購読ユーザーのみAnthropic Message Batches API(入出力とも50%割引)を使う。バッチは通常1時間以内に完了するが保証はなく最大24時間かかりうるため、レイテンシ悪化が問題になれば`false`に戻すだけで即座に通常APIへ復帰できる |
 | `PORT` | Renderはコンテナに`PORT`環境変数を自動注入し、そのポートで待ち受ける(明示的な設定は不要。本番では10000番ポートが割り当てられている) |
 | `REVENUECAT_WEBHOOK_SECRET` | RevenueCatダッシュボード(Project > Integrations > Webhooks)の「Authorization header value」と同じ値を設定。未設定のままだと`/api/billing/revenuecat-webhook`は全リクエストを401で拒否し続ける(起動時に警告ログが出る) |
 | `REVENUECAT_API_KEY` | RevenueCatのSecret API Key(REST API呼び出し用)。未設定だと`/api/billing/sync`が常に失敗する(起動時に警告ログが出る) |
@@ -338,14 +294,12 @@ Render/Railwayでは「Persistent Disk」「Volume」機能を`/app/data`にマ�
 ### デプロイ後の確認
 
 1. `GET /health` が `{"status":"ok"}` を返すこと
-2. LINE Developers ConsoleのWebhook URLを本番URL(`https://<本番ドメイン>/webhook/line`)に更新し、「検証」が成功すること
-3. `POST /api/debug/search` 等のデバッグ系エンドポイントが404または無効化されていること(`ENABLE_DEBUG_ROUTES`未設定を確認)
-4. LINEから実際に質問を送り、裁定の返信が届くこと(本番確認済み: 2026-08-10)
+2. `POST /api/debug/search` 等のデバッグ系エンドポイントが404または無効化されていること(`ENABLE_DEBUG_ROUTES`未設定を確認)
+3. モバイルアプリから実際に質問を送り、裁定の返信が届くこと
 
 ## セキュリティ・品質対策
 
-- `POST /api/ruling`: 1分あたり10リクエストまでにレート制限(`express-rate-limit`)
-- `POST /webhook/line`: 1分あたり60リクエストまでにレート制限、LINE署名検証必須
+- `POST /api/ruling/jobs`・`GET /api/cards/suggest`: 1分あたり10リクエストまでにレート制限(`express-rate-limit`)
 - リバースプロキシ(ngrok/Render/Railway等)配下での実行を想定し `trust proxy` を設定済み
 - 公式サイトへのスクレイピングは同一ホストへ最低500ms間隔、タイムアウト10秒、リトライ2回(`src/utils/httpClient.ts`)
-- ログには質問文・検出カード名・検索キーワード・取得したQ&A/ルール変更/総合ルールのURL・confidence・処理時間・エラーを記録。LINEユーザーIDや個人情報はログに出力しない
+- ログには質問文・検出カード名・検索キーワード・取得したQ&A/ルール変更/総合ルールのURL・confidence・処理時間・エラーを記録。個人情報はログに出力しない

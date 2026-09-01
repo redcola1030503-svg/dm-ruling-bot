@@ -38,8 +38,9 @@
 
 ## Review
 
-重要な変更は、実装を行っていない別エージェント(Claude実装なら Codex、Codex実装なら Claude)に独立レビューさせる。
+**今後の開発は原則として共同体制(Claude実装 → Codex独立レビュー → Claude修正 → 再検証)で行う**(ユーザー方針、2026-09-02)。実装を行っていない別エージェント(Claude実装なら Codex、Codex実装なら Claude)に独立レビューさせることを標準の流れとし、「重要な変更のときだけ」に限定しない。誤字修正やドキュメントのみの変更等、影響範囲が自明に小さいものは省略してよいが、判断に迷う場合は実施する。
 レビュアーは修正しない。指摘のみ返し、実装側が反映を判断する。
+レビューは `scripts/codex-review.ps1` を使う(git diffとAGENTS.md/STATUS.md/DECISIONS.mdをプロンプトへ埋め込み、`codex exec --sandbox read-only`へstdin経由で渡す方式。2026-08-31にWindows不具合を修正済み)。
 
 ## Shared State
 

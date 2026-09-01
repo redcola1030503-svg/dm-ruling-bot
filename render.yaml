@@ -22,10 +22,6 @@ services:
         value: https://dm.takaratomy.co.jp/rule/rulechange/
       - key: LLM_API_KEY
         sync: false
-      - key: LINE_CHANNEL_SECRET
-        sync: false
-      - key: LINE_CHANNEL_ACCESS_TOKEN
-        sync: false
       - key: VALID_JUDGE_IDS
         sync: false
     disk:

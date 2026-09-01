@@ -9,15 +9,6 @@ export const rulingRateLimiter = rateLimit({
   message: { error: "rate_limited", detail: "リクエストが多すぎます。しばらく待ってから再度お試しください。" },
 });
 
-// LINE Webhookはプラットフォーム側からの再送もあるため、やや緩めに制限する。
-export const webhookRateLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "rate_limited" },
-});
-
 // ログインはジャッジIDを知っているだけで成立し(パスワード無し)、公開APIとして
 // 晒すと総当たりでジャッジIDを探索されるリスクがあるため、他のAPIより厳しく制限する。
 export const authRateLimiter = rateLimit({

@@ -23,8 +23,7 @@ judgesRouter.post("/api/judges", requireAdminSession, (req, res) => {
   }
 
   const session = res.locals.judgeSession as JudgeSession;
-  // LINE版の/judge_addと同様、このAPI経由で追加できるのは"judge"ロールのみ
-  // (管理者への昇格はこのAPIでは不可)。
+  // このAPI経由で追加できるのは"judge"ロールのみ(管理者への昇格はこのAPIでは不可)。
   addJudge(parsed.data.judgeId, "judge", session.judgeId);
   logger.info("api_judge_added", { targetJudgeId: parsed.data.judgeId, addedBy: session.judgeId });
   res.status(201).json({ status: "ok" });

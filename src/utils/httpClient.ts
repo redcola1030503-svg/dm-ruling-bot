@@ -1,7 +1,7 @@
 import axios, { type AxiosRequestConfig, type ResponseType } from "axios";
 import { logger } from "./logger";
 
-const USER_AGENT = "dm-ruling-bot/0.1 (+contact: LINE bot for rule ruling lookup)";
+const USER_AGENT = "dm-ruling-bot/0.1 (+contact: TCG rule ruling lookup app)";
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_RETRIES = 2;
 const MIN_INTERVAL_MS = 500;
