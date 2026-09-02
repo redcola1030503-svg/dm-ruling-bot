@@ -9,6 +9,7 @@ const EMPTY_EVIDENCE: RulingEvidence = {
   generalRules: [],
   pastCorrections: [],
   keywordAbilities: [],
+  verifiedRulingPrinciples: [],
   ambiguousCards: [],
 };
 
@@ -73,5 +74,46 @@ describe("estimateConfidence", () => {
 
   it("訂正事例もカードもQ&Aも総合ルールも無ければlow", () => {
     expect(estimateConfidence(EMPTY_EVIDENCE)).toBe("low");
+  });
+
+  it("検証済み裁定原則(D-006)がヒットしていてもカードテキストがなければlow", () => {
+    const evidence: RulingEvidence = {
+      ...EMPTY_EVIDENCE,
+      verifiedRulingPrinciples: [
+        {
+          title: "複数の置換効果が異なるイベントに適用される場合の決定順",
+          text: "...",
+          url: "",
+          sourceType: "verifiedRulingPrinciple",
+          itemKey: "replacement-effect-order-multiple-events",
+        },
+      ],
+    };
+    expect(estimateConfidence(evidence)).toBe("low");
+  });
+
+  it("検証済み裁定原則(D-006)がヒットしカードテキストもあればmedium(highにはしない)", () => {
+    const evidence: RulingEvidence = {
+      ...EMPTY_EVIDENCE,
+      cards: [
+        {
+          title: "カード",
+          text: "...",
+          url: "https://example.com/card",
+          sourceType: "card",
+          itemKey: "card-1",
+        },
+      ],
+      verifiedRulingPrinciples: [
+        {
+          title: "複数の置換効果が異なるイベントに適用される場合の決定順",
+          text: "...",
+          url: "",
+          sourceType: "verifiedRulingPrinciple",
+          itemKey: "replacement-effect-order-multiple-events",
+        },
+      ],
+    };
+    expect(estimateConfidence(evidence)).toBe("medium");
   });
 });

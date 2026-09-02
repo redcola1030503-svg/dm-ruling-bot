@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CardInfo } from "../src/cards/types";
 import type { CardNameMatch } from "../src/cards/cardNameMatcher";
+import { extractRuleConcepts } from "../src/rules/ruleConceptDictionary";
 
 vi.mock("../src/rules/ruleChangeRanking", () => ({
   searchAndRankRuleChanges: vi.fn().mockResolvedValue([]),
@@ -42,13 +43,13 @@ function makeCard(overrides: Partial<CardInfo>): CardInfo {
   };
 }
 
-function makeParsedQuestion(cardNames: string[], weakCardNames: string[] = []) {
+function makeParsedQuestion(cardNames: string[], weakCardNames: string[] = [], ruleConcepts: string[] = []) {
   return {
     originalText: cardNames.join(" "),
     cardNames,
     weakCardNames,
     keywords: [],
-    ruleConcepts: [],
+    ruleConcepts,
     situation: "",
     question: "",
   };
@@ -190,5 +191,109 @@ describe("retrieveEvidence のkeywordAbility説明文の切り詰め", () => {
     expect(text.length).toBeLessThan(longDescription.length);
     expect(text.endsWith("…(以下省略。詳細は元ページのURLを参照)")).toBe(true);
     expect(text.startsWith(paragraph)).toBe(true);
+  });
+});
+
+describe("retrieveEvidence の検証済み裁定原則(D-006)の検索", () => {
+  it("正例: 「置換効果」を含む質問には置換効果の決定順の原則が注入される", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], [], ["置換効果"]));
+
+    expect(evidence.verifiedRulingPrinciples.map((p) => p.itemKey)).toContain(
+      "replacement-effect-order-multiple-events",
+    );
+  });
+
+  it("正例: 「W・ブレイカー」を含む質問には複数ブレイカー宣言の原則が注入される", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], [], ["W・ブレイカー"]));
+
+    expect(evidence.verifiedRulingPrinciples.map((p) => p.itemKey)).toContain(
+      "multiple-breaker-abilities-must-declare",
+    );
+  });
+
+  it("正例: 「参加できな」(語幹)を含む質問には攻撃/ブロック指定持続の原則が注入される", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], [], ["参加できな"]));
+
+    expect(evidence.verifiedRulingPrinciples.map((p) => p.itemKey)).toContain(
+      "attack-block-designation-persists",
+    );
+  });
+
+  it("正例: 実際の質問解析経路(extractRuleConcepts)を通した「攻撃できなくなる」等の言い回しでも注入される", async () => {
+    const question1 = "このクリーチャーは攻撃できなくなりますか？";
+    const evidence1 = await retrieveEvidence(
+      makeParsedQuestion([], [], extractRuleConcepts(question1)),
+    );
+    expect(evidence1.verifiedRulingPrinciples.map((p) => p.itemKey)).toContain(
+      "attack-block-designation-persists",
+    );
+
+    const question2 = "ブロックできなかった場合の処理を教えてください";
+    const evidence2 = await retrieveEvidence(
+      makeParsedQuestion([], [], extractRuleConcepts(question2)),
+    );
+    expect(evidence2.verifiedRulingPrinciples.map((p) => p.itemKey)).toContain(
+      "attack-block-designation-persists",
+    );
+  });
+
+  it("負例: 無関係な質問には検証済み裁定原則が注入されない", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], [], ["進化"]));
+
+    expect(evidence.verifiedRulingPrinciples).toHaveLength(0);
+  });
+
+  it("既知の限界(P1): 置換効果の1イベント内多重適用可否を聞く質問(ルール16対象)にも、" +
+    "doesNotApplyWhenの条件に反して原則17が過剰に取得される。textにdoesNotApplyWhenが" +
+    "含まれることで、最終判断はLLMに委ねられる設計になっている", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], [], ["置換効果"]));
+
+    const principle = evidence.verifiedRulingPrinciples.find(
+      (p) => p.itemKey === "replacement-effect-order-multiple-events",
+    );
+    expect(principle).toBeDefined();
+    expect(principle?.text).toContain("適用しない条件");
+    expect(principle?.text).toContain("101.5");
+  });
+
+  it("攻撃・ブロック指定持続の原則は「攻撃クリーチャー自体が取り除かれた」場合をdoesNotApplyWhenに含める(適用条件との矛盾防止)", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], [], ["参加できな"]));
+
+    const principle = evidence.verifiedRulingPrinciples.find(
+      (p) => p.itemKey === "attack-block-designation-persists",
+    );
+    expect(principle).toBeDefined();
+    expect(principle?.text).toContain("取り除かれた場合");
+  });
+
+  it("カードテキスト由来の概念(cardDerivedConcepts)だけでは検証済み裁定原則を注入しない(質問の論点と無関係な過剰取得の防止)", async () => {
+    findCardCandidates.mockResolvedValueOnce([
+      {
+        card: makeCard({
+          id: "a",
+          name: "テストクリーチャー",
+          cardText: "W・ブレイカー\nこのクリーチャーが攻撃する時、カードを1枚引く。",
+        }),
+        matchType: "exact",
+        score: 1,
+      },
+    ]);
+
+    // parsed.ruleConceptsは空(質問文自体には「W・ブレイカー」等への言及がない)。
+    const evidence = await retrieveEvidence(makeParsedQuestion(["テストクリーチャー"], [], []));
+
+    expect(evidence.verifiedRulingPrinciples).toHaveLength(0);
   });
 });

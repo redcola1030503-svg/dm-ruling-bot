@@ -3,6 +3,7 @@ import { env } from "../config/env";
 import { searchAndRankRuleChanges } from "../rules/ruleChangeRanking";
 import { extractRuleConcepts } from "../rules/ruleConceptDictionary";
 import { getKeywordAbilitiesByNames } from "../rules/keywordAbilityRepository";
+import { searchVerifiedRulingPrinciples } from "../rules/verifiedRulingPrinciples";
 import { searchAndRankCorrections } from "../corrections/ranking";
 import { hybridSearchGeneralRules, hybridSearchQa } from "../search/hybridSearch";
 import type {
@@ -187,5 +188,49 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     itemKey: ability.name,
   }));
 
-  return { cards, qa, ruleChanges, generalRules, pastCorrections, keywordAbilities, ambiguousCards };
+  // D-006: 出典・適用条件を持つ検証済み裁定原則。ルール概念・キーワードが一致する
+  // 質問にのみ取得され、常時ハードコードの個別裁定を段階的に置き換える。
+  // criteria.ruleConceptsではなくparsed.ruleConceptsを使う(質問文由来のみ)。
+  // cardDerivedConcepts(関連カードのテキストから抽出した概念語)まで含めると、
+  // 質問の論点と無関係でも「そのカードがブレイカー能力を持つ」というだけで
+  // 原則が注入されてしまい、hasAnyEvidence判定やconfidenceにも意図せず影響する。
+  const verifiedRulingPrincipleResults = searchVerifiedRulingPrinciples({
+    ruleConcepts: parsed.ruleConcepts,
+    keywords: parsed.keywords,
+  });
+  const verifiedRulingPrinciples: EvidenceSource[] = verifiedRulingPrincipleResults.map((principle) => {
+    const verificationLabel =
+      principle.verification === "official_rule" ? "公式総合ルール条文に基づく" : "公認ジャッジによる確認済み";
+    return {
+      title: principle.title,
+      text: [
+        principle.ruling,
+        `適用条件: ${principle.appliesWhen.join("／")}`,
+        `適用しない条件: ${principle.doesNotApplyWhen.join("／")}`,
+        principle.officialRuleIds.length > 0
+          ? `根拠となる公式総合ルール: ${principle.officialRuleIds.join(", ")}`
+          : "",
+        principle.officialQaUrls.length > 0 ? `根拠となる公式Q&A: ${principle.officialQaUrls.join(", ")}` : "",
+        `検証区分: ${verificationLabel}(確認日: ${principle.verifiedAt})`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      // officialQaUrlsを持つ原則は代表として1件目をurlに設定し、既存のURL捏造防止
+      // チェック(sources検証)に自然に乗せる。無い場合はpastCorrections同様url=""とする。
+      url: principle.officialQaUrls[0] ?? "",
+      sourceType: "verifiedRulingPrinciple",
+      itemKey: principle.id,
+    };
+  });
+
+  return {
+    cards,
+    qa,
+    ruleChanges,
+    generalRules,
+    pastCorrections,
+    keywordAbilities,
+    verifiedRulingPrinciples,
+    ambiguousCards,
+  };
 }

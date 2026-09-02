@@ -27,14 +27,16 @@ function recordSourceReferences(evidence: RulingEvidence, result: RulingResult):
     ...evidence.ruleChanges,
     ...evidence.generalRules,
     ...evidence.pastCorrections,
+    ...evidence.verifiedRulingPrinciples,
   ];
   const byUrl = new Map(pool.filter((item) => item.url !== "").map((item) => [item.url, item]));
-  const byCorrectionTitle = new Map(
-    evidence.pastCorrections.map((item) => [item.title, item]),
+  // pastCorrections・verifiedRulingPrinciplesはurlが空文字のため、タイトルで照合する。
+  const byEmptyUrlTitle = new Map(
+    [...evidence.pastCorrections, ...evidence.verifiedRulingPrinciples].map((item) => [item.title, item]),
   );
 
   for (const source of result.sources) {
-    const matched = source.url === "" ? byCorrectionTitle.get(source.title) : byUrl.get(source.url);
+    const matched = source.url === "" ? byEmptyUrlTitle.get(source.title) : byUrl.get(source.url);
     if (!matched) continue;
     recordSourceReference(matched.sourceType, matched.itemKey, matched.title, matched.url);
   }
@@ -119,6 +121,7 @@ export async function produceRuling(
     ruleChangeUrls: evidence.ruleChanges.map((r) => r.url),
     generalRuleNumbers: evidence.generalRules.map((r) => r.title),
     pastCorrectionCount: evidence.pastCorrections.length,
+    verifiedRulingPrincipleCount: evidence.verifiedRulingPrinciples.length,
     ambiguousCards: evidence.ambiguousCards,
   });
 

@@ -4,7 +4,7 @@ export type EvidenceSource = {
   title: string;
   text: string;
   url: string;
-  sourceType: "card" | "qa" | "ruleChange" | "generalRule" | "correction" | "keywordAbility";
+  sourceType: "card" | "qa" | "ruleChange" | "generalRule" | "correction" | "keywordAbility" | "verifiedRulingPrinciple";
   /** 統計集計(参照回数の記録)用の安定した識別子。種別ごとに意味が異なる。 */
   itemKey: string;
 };
@@ -35,6 +35,8 @@ export type RulingEvidence = {
   pastCorrections: ScoredEvidenceSource[];
   /** dmwiki.net(非公式のファン運営サイト)由来のキーワード能力の説明。参考情報として扱う。 */
   keywordAbilities: EvidenceSource[];
+  /** D-006: 出典・適用条件を持つ検証済み裁定原則。関連する質問にのみ取得・注入される。 */
+  verifiedRulingPrinciples: EvidenceSource[];
   ambiguousCards: AmbiguousCard[];
 };
 

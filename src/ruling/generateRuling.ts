@@ -82,6 +82,15 @@ sourcesにもタイトルをそのまま(url欄は空文字のまま)含めて�
 ていないかは必ず確認し、一致しない・繰り返している場合は根拠にせず結論を見直してください。
 
 15.
+「検証済み裁定原則」は、公式総合ルールの条文や公認ジャッジの確認に基づいて整理された、
+特定の状況に対する解釈のまとめです。公式総合ルール・公式Q&Aと同等に信頼できる資料として
+扱ってください。各原則には「適用条件」と「適用しない条件」が付与されているため、必ず両方
+を確認し、適用条件に一致し、かつ適用しない条件のいずれにも該当しない場合にのみ、その原則
+を直接の断定根拠として用いてください。適用しない条件に該当する場合や、適用条件が今回の
+状況と一致しない場合は、その原則を根拠にせず、他の公式情報から改めて判断してください。
+使用した場合はsourcesにその原則のタイトルをそのまま(url欄は空文字のまま)含めてください。
+
+16.
 ある能力・呪文が「複数のカードを実行する(唱える/出す等)」効果を持つ場合(例:キリコ
 ³のように複数の呪文を続けて唱える等)、その一連の処理全体が「ひとつの効果」として
 扱われ、対象のカードをすべて処理し終えるまで、途中で他の誘発型能力の処理に割り込む
@@ -101,7 +110,7 @@ sourcesにもタイトルをそのまま(url欄は空文字のまま)含めて�
 (自分)の効果」を「非ターン・プレイヤー(相手)の効果」より先に処理するのが原則です
 (総合ルール603.3)が、これは上記の「ひとつの効果」の完了を妨げるものではありません。
 
-16.
+17.
 置換効果は、1つのイベントに対して1回しか適用されません(総合ルール101.5)。あるイベ
 ントが既に別の置換効果で置き換えられている場合、さらに別の置換効果を重ねて適用する
 ことはできません。ただし、能力の文章が句点で区切られた複数の文からなる場合、句点で
@@ -109,25 +118,7 @@ sourcesにもタイトルをそのまま(url欄は空文字のまま)含めて�
 文の置換可否に影響しません(総合ルール101.5a)。「1回しか置換されない」のか「複数の
 独立したイベントとして扱われる」のかを、対象の能力の文章構造から必ず確認してください。
 
-17.
-複数の置換効果が異なるイベントにそれぞれ適用されうる場合、どの置換効果をどのイベント
-に適用するかはターン・プレイヤーから先に決定し、その後で非ターン・プレイヤーが決定し
-ます(総合ルール609.9、609.9a)。
-
 18.
-クリーチャーが同時に複数のブレイカー能力(W・ブレイカー、T・ブレイカー等)を持つ場合、
-プレイヤーはどの能力を使うか選択できますが、いずれの能力も指定せずに1つだけブレイク
-することはできません(総合ルール509.2c)。ブレイク数を判断する際は、必ずどのブレイ
-カー能力を使用するかの宣言を経由していることを確認してください。
-
-19.
-一度攻撃クリーチャーやブロッククリーチャーとして指定された後は、その後に発動した能力
-で「攻撃/ブロックに参加できない」という制限が生じても、そのクリーチャーを攻撃・ブロッ
-クから取り除くことはありません。ただし、攻撃クリーチャーや攻撃先のクリーチャー自体が
-何らかの効果でその攻撃から取り除かれた場合は、攻撃は即座に終了します(総合ルール
-505.6a)。
-
-20.
 「相手のカードの効果によって○○されない/離れない」のような、効果の由来(自分の効果か相手の効果か)を
 判定する保護能力を扱う場合は、その効果を実際に発動・使用・唱えた(実行した)プレイヤーではなく、その
 効果を持つカード自体の元々の持ち主(オーナー)を基準に「自分の効果」か「相手の効果」かを判定してくだ
@@ -135,7 +126,7 @@ sourcesにもタイトルをそのまま(url欄は空文字のまま)含めて�
 を唱えたり使用したりした場合でも、そのカード自身の効果は引き続き「自分の効果」として扱われ、「相手
 のカードの効果」には該当しません。
 
-21.
+19.
 「キーワード能力の一般的な説明」として提供される情報は、非公式のファン運営サイト(dmwiki)による
 参考情報です。公式総合ルール・公式Q&A・公式ルール変更・過去の訂正事例とは異なり、公式が保証した
 内容ではありません。能力の大まかな仕組みを理解する補助として使ってよいですが、これだけを直接の
@@ -183,10 +174,14 @@ function buildUserMessage(parsed: ParsedQuestion, evidence: RulingEvidence): str
     formatEvidenceList("関連カード", evidence.cards),
     formatEvidenceList("過去の訂正事例(公認ジャッジによる修正実績。公式情報と同等の一次資料)", evidence.pastCorrections),
     formatEvidenceList(
+      "検証済み裁定原則(出典・適用条件付きの整理済み解釈。適用条件と適用しない条件を必ず確認すること)",
+      evidence.verifiedRulingPrinciples,
+    ),
+    formatEvidenceList(
       "キーワード能力の一般的な説明(非公式のファン運営サイトdmwikiによる参考情報。断定根拠にはできない)",
       evidence.keywordAbilities,
     ),
-    "## 指示\n\n上記の公式情報および過去の訂正事例を根拠として、この状況の処理を判断してください。まず総合ルールへの当てはめを検討し、次に類似のQ&A事例・過去の訂正事例を参照してください。過去の訂正事例は論点が一致する場合は直接の根拠として使えますが、同じ誤りを繰り返していないかの確認にも使ってください。キーワード能力の説明は非公式の参考情報であり、能力の概要理解の補助にとどめ、断定根拠にはしないでください。",
+    "## 指示\n\n上記の公式情報・過去の訂正事例・検証済み裁定原則を根拠として、この状況の処理を判断してください。まず総合ルールへの当てはめを検討し、次に類似のQ&A事例・過去の訂正事例・検証済み裁定原則を参照してください。過去の訂正事例・検証済み裁定原則は論点が一致する場合は直接の根拠として使えますが、検証済み裁定原則は適用条件と適用しない条件を必ず確認し、過去の訂正事例は同じ誤りを繰り返していないかの確認にも使ってください。キーワード能力の説明は非公式の参考情報であり、能力の概要理解の補助にとどめ、断定根拠にはしないでください。",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -220,7 +215,8 @@ export async function generateRuling(
     evidence.qa.length > 0 ||
     evidence.ruleChanges.length > 0 ||
     evidence.generalRules.length > 0 ||
-    evidence.pastCorrections.length > 0;
+    evidence.pastCorrections.length > 0 ||
+    evidence.verifiedRulingPrinciples.length > 0;
 
   if (!hasAnyEvidence) {
     return {
@@ -244,8 +240,7 @@ export async function generateRuling(
   const validated = llmOutputSchema.parse(JSON.parse(extractJsonBlock(raw)));
 
   // Evidenceに実在するURLのみを根拠として許可する(指示書ルール9: 捏造URL防止)。
-  // pastCorrectionsはWebページを持たずurlが空文字のため、実在するタイトルと
-  // 完全一致するものだけをタイトル照合で許可する(捏造タイトルの防止)。
+  // verifiedRulingPrinciplesはofficialQaUrlsを持つ場合のみurlが非空になる。
   const allowedUrls = new Set(
     [
       ...evidence.cards,
@@ -253,11 +248,18 @@ export async function generateRuling(
       ...evidence.ruleChanges,
       ...evidence.generalRules,
       ...evidence.keywordAbilities,
+      ...evidence.verifiedRulingPrinciples,
     ].map((item) => item.url),
   );
-  const allowedCorrectionTitles = new Set(evidence.pastCorrections.map((item) => item.title));
+  // pastCorrectionsは常にurlが空文字、verifiedRulingPrinciplesはofficialQaUrls
+  // が無い場合にurlが空文字のため、実在するタイトルと完全一致するものだけを
+  // タイトル照合で許可する(捏造タイトル防止)。
+  const allowedEmptyUrlTitles = new Set([
+    ...evidence.pastCorrections.map((item) => item.title),
+    ...evidence.verifiedRulingPrinciples.map((item) => item.title),
+  ]);
   const sources = validated.sources.filter((source) =>
-    source.url === "" ? allowedCorrectionTitles.has(source.title) : allowedUrls.has(source.url),
+    source.url === "" ? allowedEmptyUrlTitles.has(source.title) : allowedUrls.has(source.url),
   );
 
   // Evidenceのキーワードスコアだけに基づく機械的な推定と、LLM自身の自己評価(論点の

@@ -29,6 +29,7 @@ function makeEvidence(overrides: Partial<RulingEvidence>): RulingEvidence {
     generalRules: [],
     pastCorrections: [],
     keywordAbilities: [],
+    verifiedRulingPrinciples: [],
     ambiguousCards: [],
     ...overrides,
   };
@@ -242,6 +243,40 @@ describe("produceRuling の統計記録", () => {
       "correction",
       "42",
       "過去の訂正事例(ジャッジID: J001)",
+      "",
+    );
+  });
+
+  it("url空文字の検証済み裁定原則(D-006)もタイトル一致でrecordSourceReferenceを呼ぶ", async () => {
+    analyzeQuestion.mockResolvedValueOnce(baseParsedQuestion([]));
+    retrieveEvidence.mockResolvedValueOnce(
+      makeEvidence({
+        verifiedRulingPrinciples: [
+          {
+            title: "複数の置換効果が異なるイベントに適用される場合の決定順",
+            text: "...",
+            url: "",
+            sourceType: "verifiedRulingPrinciple",
+            itemKey: "replacement-effect-order-multiple-events",
+          },
+        ],
+      }),
+    );
+    generateRuling.mockResolvedValueOnce({
+      conclusion: "結論",
+      explanation: "説明",
+      steps: [],
+      confidence: "high",
+      cards: [],
+      sources: [{ title: "複数の置換効果が異なるイベントに適用される場合の決定順", url: "" }],
+    });
+
+    await produceRuling("質問");
+
+    expect(recordSourceReference).toHaveBeenCalledWith(
+      "verifiedRulingPrinciple",
+      "replacement-effect-order-multiple-events",
+      "複数の置換効果が異なるイベントに適用される場合の決定順",
       "",
     );
   });

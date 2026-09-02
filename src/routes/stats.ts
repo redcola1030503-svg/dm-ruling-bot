@@ -22,7 +22,7 @@ statsRouter.get("/api/stats/cards", publicReadRateLimiter, (req, res) => {
   res.json({ cards: getTopCardQueries(parsedLimit.data) });
 });
 
-const sourceTypeSchema = z.enum(["card", "qa", "ruleChange", "generalRule", "correction"]);
+const sourceTypeSchema = z.enum(["card", "qa", "ruleChange", "generalRule", "correction", "verifiedRulingPrinciple"]);
 const searchableSourceTypeSchema = z.enum(["generalRule", "qa", "ruleChange"]);
 const keywordSchema = z.string().trim().min(1).max(200);
 

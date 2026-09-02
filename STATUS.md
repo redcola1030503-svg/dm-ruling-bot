@@ -2,7 +2,7 @@
 
 Updated: 2026-09-02
 Owner: Claude Code
-Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性の独立レビューを実施済み)
+Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行の独立レビューを実施済み)
 
 ## Current Goal
 
@@ -63,6 +63,13 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性の独立レビューを
   - 検証: `npm run typecheck`・`npm test`(469件全パス、削除した2テストファイル分-8件を除き従来通り)・`flutter analyze`(0件)。加えて実際に`npm run dev`でサーバーを起動し、`POST /webhook/line`・`POST /api/ruling`が404、`POST /api/ruling/jobs`が202、`GET /health`が200であることをcurlで実機確認済み(廃止エンドポイントがセキュリティ境界として実際に閉じたことの検証)
   - Codex独立レビューで発見・対応した重大な問題: `docs/ジャッジID追加手順.md`の削除手順が誤っていた(`VALID_JUDGE_IDS`から除外するだけでは`judge`テーブルの行は消えず、パスワード無し認証のジャッジIDが有効なまま残ってしまう)。`getSession`が`judge`テーブルとのJOINでroleを取得する実装(`src/judges/repository.ts`)であることを確認し、「`DELETE /api/judges/:judgeId`でDB削除→`VALID_JUDGE_IDS`からも除外」の正しい2段階手順に修正
   - **残作業**: Render本番環境変数からの`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`削除(ブラウザ操作が必要、未実施)、LINE Developersコンソールでのチャネルの扱い決定(削除/凍結、緊急性は低い)
+- **検証済み裁定原則への移行 第1弾(D-006、2026-09-02、T003)**: ルール17(置換効果の決定順)・18(複数ブレイカー能力の宣言)・19(攻撃/ブロック指定の持続)を、システムプロンプト常時ハードコードから出典・適用条件付きのデータ(`src/rules/data/verified-ruling-principles.json`)へ移行。関連するルール概念・キーワードが質問文に含まれる場合のみ`RulingEvidence`へ注入される方式に変更。詳細は`.ai/tasks/T003-verified-ruling-principles-migration.md`参照。
+  - 正本データはビルド対象の`src/rules/data/`配下に置く(`/app/data`はRenderの永続ディスクマウント先のため、Git管理の静的データは置けないとCodexレビューで判明。TypeScriptのJSON importでビルド成果物`dist/rules/data/`に自動複製される設計に修正)
+  - `retrieveEvidence.ts`の検索条件はカードテキスト由来の概念(`cardDerivedConcepts`)を含めず、質問文由来のルール概念・キーワードのみを使う(Codexレビューで、カードが該当能力を持つだけで無関係な質問にも原則が注入される問題を指摘され修正)
+  - `confidence.ts`は原則ヒットを機械的なhigh判定には含めない(トリガーキーワードの単純一致のため過剰マッチのリスクがあり、安全側に倒す設計。D-006の文言もこれに合わせて修正)
+  - Codexレビューを2回実施し、P0 1件(上記の永続ディスク問題)・P1 3件(検索漏れ、過剰マッチ、appliesWhenに例外ケースが混在し誤判定を招く不備)・P2 3件(confidenceの矛盾、出典メタデータの喪失、統計APIのsourceType欠落)・P3 1件(DECISIONS.mdのセクション構造崩れ)を検出・全件修正
+  - 検証: `npm run typecheck`・`npm test`(41ファイル/248テスト)PASS、ビルド成果物(`dist/`)からの動作確認済み
+  - **未着手(次回以降)**: ルール15(キリコ³系、公認ジャッジ再確認が必要)・ルール16(句点区切りの一般化再確認が必要)・ルール20(公式条文/Q&A特定が必要)の移行
 
 ## In Progress
 
@@ -71,6 +78,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性の独立レビューを
 - 有料化の形態(価格・プラン設計)の見直し検討(下記「Pricing検討」参照)
 - **(保留、2026-09-02ユーザー判断)** LINE Bot廃止の残作業(Render環境変数削除・LINE Developersコンソール側の後始末) — 手動操作が必要なため保留
 - **(保留、2026-09-02ユーザー判断)** T002残りの手動操作項目(RevenueCat Restore Behavior確認・購入復元実機E2E・Android Auto Backup実機検証・Renderダッシュボード環境変数確認) — 実装・ドキュメント面は完了、これらのみ保留(`.ai/tasks/T002-design-consistency-remediation.md`参照)
+- T003(検証済み裁定原則移行)の第2弾以降: ルール15・16・20の移行(`.ai/tasks/T003-verified-ruling-principles-migration.md`のOut of Scope参照)
 
 ## Decided (このセッション)
 
@@ -80,12 +88,19 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性の独立レビューを
 - LINE Bot版は告知無しで即時廃止する(2026-09-02、ユーザー最終判断。詳細は`DECISIONS.md`のD-002参照)
 - 公認ジャッジによる訂正は、本プロジェクト上の「公式参考情報」として扱う。タカラトミー公開物である「公式一次情報」と用語を区別するが、論点が明確に一致する場合は直接の裁定根拠・`high` confidenceの材料にできる(2026-09-02、ユーザー判断。詳細は`DECISIONS.md`のD-004参照)
 - Androidの`deviceId`は永続的な端末/ユーザーIDではなくインストール単位IDとして扱う。アプリデータ削除・再インストールによる無料枠リセットは既知の限界として受容し、購入復元はRevenueCatの`Transfer to new App User ID`と`restorePurchases()`へ分離する案Aを採用する(2026-09-02、ユーザー判断。詳細は`DECISIONS.md`のD-005参照)
+- 個別裁定知識のハードコードを「検証済み裁定原則」データへ段階的に移行する。出典・適用条件・確認日を持つデータへ移し、関連する質問にのみ取得・注入する。原則ヒットは機械的confidence推定でhighへ自動昇格させない(2026-09-02、ユーザー判断・提案採用。詳細は`DECISIONS.md`のD-006参照)
 
 ## Blocked
 
 - なし
 
 ## Verification
+
+**T003 検証済み裁定原則移行 第1弾(2026-09-02、コミット前、HEAD時点)**:
+- `npm run typecheck`: PASS
+- `npm test`: PASS(41ファイル/248テスト)
+- `npm run build`後、`dist/rules/data/verified-ruling-principles.json`が生成されビルド成果物から`searchVerifiedRulingPrinciples`が正しく動作することを`node -e`で確認済み
+- Codexレビュー2回実施し全指摘に対応(詳細は`.ai/tasks/T003-verified-ruling-principles-migration.md`のReview History参照)
 
 **T002 課金設計書・実装計画・プライバシー資料の整合(2026-09-02、未コミット、HEAD時点)**:
 - `npm run typecheck`: PASS
@@ -205,6 +220,7 @@ Codexによる独立レビューを2回実施。
 ## Next
 
 1. ~~**T002 設計整合性の是正**をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-02、実装・ドキュメント面は完了**。優先順・受入条件は`.ai/tasks/T002-design-consistency-remediation.md`、根拠は`.ai/reviews/2026-09-02-design-consistency-review.md`参照。残る手動操作項目(RevenueCat実機E2E・Renderダッシュボード確認等)はユーザー判断により保留
+1b. ~~**T003 検証済み裁定原則移行 第1弾**(ルール17・18・19)をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-02完了**。詳細は`.ai/tasks/T003-verified-ruling-principles-migration.md`参照。次回以降、ルール15・16・20の移行が残っている(それぞれ公認ジャッジ再確認・一般化再確認・公式条文特定が前提)
 2. iOS版v1.7.1(17)・v1.7.2(18)の審査結果をApp Store Connectで確認する(2026-09-02、ログインセッション切れのため未確認・ユーザー指示でスキップ中)
 3. ~~Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード~~ → **2026-09-02検証解消を確認**(上記Completed参照、「Valid credentials」表示)。任意でRevenueCatの「Google developer notifications」(Pub/Subトピック接続)を設定するとよい(保留)
 4. (任意、緊急性は下がった)Pricing案A残り(価格を¥980程度へ引き上げ)の実施要否をユーザーと最終判断。広告非表示は2026-09-01に有料特典として実装済み

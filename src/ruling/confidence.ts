@@ -22,9 +22,15 @@ export function estimateConfidence(evidence: RulingEvidence): Confidence {
   const hasSomeGeneralRuleMatch = evidence.generalRules.length > 0;
   const hasSomeQaMatch = evidence.qa.length > 0;
   const hasSomeCorrectionMatch = evidence.pastCorrections.length > 0;
+  // 検証済み裁定原則はトリガーキーワードの単純一致で検索するため(スコアを持たない)、
+  // 誤ヒットの可能性を考慮しhigh判定には含めずmedium相当の材料に留める。
+  const hasSomeVerifiedPrincipleMatch = evidence.verifiedRulingPrinciples.length > 0;
   const hasCardText = evidence.cards.length > 0;
 
-  if (hasCardText && (hasSomeQaMatch || hasSomeGeneralRuleMatch || hasSomeCorrectionMatch)) {
+  if (
+    hasCardText &&
+    (hasSomeQaMatch || hasSomeGeneralRuleMatch || hasSomeCorrectionMatch || hasSomeVerifiedPrincipleMatch)
+  ) {
     return "medium";
   }
 

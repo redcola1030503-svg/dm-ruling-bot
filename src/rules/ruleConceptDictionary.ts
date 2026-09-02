@@ -37,6 +37,10 @@ const BASE_RULE_CONCEPTS: readonly string[] = [
   "できない",
   "使用宣言",
   "追加ターン",
+  // 語幹までのマッチにして「攻撃できない/できなく/できなかった」等の活用ゆれを拾う
+  "攻撃できな",
+  "ブロックできな",
+  "参加できな",
 ];
 
 // 公式キーワード能力一覧(https://dmwiki.net/キーワード能力、keywordAbilityNames.tsに分離)を
