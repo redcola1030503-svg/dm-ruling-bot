@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 11(API 30)以前の旧Auto Backup for Apps向けルール(dataExtractionRules
+  未対応の端末向けフォールバック)。理由はdata_extraction_rules.xmlのコメント参照。
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+</full-backup-content>

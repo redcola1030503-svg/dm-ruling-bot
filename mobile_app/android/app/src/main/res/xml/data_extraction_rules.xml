@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12(API 31)以降のバックアップ/転送ルール。D-005により、deviceIdは
+  再インストール後は新規生成される前提(インストール単位ID)のため、Auto Backup
+  でこのSharedPreferencesファイルが復元されると、Keystore鍵が引き継がれない
+  復元先で読めなくなったり、意図せずdeviceIdが引き継がれたりする不整合を招く。
+  flutter_secure_storageが使うSharedPreferences("FlutterSecureStorage")を
+  クラウドバックアップ・端末間転送の両方から除外する。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+    </device-transfer>
+</data-extraction-rules>

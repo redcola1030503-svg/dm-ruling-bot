@@ -24,6 +24,17 @@ services:
         sync: false
       - key: VALID_JUDGE_IDS
         sync: false
+      # 必須。未設定だとRevenueCat Webhookが全リクエストを401で拒否し続ける
+      # (src/index.ts起動時に警告ログも出る)。
+      - key: REVENUECAT_WEBHOOK_SECRET
+        sync: false
+      # 必須。未設定だと/api/billing/syncが常に失敗する(同上、起動時に警告ログ)。
+      - key: REVENUECAT_API_KEY
+        sync: false
+      # 任意、既定値はコード側で`unlimited_questions`。RevenueCatダッシュボードの
+      # エンタイトルメントIDと異なる値を使う場合のみ設定する。
+      - key: REVENUECAT_ENTITLEMENT_ID
+        sync: false
     disk:
       name: dm-ruling-bot-data
       mountPath: /app/data

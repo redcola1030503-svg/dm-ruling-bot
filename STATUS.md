@@ -86,9 +86,12 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性の独立レビューを
 
 ## Verification
 
-**T002 P2/P3ドキュメント・設定是正(2026-09-02、未コミット、HEAD時点)**:
+**T002 P1(deviceIdメモリキャッシュ・Auto Backup除外・render.yaml環境変数)+P2/P3(2026-09-02、未コミット、HEAD時点)**:
 - `npm run typecheck`: PASS
 - `npm test`: PASS(`vitest.config.ts`新設により`.worktrees/**`除外、ルート単体40ファイル/232テスト。以前の「82ファイル/469テスト」は`.worktrees/subscription-billing`分を含んでいた誤った集計だったと判明)
+- `cd mobile_app && flutter test test/device_id_test.dart`: PASS(6/6、読込失敗・書込失敗・同一/別インスタンスでの並行呼出しの各ケース。Codexレビュー2回で「別インスタンス間のID不一致」「読込失敗時の既存ID誤上書き」を指摘され、`DeviceIdProvider`のキャッシュをstatic化・書込条件を修正して解消)
+- `cd mobile_app && flutter analyze`: PASS(0 issues)
+- `cd mobile_app && flutter build apk --debug`: 成功(AndroidManifest.xml・新設backup rulesの構文確認を兼ねる。実際のバックアップ除外動作の実機検証は未実施)
 
 **LINE Bot廃止後(2026-09-02、コミット`9ee9601`、master/originにpush済み)**:
 - `npm run typecheck`: PASS
