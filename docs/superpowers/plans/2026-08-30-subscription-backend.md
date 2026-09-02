@@ -1,5 +1,13 @@
 # サブスクリプション課金(バックエンド) Implementation Plan
 
+> **Status: Historical implementation plan / Partially superseded(2026-09-02)**
+> このプランの「無料枠は既存`ruling_job`テーブルの当月行数を集計する」というArchitectureは、
+> モバイル側の「スレッド削除」機能で`ruling_job`行が物理削除されると無料枠が復活してしまう
+> 不具合が最終レビューで発覚し却下された(`DECISIONS.md` D-003)。現行実装は独立カウンタ
+> `device_monthly_usage`を使う。このファイルは当時の実装計画としての履歴目的でのみ保持し、
+> 内容は書き換えていない。**現行実装の指示書としては使用しないこと**。最新の設計は
+> `docs/superpowers/specs/2026-08-30-subscription-monetization-design.md`(Status: Current)を参照。
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** モバイルアプリの質問投稿(`POST /api/ruling/jobs`)に月10問の無料枠を設け、超過分はRevenueCat経由のサブスクリプション(月額300円)が有効な場合のみ許可するバックエンドAPIを実装する。

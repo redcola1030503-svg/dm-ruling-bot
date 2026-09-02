@@ -1,5 +1,15 @@
 # サブスクリプション課金(モバイルアプリ) Implementation Plan
 
+> **Status: Historical implementation plan / Partially superseded(2026-09-02)**
+> このプランは「`DeviceIdProvider`は変更しない、deviceIdは永続化済みで再インストール後も
+> 維持される」ことを前提としていたが、実際には保存失敗時のメモリキャッシュが無く、
+> Auto Backup除外の設定も無かった。Codex横断レビュー(T002)を受け、deviceIdを
+> インストール単位IDとして扱う方針(`DECISIONS.md` D-005)を採用し、`DeviceIdProvider`
+> 自体にメモリキャッシュ・Auto Backup除外設定を追加した。このファイルは当時の実装計画
+> としての履歴目的でのみ保持し、内容は書き換えていない。**現行実装の指示書としては
+> 使用しないこと**。最新の設計は`docs/superpowers/specs/2026-08-30-subscription-monetization-design.md`
+> (Status: Current)を参照。
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** RevenueCat SDKを使い、無料枠(月10問)超過時にペイウォールを表示し、月額300円のサブスクリプション購入・復元ができるようにする。

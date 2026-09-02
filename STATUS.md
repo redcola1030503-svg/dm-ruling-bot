@@ -86,7 +86,15 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性の独立レビューを
 
 ## Verification
 
-**T002 P1(deviceIdメモリキャッシュ・Auto Backup除外・render.yaml環境変数)+P2/P3(2026-09-02、未コミット、HEAD時点)**:
+**T002 課金設計書・実装計画・プライバシー資料の整合(2026-09-02、未コミット、HEAD時点)**:
+- `npm run typecheck`: PASS
+- `npm test`: PASS(232件、変更なし)
+- `rg -n "ruling_job|device_monthly_usage" docs/superpowers DECISIONS.md`: 旧方式への言及は却下済み/履歴の文脈のみと確認
+- `rg -n "RevenueCat" docs/mobile-app-privacy-policy.html mobile_app/store_listing/data_safety_and_checklist.md`: 追記を確認
+- 変更: 課金設計書(`docs/superpowers/specs/2026-08-30-subscription-monetization-design.md`)をD-003/D-005へ全面更新、旧実装計画2件に`Historical`警告を追加、プライバシーポリシー・Data SafetyへRevenueCat/購読データの記載を追加
+- Codexレビュー2回実施。1回目でP1 3件(RevenueCat Restore Behavior未確認事項の断定表記、iOS/Androidを区別しないdeviceId再インストール挙動の断定、プライバシーポリシーのdeviceId取得タイミングの誤り「初回質問送信時」→実際は`main.dart`のアプリ起動時)・P2 3件(RevenueCatへ質問文が送られるように読める導入文、購読中AdMob送信なしの過大な断定、「今後の宿題」とT002完了チェックの矛盾)を指摘、全件修正して解消
+
+**T002 P1(deviceIdメモリキャッシュ・Auto Backup除外・render.yaml環境変数)+P2/P3(2026-09-02、コミット`6d749e3`、master/originにpush済み)**:
 - `npm run typecheck`: PASS
 - `npm test`: PASS(`vitest.config.ts`新設により`.worktrees/**`除外、ルート単体40ファイル/232テスト。以前の「82ファイル/469テスト」は`.worktrees/subscription-billing`分を含んでいた誤った集計だったと判明)
 - `cd mobile_app && flutter test test/device_id_test.dart`: PASS(6/6、読込失敗・書込失敗・同一/別インスタンスでの並行呼出しの各ケース。Codexレビュー2回で「別インスタンス間のID不一致」「読込失敗時の既存ID誤上書き」を指摘され、`DeviceIdProvider`のキャッシュをstatic化・書込条件を修正して解消)
