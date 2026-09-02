@@ -10,8 +10,8 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性の独立レビューを
 
 1. モバイルアプリ(Android/iOS)のストア審査対応
 2. 有料化の形態(価格・プラン設計)の見直し検討
-3. LINE Bot廃止の残作業(Render環境変数・LINE Developersコンソール側の後始末)
-4. T002 設計整合性の是正（裁定根拠・deviceId・課金仕様・プライバシー・デプロイ設定）
+3. LINE Bot廃止の残作業(Render環境変数・LINE Developersコンソール側の後始末) — 保留(手動操作)
+4. T002 設計整合性の是正 — 実装・ドキュメント面は完了。残る手動操作項目(RevenueCat実機E2E・Renderダッシュボード確認等)は保留(2026-09-02ユーザー判断)
 
 ## Completed
 
@@ -69,7 +69,8 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性の独立レビューを
 - iOS版v1.7.1(17)・v1.7.2(18)の審査結果待ち(2件同時審査待ち)。**2026-09-02時点、App Store Connectのログインセッションが切れており未再確認(ユーザー指示でスキップ)**。通過後、実機でプッシュ通知・広告非表示・優先処理特典・能動的アップグレード導線が正しく動作するか確認するとよい
 - RevenueCatの「Google developer notifications」(Pub/Subトピック接続)が未設定(上記Completed参照)
 - 有料化の形態(価格・プラン設計)の見直し検討(下記「Pricing検討」参照)
-- LINE Bot廃止の残作業(Render環境変数削除・LINE Developersコンソール側の後始末、上記Completed参照)
+- **(保留、2026-09-02ユーザー判断)** LINE Bot廃止の残作業(Render環境変数削除・LINE Developersコンソール側の後始末) — 手動操作が必要なため保留
+- **(保留、2026-09-02ユーザー判断)** T002残りの手動操作項目(RevenueCat Restore Behavior確認・購入復元実機E2E・Android Auto Backup実機検証・Renderダッシュボード環境変数確認) — 実装・ドキュメント面は完了、これらのみ保留(`.ai/tasks/T002-design-consistency-remediation.md`参照)
 
 ## Decided (このセッション)
 
@@ -203,11 +204,11 @@ Codexによる独立レビューを2回実施。
 
 ## Next
 
-1. **T002 設計整合性の是正**をClaudeが実装し、Codexが独立再レビューする。優先順・受入条件は`.ai/tasks/T002-design-consistency-remediation.md`、根拠は`.ai/reviews/2026-09-02-design-consistency-review.md`参照
+1. ~~**T002 設計整合性の是正**をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-02、実装・ドキュメント面は完了**。優先順・受入条件は`.ai/tasks/T002-design-consistency-remediation.md`、根拠は`.ai/reviews/2026-09-02-design-consistency-review.md`参照。残る手動操作項目(RevenueCat実機E2E・Renderダッシュボード確認等)はユーザー判断により保留
 2. iOS版v1.7.1(17)・v1.7.2(18)の審査結果をApp Store Connectで確認する(2026-09-02、ログインセッション切れのため未確認・ユーザー指示でスキップ中)
-3. ~~Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード~~ → **2026-09-02検証解消を確認**(上記Completed参照、「Valid credentials」表示)。任意でRevenueCatの「Google developer notifications」(Pub/Subトピック接続)を設定するとよい
+3. ~~Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード~~ → **2026-09-02検証解消を確認**(上記Completed参照、「Valid credentials」表示)。任意でRevenueCatの「Google developer notifications」(Pub/Subトピック接続)を設定するとよい(保留)
 4. (任意、緊急性は下がった)Pricing案A残り(価格を¥980程度へ引き上げ)の実施要否をユーザーと最終判断。広告非表示は2026-09-01に有料特典として実装済み
-5. ~~LINE Bot廃止の進め方を決定する~~ → **2026-09-02完了**(告知無しで即時廃止、上記Completed・`DECISIONS.md`のD-002参照)。残作業: Render本番環境変数からの`LINE_CHANNEL_SECRET`/`LINE_CHANNEL_ACCESS_TOKEN`削除、LINE Developersコンソールでのチャネルの扱い決定
+5. ~~LINE Bot廃止の進め方を決定する~~ → **2026-09-02完了**(告知無しで即時廃止、上記Completed・`DECISIONS.md`のD-002参照)。残作業(Render本番環境変数削除、LINE Developersコンソールでのチャネル扱い決定)は手動操作のため保留(2026-09-02ユーザー判断)
 6. ~~`scripts/codex-review.ps1`のWindows read-onlyサンドボックス問題を恒久対応する~~ → **2026-08-31完了**(下記Reviewer Findings参照)
 7. (follow-up、詳細は`actions/dm-ruling-bot_残作業リスト.md`(Vault側)参照)課金ルートのExpress統合テスト整備、無料枠上限判定の原子化、ジョブ失敗時のスレッドロールバック、Webhook/同期APIのレート制限分離
 8. 正式公開後、実際の課金ユーザーの利用データでPricing分析を再実施する

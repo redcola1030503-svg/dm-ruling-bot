@@ -1,6 +1,6 @@
 # T002: 設計整合性の是正
 
-Status: In Progress
+Status: In Progress(実装・ドキュメント面は完了。手動操作が必要な残タスクはユーザー判断により保留、2026-09-02)
 
 ## Goal
 
@@ -18,7 +18,7 @@ Status: In Progress
 - [x] D-005として、deviceIdをインストール単位IDとし、アプリデータ削除・再インストールによる無料枠リセットを既知の限界として受容する案Aを決定する
 - [x] `flutter_secure_storage`をAndroid Auto Backupから除外するManifest/backup rulesを実装する → **2026-09-02完了(設定実装のみ、実機検証は別項目)**。`res/xml/data_extraction_rules.xml`(Android 12+)・`res/xml/backup_rules.xml`(Android 11以前)を新設し、SharedPreferences`FlutterSecureStorage.xml`をcloud-backup/device-transfer/fullBackupContentから除外。`AndroidManifest.xml`へ`android:dataExtractionRules`・`android:fullBackupContent`を追加。`flutter build apk --debug`でManifest/XML構文とビルド成功を確認したのみで、実際にバックアップ・端末移行時にこのファイルが除外されるかは未検証(Codexレビュー指摘、下記Verification参照)
 - [x] 上記のAuto Backup除外を仕様書(サブスクリプション設計書)へ反映する → **2026-09-02完了**(下記の課金設計書更新に含めて対応)
-- [ ] RevenueCatのRestore Behaviorが`Transfer to new App User ID`であることを確認し、再インストール後の新しいdeviceIdで`restorePurchases()`→バックエンド同期→購読復元が成立することを実機確認する(未実施、実機操作が必要)
+- [ ] **(保留、2026-09-02ユーザー判断)** RevenueCatのRestore Behaviorが`Transfer to new App User ID`であることを確認し、再インストール後の新しいdeviceIdで`restorePurchases()`→バックエンド同期→購読復元が成立することを実機確認する(実機・ダッシュボード操作が必要なため保留)
 - [x] サブスクリプション設計書をD-003の`device_monthly_usage`方式へ更新する。設計書には`Status: Current`と参照Decision（D-001/D-003/D-005）を明記し、無料ユーザーのジョブ作成時だけ加算、購読中は非消費、スレッド/`ruling_job`削除とは非連動、上限判定の既知の並行性課題を記載する → **2026-09-02完了**(`docs/superpowers/specs/2026-08-30-subscription-monetization-design.md`を全面更新、末尾に変更履歴を追加)
 - [x] 当初の`ruling_job`集計方式を含むバックエンド実装計画は内容を過去に遡って書き換えず、冒頭へ`Status: Historical implementation plan / Partially superseded`とD-003による却下警告を追加し、現行実装の指示書として使えないことを明示する → **2026-09-02完了**(`docs/superpowers/plans/2026-08-30-subscription-backend.md`・`2026-08-30-subscription-mobile.md`両方に追加)
 - [x] 文書の優先順位を`DECISIONS.md`（採用判断）→`docs/superpowers/specs/`（現行仕様）→実装/テスト（現在の挙動）→`docs/superpowers/plans/`（履歴）の順で共有資料へ明記する → **2026-09-02完了**(課金設計書冒頭に明記)
@@ -56,12 +56,12 @@ Status: In Progress
 - [x] deviceId保存成功・読込失敗・書込失敗の各ケースをテスト → `test/device_id_test.dart`で実施、PASS(2026-09-02)。読込失敗時に書込が0回であること(既存ID誤上書き防止)も検証
 - [x] deviceIdの並行呼出しが常に同じIDを返すことをテスト → 同一インスタンス内・別インスタンス間の両方をPASS(2026-09-02、Codexレビューで別インスタンス間のケースが漏れていた点を指摘され追加)
 - [x] Androidで`flutter build apk --debug`が成功すること(新設backup rules/Manifest変更の構文確認) → 成功(2026-09-02)
-- [ ] Androidの実機/エミュレータでバックアップ・復元(またはAndroid Studioの「Backup and Restore」等)を行い、`FlutterSecureStorage.xml`(=deviceId)が実際に除外されていることを確認する(未実施、Codexレビュー指摘。`flutter build`の成功はManifest/XML構文の確認に留まる)
-- [ ] Androidでアプリデータ削除後に新規IDとなり、購入復元操作後は購読状態が新規IDへ同期されることを実機確認(未実施、実機操作が必要)
+- [ ] **(保留、2026-09-02ユーザー判断)** Androidの実機/エミュレータでバックアップ・復元(またはAndroid Studioの「Backup and Restore」等)を行い、`FlutterSecureStorage.xml`(=deviceId)が実際に除外されていることを確認する(Codexレビュー指摘。`flutter build`の成功はManifest/XML構文の確認に留まる。実機操作が必要なため保留)
+- [ ] **(保留、2026-09-02ユーザー判断)** Androidでアプリデータ削除後に新規IDとなり、購入復元操作後は購読状態が新規IDへ同期されることを実機確認(実機操作が必要なため保留)
 - [x] `rg -n "ruling_job|device_monthly_usage" docs/superpowers DECISIONS.md`で、旧方式への言及が履歴計画または「却下済み」の説明だけであり、現行仕様に逆行する記述がないことを確認 → **2026-09-02完了**。`plans/2026-08-30-subscription-backend.md`内のコード例・コミットメッセージ例(199行目・214行目)はHistorical警告以降の当時の内容としてそのまま残存(方針通り書き換えず)、それ以外は全て「却下された」「当初案」の文脈での言及のみ
 - [x] スレッド/ジョブ削除で`device_monthly_usage`が減らないこと、購読中は無料枠を消費しないこと、非購読ジョブ作成失敗時はカウンタ加算もロールバックされることを既存テストまたは追加テストで確認 → **確認済み**(PR #1時点の既存テストで担保、`billingTransaction.ts`のトランザクション設計により実装済み。T002での新規変更なし)
 - [x] `rg -n "RevenueCat" docs/mobile-app-privacy-policy.html mobile_app/store_listing/data_safety_and_checklist.md`で追記を確認 → **2026-09-02完了**、両ファイルに複数箇所ヒット
-- [ ] Renderダッシュボードの環境変数は値を出力せず、キーの存在だけを手動確認(未実施)
+- [ ] **(保留、2026-09-02ユーザー判断)** Renderダッシュボードの環境変数は値を出力せず、キーの存在だけを手動確認(ダッシュボード操作が必要なため保留)
 
 ## Implementation Owner
 
