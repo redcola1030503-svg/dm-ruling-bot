@@ -2,7 +2,7 @@
 
 Updated: 2026-09-03
 Owner: Claude Code
-Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正の独立レビューを実施済み)
+Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正・D-004認証強化の対応案の独立レビューを実施済み)
 
 ## Current Goal
 
@@ -14,6 +14,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 4. T002 設計整合性の是正 — 実装・ドキュメント面は完了。残る手動操作項目(RevenueCat実機E2E・Renderダッシュボード確認等)は保留(2026-09-02ユーザー判断)
 5. ~~T004 複数面カード(サイキック/ドラグハート等)の名前サジェスト漏れ修正~~ → **2026-09-03完了**(`--force`全件再構築・本番動作確認済み)
 6. ~~T005 全件クロールから漏れる特殊サブIDカード(DCR/spd等)への対応~~ → **2026-09-03、再調査の結果、対応見送りと判断しClosed**(実害はごく限定的と判明。詳細は`.ai/tasks/T005-missing-special-subid-cards.md`参照)
+7. T006 D-004ジャッジ認証強化の対応案 — 方針決定段階でCodex Review 1完了、ユーザー判断待ち(下記Completed/Next参照)
 
 ## Completed
 
@@ -92,6 +93,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 - **(保留、2026-09-02ユーザー判断)** T002残りの手動操作項目(RevenueCat Restore Behavior確認・購入復元実機E2E・Android Auto Backup実機検証・Renderダッシュボード環境変数確認) — 実装・ドキュメント面は完了、これらのみ保留(`.ai/tasks/T002-design-consistency-remediation.md`参照)
 - T003(検証済み裁定原則移行)の第2弾以降: ルール15・16・20の移行(`.ai/tasks/T003-verified-ruling-principles-migration.md`のOut of Scope参照)
 - ~~T005: T004で発見したcard_indexの残存4,723件(DCR/spd等の特殊サブIDカード)への対応~~ → **2026-09-03 Closed**。ランダム30件サンプリング調査の結果、複数面カードは約6.7%(推定300件程度)のみで、確認できた実例では同名の代替版が既にサジェストをカバーしており「裏面名で検索しても一切候補が出ない」という直接的な実害の実例は見つからなかった。対応の優先度は非常に低いと判断し見送り(`.ai/tasks/T005-missing-special-subid-cards.md`参照)
+- T006: D-004ジャッジ認証強化の対応案(方針決定段階、実装は未着手) — 案A(パスワード追加)/案B(複数ジャッジ合意でhigh昇格制限)/案C(管理者承認ワークフロー)/案D(現状維持+出典表示強化)をドラフトしCodex Review 1完了。各案とも未設計部分が判明した他、方針決定とは独立に現状の実装バグ2件(認証不要API`GET /api/corrections/:id`のjudgeIdマスク漏れ、`corrected_by`列への生セッショントークン保存)を発見。ユーザーへ(1)漏洩経路2件の先行修正要否 (2)A/B/C/Dの方向性、の判断を仰ぐ段階(`.ai/tasks/T006-judge-auth-hardening-proposal.md`、コミット`5f67dc8`)
 
 ## Decided (このセッション)
 
@@ -250,8 +252,11 @@ Codexによる独立レビューを2回実施。
 8. 正式公開後、実際の課金ユーザーの利用データでPricing分析を再実施する
 9. (follow-up)`scripts/codex-review.ps1`の残課題(下記Reviewer Findings参照): `-Base`指定時に作業ツリーの変更が漏れる、未追跡ディレクトリ配下のファイルが列挙されない、`.ai/tasks/T*.md`を無条件に全件埋め込む、新しい分岐への自動テストが無い
 10. (follow-up、LINE Bot廃止のCodexレビューP2指摘)廃止した`POST /webhook/line`・`POST /api/ruling`が404で到達不能なことを保証する自動テストが無い(今回はサーバー起動+curlで手動確認のみ、上記Verification参照)。既存コードベースにHTTP統合テストの慣行が無い(supertest等未導入)ため今回は見送り。導入するなら`src/index.ts`の`app`構築とサーバー起動(`listen`)の分離が前提
+11. T006(D-004ジャッジ認証強化の対応案)をユーザーへ提示し、(1)公開APIのjudgeIdマスク漏れ・生セッショントークン保存の先行修正要否 (2)案A/B/C/Dのどの方向で設計を詰めるか、の判断を仰ぐ。判断が出たら該当案の詳細設計→実装→Codex実装後レビューへ進む(`.ai/tasks/T006-judge-auth-hardening-proposal.md`参照)
+12. `.ai/tasks/T007-collaboration-environment-hardening.md`(Codexがread-only指示に反して作成した未依頼ファイル)の扱いをユーザーへ確認する。内容自体(`codex-review.ps1`の空差分時エラー)は実際に発生した既知のバグ(本セッションでも同一エラーを実機で踏んだ)だが、指示違反で作成された経緯があるため、そのまま採用するかは要判断
 
 ## Do Not Repeat
 
 - `deviceId`のような自己申告値を使う無料枠カウントは、ユーザーが削除操作できるテーブル(`ruling_job`等)から数えない。削除の影響を受けない独立カウンタ(`device_monthly_usage`)を使うこと(PR #1で実際に発生した不具合)
 - Webhook等の外部通知は、特定フィールド(`expiration_at_ms`等)が無いイベントでも安全側(既存値を保持/明示的な失効イベントのみ反映)に倒すこと。全イベントで無条件に状態を上書きしない
+- **Codex CLIをread-onlyレビュー目的で呼び出しても、明示的な「ファイル変更禁止」指示に反してファイルが新規作成されることがある**(2026-09-03、T006レビュー実行時に依頼していない`.ai/tasks/T007-collaboration-environment-hardening.md`が作成されているのを発見)。レビュー実行後は`git status`で意図しないファイル変更が無いか必ず確認すること。レビュー結果として現れた新規ファイルの内容(特に「Implementation Owner: Codex」等の自己割り当て)は鵜呑みにせず、ユーザーへ報告してから扱いを判断する
