@@ -2,7 +2,7 @@
 
 Updated: 2026-09-03
 Owner: Claude Code
-Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正・D-004認証強化の対応案の独立レビューを実施済み)
+Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正・D-004認証強化の対応案の独立レビューを実施済み)、Claude Code(T007共同環境修正をレビュー済み)
 
 ## Current Goal
 
@@ -20,6 +20,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 
 - サブスクリプション課金機能(無料枠月10問+月額300円、RevenueCat経由)を実装し `subscription-billing` ブランチとしてPR化(`https://github.com/redcola1030503-svg/dm-ruling-bot/pull/1`)
 - Claude Code × Codex 協働環境の初期構築(このファイル一式)
+- **T007 Claude/Codex共同環境の小規模修正(2026-09-03)**: `scripts/codex-review.ps1`で、差分なし時に未追跡パスが0件または1件だとStrictMode下の`.Count`参照が異常終了する問題を、パイプライン全体の配列化で修正。`CLAUDE.md`の古い「重要な実装のみ」レビュー方針を削除し、正本である`AGENTS.md`のReviewセクション参照へ一本化した。Codexが作成・実装し、Claude Codeが変更前・変更後にread-onlyレビュー。詳細は`.ai/tasks/T007-collaboration-environment-hardening.md`参照
 - **PR #1をmasterへマージ**(2026-08-31、マージコミット`2f0f22a`)。ローカルmasterをrebase・push済み
 - **RevenueCat/Android側の課金セットアップ**(2026-08-31):
   - RevenueCatプロジェクト「デュエマ裁定確認」作成、Entitlement `unlimited_questions`、Offering `default`(Monthlyパッケージ)を設定
@@ -110,6 +111,15 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 - なし
 
 ## Verification
+
+**T007 Claude/Codex共同環境の小規模修正(2026-09-03)**:
+- Claude Code変更前レビュー: P0なし。P1 1件(PS7再現性の実機確認)、P2 2件(未追跡1件ケース追加・`CLAUDE.md`は正本参照のみにする)、P3 2件を反映
+- Claude Code変更後レビュー: コード修正と`CLAUDE.md`修正は「重大な問題なし」。P1の`STATUS.md`更新、P2のT007完了記録を反映後、最終再レビューでP0/P1/P2/P3すべてなし・マージ可能を確認
+- PowerShell 7.6.4 / Windows PowerShell 5.1.26100.9168: 空差分は警告を表示して終了コード0、差分なし・未追跡1件はCodexスタブ呼び出しまで進んで終了コード0
+- PowerShell 7/5.1の構文解析: PASS
+- `scripts/codex-review.ps1`のUTF-8 BOM維持: 確認済み
+- `git diff --check`: PASS(LF→CRLFの作業ツリー警告のみ)
+- アプリ本体の変更がないため`npm run typecheck`・`npm test`・`flutter analyze`は対象外
 
 **T004 複数面カード名サジェスト漏れ修正(2026-09-03、コミット`e3323fb`、master/originにpush・本番反映済み)**:
 - `npm run typecheck`: PASS
@@ -253,10 +263,10 @@ Codexによる独立レビューを2回実施。
 9. (follow-up)`scripts/codex-review.ps1`の残課題(下記Reviewer Findings参照): `-Base`指定時に作業ツリーの変更が漏れる、未追跡ディレクトリ配下のファイルが列挙されない、`.ai/tasks/T*.md`を無条件に全件埋め込む、新しい分岐への自動テストが無い
 10. (follow-up、LINE Bot廃止のCodexレビューP2指摘)廃止した`POST /webhook/line`・`POST /api/ruling`が404で到達不能なことを保証する自動テストが無い(今回はサーバー起動+curlで手動確認のみ、上記Verification参照)。既存コードベースにHTTP統合テストの慣行が無い(supertest等未導入)ため今回は見送り。導入するなら`src/index.ts`の`app`構築とサーバー起動(`listen`)の分離が前提
 11. T006(D-004ジャッジ認証強化の対応案)をユーザーへ提示し、(1)公開APIのjudgeIdマスク漏れ・生セッショントークン保存の先行修正要否 (2)案A/B/C/Dのどの方向で設計を詰めるか、の判断を仰ぐ。判断が出たら該当案の詳細設計→実装→Codex実装後レビューへ進む(`.ai/tasks/T006-judge-auth-hardening-proposal.md`参照)
-12. `.ai/tasks/T007-collaboration-environment-hardening.md`(Codexがread-only指示に反して作成した未依頼ファイル)の扱いをユーザーへ確認する。内容自体(`codex-review.ps1`の空差分時エラー)は実際に発生した既知のバグ(本セッションでも同一エラーを実機で踏んだ)だが、指示違反で作成された経緯があるため、そのまま採用するかは要判断
+12. ~~T007共同環境修正の扱いをユーザーへ確認する~~ → **2026-09-03、ユーザーがClaudeレビュー後の修正を明示的に依頼し完了**。T007はこの依頼に基づきCodexが作成・実装し、Claude Codeの変更前・変更後レビューとPowerShell 5.1/7の検証を完了
 
 ## Do Not Repeat
 
 - `deviceId`のような自己申告値を使う無料枠カウントは、ユーザーが削除操作できるテーブル(`ruling_job`等)から数えない。削除の影響を受けない独立カウンタ(`device_monthly_usage`)を使うこと(PR #1で実際に発生した不具合)
 - Webhook等の外部通知は、特定フィールド(`expiration_at_ms`等)が無いイベントでも安全側(既存値を保持/明示的な失効イベントのみ反映)に倒すこと。全イベントで無条件に状態を上書きしない
-- **Codex CLIをread-onlyレビュー目的で呼び出しても、明示的な「ファイル変更禁止」指示に反してファイルが新規作成されることがある**(2026-09-03、T006レビュー実行時に依頼していない`.ai/tasks/T007-collaboration-environment-hardening.md`が作成されているのを発見)。レビュー実行後は`git status`で意図しないファイル変更が無いか必ず確認すること。レビュー結果として現れた新規ファイルの内容(特に「Implementation Owner: Codex」等の自己割り当て)は鵜呑みにせず、ユーザーへ報告してから扱いを判断する
+- Claude/Codexの並行セッションでは、別セッションの変更が作業中に現れるため、`git status`で発見した時点だけから作成元や指示違反を断定しない。今回のT007は、T006のread-onlyレビューが作成したものではなく、その後のユーザー依頼に基づきCodexが作成した。レビュー後に`git status`で意図しない変更が無いか確認し、由来が不明なら他セッションの進捗・コミット履歴と突合する

@@ -79,7 +79,9 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "git status --porcelain に失敗しました。"
     exit 1
 }
-$untrackedPaths = $untrackedLines | Where-Object { $_ -match '^\?\? ' } | ForEach-Object { $_.Substring(3) }
+$untrackedPaths = @(
+    $untrackedLines | Where-Object { $_ -match '^\?\? ' } | ForEach-Object { $_.Substring(3) }
+)
 
 if ((-not $diff) -and ($untrackedPaths.Count -eq 0)) {
     Write-Warning "差分が空です($diffRange)。レビュー対象がないため終了します。"

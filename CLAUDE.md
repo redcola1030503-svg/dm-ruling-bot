@@ -17,7 +17,7 @@
 
 ## Collaboration
 
-重要な実装が終わったら、必要に応じてCodexへ独立レビューを依頼する(`.ai/prompts/codex-review.md`、`scripts/codex-review.ps1`参照)。
+レビューの実施基準・タイミングは`AGENTS.md`のReviewセクションを正とする。レビュー依頼には`.ai/prompts/codex-review.md`と`scripts/codex-review.ps1`を使う。
 
 Codexの指摘を盲目的に採用しない。必ずコードとテスト結果を確認し、妥当なものだけ反映する。
 反映しなかった指摘は理由とともに`STATUS.md`か対象タスクファイルに残す。
