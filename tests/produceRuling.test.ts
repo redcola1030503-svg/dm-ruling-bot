@@ -218,7 +218,7 @@ describe("produceRuling の統計記録", () => {
       makeEvidence({
         pastCorrections: [
           {
-            title: "過去の訂正事例(ジャッジID: J001)",
+            title: "過去の訂正事例(公認ジャッジによる記録)",
             text: "...",
             url: "",
             sourceType: "correction",
@@ -234,7 +234,7 @@ describe("produceRuling の統計記録", () => {
       steps: [],
       confidence: "high",
       cards: [],
-      sources: [{ title: "過去の訂正事例(ジャッジID: J001)", url: "" }],
+      sources: [{ title: "過去の訂正事例(公認ジャッジによる記録)", url: "" }],
     });
 
     await produceRuling("質問");
@@ -242,7 +242,7 @@ describe("produceRuling の統計記録", () => {
     expect(recordSourceReference).toHaveBeenCalledWith(
       "correction",
       "42",
-      "過去の訂正事例(ジャッジID: J001)",
+      "過去の訂正事例(公認ジャッジによる記録)",
       "",
     );
   });

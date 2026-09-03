@@ -10,7 +10,8 @@ vi.mock("../src/search/hybridSearch", () => ({
   hybridSearchGeneralRules: vi.fn().mockResolvedValue([]),
   hybridSearchQa: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("../src/corrections/ranking", () => ({ searchAndRankCorrections: vi.fn().mockReturnValue([]) }));
+const searchAndRankCorrections = vi.fn().mockReturnValue([]);
+vi.mock("../src/corrections/ranking", () => ({ searchAndRankCorrections: (...args: unknown[]) => searchAndRankCorrections(...args) }));
 const getKeywordAbilitiesByNames = vi.fn().mockReturnValue([]);
 vi.mock("../src/rules/keywordAbilityRepository", () => ({
   getKeywordAbilitiesByNames: (names: string[]) => getKeywordAbilitiesByNames(names),
@@ -318,5 +319,61 @@ describe("retrieveEvidence の検証済み裁定原則(D-006)の検索", () => {
     const evidence = await retrieveEvidence(makeParsedQuestion(["テストクリーチャー"], [], []));
 
     expect(evidence.verifiedRulingPrinciples).toHaveLength(0);
+  });
+});
+
+describe("retrieveEvidence の過去の訂正事例(pastCorrections)のtitle(T008)", () => {
+  it("judgeIdをtitleへ含めない(公開APIや利用統計経由でジャッジIDが露出するのを防ぐ)", async () => {
+    searchAndRankCorrections.mockReturnValueOnce([
+      {
+        id: 42,
+        originalQuestion: "元の質問",
+        botConclusion: "誤った結論",
+        correctRuling: "正しい裁定",
+        cardNames: [],
+        correctedBy: "J001",
+        judgeId: "J001",
+        createdAt: 0,
+        score: 12,
+      },
+    ]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([]));
+
+    expect(evidence.pastCorrections).toHaveLength(1);
+    expect(evidence.pastCorrections[0].title).toBe("過去の訂正事例 #42(公認ジャッジによる記録)");
+    expect(evidence.pastCorrections[0].title).not.toContain("J001");
+  });
+
+  it("複数の訂正がヒットしても、それぞれ異なるtitleになる(produceRuling.tsのbyEmptyUrlTitle照合での誤帰属防止)", async () => {
+    searchAndRankCorrections.mockReturnValueOnce([
+      {
+        id: 1,
+        originalQuestion: "質問1",
+        botConclusion: "誤った結論1",
+        correctRuling: "正しい裁定1",
+        cardNames: [],
+        correctedBy: "J001",
+        judgeId: "J001",
+        createdAt: 0,
+        score: 12,
+      },
+      {
+        id: 2,
+        originalQuestion: "質問2",
+        botConclusion: "誤った結論2",
+        correctRuling: "正しい裁定2",
+        cardNames: [],
+        correctedBy: "J002",
+        judgeId: "J002",
+        createdAt: 0,
+        score: 12,
+      },
+    ]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([]));
+
+    const titles = evidence.pastCorrections.map((c) => c.title);
+    expect(new Set(titles).size).toBe(titles.length);
   });
 });

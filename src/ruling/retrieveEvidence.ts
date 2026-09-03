@@ -192,8 +192,13 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
   // Webページを持たないためurlは空文字のままだが、sourcesには含められる
   // (generateRuling側でタイトル一致による照合を行う)。
   const correctionResults = searchAndRankCorrections(criteria);
+  // titleにjudgeIdを含めない(T008): このtitleは裁定結果のsources・利用統計API
+  // (/api/stats/sources)経由で一般ユーザー・第三者に公開されうる。judgeIdはログインの
+  // 唯一の認証情報のため、titleへ含めると事実上の認証情報漏洩経路になっていた。
+  // correction.id(秘密ではない内部連番)は含めて、複数の訂正が同一質問でヒットした際に
+  // produceRuling.tsのbyEmptyUrlTitle(titleをキーにした照合)が別の訂正へ誤帰属するのを防ぐ。
   const pastCorrections: ScoredEvidenceSource[] = correctionResults.map((correction) => ({
-    title: `過去の訂正事例(ジャッジID: ${correction.judgeId})`,
+    title: `過去の訂正事例 #${correction.id}(公認ジャッジによる記録)`,
     text: `質問: ${correction.originalQuestion}\nBotの誤った結論: ${correction.botConclusion}\n正しい裁定: ${correction.correctRuling}`,
     url: "",
     sourceType: "correction",

@@ -422,7 +422,7 @@ class _CorrectionDetailDialog extends StatelessWidget {
             SelectableText(correction.correctRuling),
             const SizedBox(height: 12),
             Text(
-              '訂正したジャッジ: ${correction.judgeId}',
+              '訂正したジャッジ: 公認ジャッジによる記録',
               style: theme.textTheme.labelSmall,
             ),
           ],

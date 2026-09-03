@@ -37,7 +37,10 @@ correctionsRouter.post("/api/corrections", requireJudgeSession, (req, res) => {
     botConclusion: parsed.data.botConclusion,
     correctRuling: parsed.data.correctRuling,
     cardNames: extractCardNameCandidates(parsed.data.originalQuestion),
-    correctedBy: session.userId,
+    // correctedByには生のセッショントークン(session.userId)を保存しない。
+    // 過去にここへ生トークンを保存しており、管理者向け一覧(GET /api/corrections)
+    // 経由でセッション乗っ取りに使える値がそのまま閲覧できてしまっていた(T008)。
+    correctedBy: session.judgeId,
     judgeId: session.judgeId,
   });
 
@@ -54,8 +57,9 @@ correctionsRouter.get("/api/corrections", requireJudgeSession, (_req, res) => {
 });
 
 // 利用統計画面で「訂正事例」タブの項目をタップした際、訂正1件の全文を表示するために使う。
-// 一般ユーザーも閲覧できる公開情報として扱うが、correctedBy(ジャッジのセッション識別子)は
-// 内部識別子のため公開レスポンスには含めない。
+// 一般ユーザーも閲覧できる公開情報として扱うため、correctedBy・judgeIdは両方とも
+// 公開レスポンスに含めない。judgeIdはログインの唯一の認証情報であり(T008)、これを
+// 公開すると誰でもそのIDでログインできてしまう。
 correctionsRouter.get("/api/corrections/:id", publicReadRateLimiter, (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) {
@@ -69,7 +73,7 @@ correctionsRouter.get("/api/corrections/:id", publicReadRateLimiter, (req, res) 
     return;
   }
 
-  res.json({ correction: { ...correction, correctedBy: "" } });
+  res.json({ correction: { ...correction, correctedBy: "", judgeId: "" } });
 });
 
 const updateCorrectionRequestSchema = z.object({

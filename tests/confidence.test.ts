@@ -34,7 +34,7 @@ describe("estimateConfidence", () => {
       ...EMPTY_EVIDENCE,
       pastCorrections: [
         {
-          title: "過去の訂正事例(ジャッジID: J001)",
+          title: "過去の訂正事例(公認ジャッジによる記録)",
           text: "...",
           url: "",
           sourceType: "correction",

@@ -82,3 +82,31 @@ export function pruneOldJobs(retentionMs: number): void {
        AND thread_id IS NULL`,
   ).run(threshold);
 }
+
+const LEGACY_CORRECTION_TITLE_PATTERN = /過去の訂正事例\(ジャッジID: [^)]*\)/g;
+const CORRECTION_TITLE_WITHOUT_JUDGE_ID = "過去の訂正事例(公認ジャッジによる記録)";
+
+/**
+ * T008: retrieveEvidence.tsの旧title形式(`過去の訂正事例(ジャッジID: xxx)`)が
+ * 過去にresult_jsonへ保存されたまま残っている場合、judgeIdを含まない表記へ置き換える。
+ * result_jsonはJSON文字列だが、置換文字列がJSON上特別な意味を持つ文字(引用符・
+ * バックスラッシュ等)を含まないため、パースせず文字列置換のみで安全に書き換えられる。
+ * スレッド付きジョブは無期限保持されるため(pruneOldJobs参照)、この移行が無いと
+ * 旧titleが残り続ける。1回限りの本番マイグレーション用。
+ */
+export function migrateLegacyCorrectionTitlesInResultJson(): number {
+  const rows = db
+    .prepare("SELECT id, result_json FROM ruling_job WHERE result_json LIKE '%ジャッジID:%'")
+    .all() as { id: string; result_json: string | null }[];
+
+  let migrated = 0;
+  for (const row of rows) {
+    if (!row.result_json) continue;
+    const updated = row.result_json.replace(LEGACY_CORRECTION_TITLE_PATTERN, CORRECTION_TITLE_WITHOUT_JUDGE_ID);
+    if (updated !== row.result_json) {
+      db.prepare("UPDATE ruling_job SET result_json = ? WHERE id = ?").run(updated, row.id);
+      migrated++;
+    }
+  }
+  return migrated;
+}
