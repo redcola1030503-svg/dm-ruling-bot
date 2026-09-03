@@ -1,5 +1,5 @@
 import { fetchCardListPage, getOfficialCard } from "./cardSearch";
-import { getCardIndexCount, getCardIndexUpdatedAt, upsertCardIndexEntry } from "./cardIndexRepository";
+import { getCardIndexCount, getCardIndexUpdatedAt, upsertCardIndexEntryWithAltNames } from "./cardIndexRepository";
 import type { CardSearchHit } from "./types";
 import { logger } from "../utils/logger";
 
@@ -68,11 +68,13 @@ async function collectAllCardHits(): Promise<CardSearchHit[]> {
  */
 export async function runCardIndexBuild(
   onProgress?: (progress: CardIndexBuildProgress) => void,
+  options?: { forceRefresh?: boolean },
 ): Promise<CardIndexBuildSummary> {
   console.log("カード一覧を取得中(空keywordで全件検索)...");
   const allHits = await collectAllCardHits();
   console.log(`カードID収集完了: ${allHits.length}件`);
 
+  const forceRefresh = options?.forceRefresh ?? false;
   let updated = 0;
   let skipped = 0;
   let failed = 0;
@@ -80,13 +82,13 @@ export async function runCardIndexBuild(
   for (let i = 0; i < allHits.length; i++) {
     const hit = allHits[i]!;
     const existingUpdatedAt = getCardIndexUpdatedAt(hit.id);
-    if (existingUpdatedAt !== null && Date.now() - existingUpdatedAt < STALE_THRESHOLD_MS) {
+    if (!forceRefresh && existingUpdatedAt !== null && Date.now() - existingUpdatedAt < STALE_THRESHOLD_MS) {
       skipped += 1;
     } else {
       try {
-        const card = await getOfficialCard(hit);
+        const card = await getOfficialCard(hit, { force: forceRefresh });
         if (card) {
-          upsertCardIndexEntry(card.id, card.name, card.url);
+          upsertCardIndexEntryWithAltNames(card.id, card.name, card.url, card.alternateNames);
           updated += 1;
         } else {
           failed += 1;

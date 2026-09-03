@@ -24,10 +24,11 @@ vi.mock("../src/cards/cardNameMatcher", () => ({
 const { retrieveEvidence } = await import("../src/ruling/retrieveEvidence");
 
 function makeCard(overrides: Partial<CardInfo>): CardInfo {
-  return {
+  const base = {
     id: "id",
     url: "https://example.com",
     name: "カード",
+    alternateNames: [] as string[],
     cardType: "クリーチャー",
     civilization: "水",
     rarity: "C",
@@ -41,6 +42,32 @@ function makeCard(overrides: Partial<CardInfo>): CardInfo {
     qaListUrl: null,
     ...overrides,
   };
+  return {
+    ...base,
+    // facesを明示的に上書きしていない限り、主要面(name等)から1件だけ生成する。
+    faces: overrides.faces ?? [
+      {
+        name: base.name,
+        cardType: base.cardType,
+        civilization: base.civilization,
+        rarity: base.rarity,
+        power: base.power,
+        cost: base.cost,
+        mana: base.mana,
+        race: base.race,
+      },
+    ],
+  };
+}
+
+/** CardNameMatchを組み立てる。matchedFaceは明示しない限りcard.faces[0]を使う。 */
+function makeMatch(
+  card: CardInfo,
+  matchType: CardNameMatch["matchType"],
+  score: number,
+  matchedFace = card.faces[0]!,
+): CardNameMatch {
+  return { card, matchedFace, matchType, score };
 }
 
 function makeParsedQuestion(cardNames: string[], weakCardNames: string[] = [], ruleConcepts: string[] = []) {
@@ -58,7 +85,7 @@ function makeParsedQuestion(cardNames: string[], weakCardNames: string[] = [], r
 describe("retrieveEvidence のカード名あいまい判定", () => {
   it("exact一致のみの場合は確定してcardsに含める", async () => {
     findCardCandidates.mockResolvedValueOnce([
-      { card: makeCard({ id: "a", name: "斬隠蒼頭龍バイケン" }), matchType: "exact", score: 1 },
+      makeMatch(makeCard({ id: "a", name: "斬隠蒼頭龍バイケン" }), "exact", 1),
     ]);
 
     const evidence = await retrieveEvidence(makeParsedQuestion(["斬隠蒼頭龍バイケン"]));
@@ -70,7 +97,7 @@ describe("retrieveEvidence のカード名あいまい判定", () => {
 
   it("prefix一致で他に閾値超えの候補がなければ確定する", async () => {
     findCardCandidates.mockResolvedValueOnce([
-      { card: makeCard({ id: "a", name: "勝熱英雄 モモキング" }), matchType: "prefix", score: 0.9 },
+      makeMatch(makeCard({ id: "a", name: "勝熱英雄 モモキング" }), "prefix", 0.9),
     ]);
 
     const evidence = await retrieveEvidence(makeParsedQuestion(["勝熱英雄"]));
@@ -81,12 +108,8 @@ describe("retrieveEvidence のカード名あいまい判定", () => {
 
   it("prefix一致でも他に閾値超えの別カードが並ぶ場合はあいまい判定にする", async () => {
     findCardCandidates.mockResolvedValueOnce([
-      { card: makeCard({ id: "a", name: "ベートーベン・キューブ" }), matchType: "prefix", score: 0.9 },
-      {
-        card: makeCard({ id: "b", name: "「修羅」の頂 VAN・ベートーベン" }),
-        matchType: "partial",
-        score: 0.75,
-      },
+      makeMatch(makeCard({ id: "a", name: "ベートーベン・キューブ" }), "prefix", 0.9),
+      makeMatch(makeCard({ id: "b", name: "「修羅」の頂 VAN・ベートーベン" }), "partial", 0.75),
     ]);
 
     const evidence = await retrieveEvidence(makeParsedQuestion(["ベートーベン"]));
@@ -110,14 +133,14 @@ describe("retrieveEvidence のカード名あいまい判定", () => {
   });
 
   it("フルネームでexact一致していれば、同じカードの略称側もあいまい判定にしない", async () => {
-    const fullNameMatch: CardNameMatch = {
-      card: makeCard({ id: "baiken", name: "斬隠蒼頭龍バイケン" }),
-      matchType: "exact",
-      score: 1,
-    };
+    const fullNameMatch: CardNameMatch = makeMatch(
+      makeCard({ id: "baiken", name: "斬隠蒼頭龍バイケン" }),
+      "exact",
+      1,
+    );
     const abbreviatedMatches: CardNameMatch[] = [
-      { card: makeCard({ id: "other", name: "バイケンの海幻" }), matchType: "prefix", score: 0.9 },
-      { card: makeCard({ id: "baiken", name: "斬隠蒼頭龍バイケン" }), matchType: "partial", score: 0.75 },
+      makeMatch(makeCard({ id: "other", name: "バイケンの海幻" }), "prefix", 0.9),
+      makeMatch(makeCard({ id: "baiken", name: "斬隠蒼頭龍バイケン" }), "partial", 0.75),
     ];
     findCardCandidates.mockResolvedValueOnce([fullNameMatch]);
     findCardCandidates.mockResolvedValueOnce(abbreviatedMatches);
@@ -142,7 +165,7 @@ describe("retrieveEvidence の弱いカード名候補(「」『』由来)の扱
 
   it("十分なスコアで見つかった場合はcardsに採用する", async () => {
     findCardCandidates.mockResolvedValueOnce([
-      { card: makeCard({ id: "a", name: "「正義星帝」＜ライオネル.Star＞" }), matchType: "exact", score: 1 },
+      makeMatch(makeCard({ id: "a", name: "「正義星帝」＜ライオネル.Star＞" }), "exact", 1),
     ]);
 
     const evidence = await retrieveEvidence(makeParsedQuestion([], ["正義星帝"]));
@@ -154,7 +177,7 @@ describe("retrieveEvidence の弱いカード名候補(「」『』由来)の扱
 
   it("低スコアの候補しかない場合は採用もambiguous化もしない", async () => {
     findCardCandidates.mockResolvedValueOnce([
-      { card: makeCard({ id: "a", name: "何か別のカード" }), matchType: "fuzzy", score: 0.3 },
+      makeMatch(makeCard({ id: "a", name: "何か別のカード" }), "fuzzy", 0.3),
     ]);
 
     const evidence = await retrieveEvidence(makeParsedQuestion([], ["猫"]));
@@ -280,15 +303,15 @@ describe("retrieveEvidence の検証済み裁定原則(D-006)の検索", () => {
 
   it("カードテキスト由来の概念(cardDerivedConcepts)だけでは検証済み裁定原則を注入しない(質問の論点と無関係な過剰取得の防止)", async () => {
     findCardCandidates.mockResolvedValueOnce([
-      {
-        card: makeCard({
+      makeMatch(
+        makeCard({
           id: "a",
           name: "テストクリーチャー",
           cardText: "W・ブレイカー\nこのクリーチャーが攻撃する時、カードを1枚引く。",
         }),
-        matchType: "exact",
-        score: 1,
-      },
+        "exact",
+        1,
+      ),
     ]);
 
     // parsed.ruleConceptsは空(質問文自体には「W・ブレイカー」等への言及がない)。

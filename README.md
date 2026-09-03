@@ -237,6 +237,8 @@ npm run cards:index
 
 公式サイトを空キーワードで全件検索してカードID一覧を収集した後、各カードの詳細ページを取得して`card_index`に保存します。**全カード数は約11,654件(2026-08時点)あり、公式サイトへの負荷軽減のための500ms間隔レート制限により、初回実行には約1.6時間かかります。** 2回目以降は、前回の取得から30日以内のカードをスキップする差分更新のため高速に終わります。本番の初回構築時はRenderのShellから`node dist/scripts/buildCardIndex.js`を実行してください(`npm run embeddings:rules`と同じ運用)。
 
+`npm run cards:index -- --force`(またはRenderのShellで`node dist/scripts/buildCardIndex.js --force`)を付けると、`card_cache`/`card_index`の既存キャッシュ(TTL内)を無視して全件を強制的に公式サイトから再取得します。パース結果のスキーマ自体を変更した場合(例: サイキック/ドラグハート等の裏面名`alternateNames`対応)、通常の差分更新ではキャッシュ済みカードへ反映されないため、リリース直後に1回だけ実行してください。所要時間は通常実行と同程度(約1.6時間)です。
+
 初回構築後は、管理者アカウントで`POST /api/cards/reindex`(即座に再構築、`GET /api/cards/reindex/status`で進捗確認)、または`POST /api/cards/reindex/check`(公式サイトへ1リクエストだけ送って新カードの有無を軽量確認し、あれば自動で再構築)をアプリ/APIから呼び出す方が、Shellにログインする手間がなく簡単です。いずれも同じ`card_index`テーブルへの差分更新ロジック(`src/cards/cardIndexCrawler.ts`)を共有しています。
 
 インデックスが未構築(`card_index`が空)の間、`GET /api/cards/suggest`は常に空配列を返します(エラーにはなりません)。

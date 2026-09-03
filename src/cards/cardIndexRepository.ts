@@ -17,6 +17,29 @@ function escapeLikePattern(value: string): string {
  * 足りない分を部分一致で補う。クエリが短すぎるとヒット数が多くなりすぎて
  * 有用なサジェストにならないため、MIN_QUERY_LENGTH未満は空配列を返す。
  */
+// card_index(主要名)とcard_index_alt_name(サイキック/ドラグハート/ツインパクト等
+// 複数面カードの、主要名以外の面の名前)の両方を対象にする。どちらの面の名前で
+// 入力してもサジェストできるようにするため(過去の教訓: 裏面名がcard_indexに
+// 登録されずサジェストから漏れていた不具合の修正)。
+const SUGGEST_UNION_SQL = `
+  SELECT id, name FROM card_index
+  UNION
+  SELECT id, name FROM card_index_alt_name
+`;
+
+// 主要名(card_index)と別名(card_index_alt_name)の両方に、同じidが別々のnameで
+// 一致することがある(例: 表/裏どちらも同じ文字で始まるサイキック等)。GROUP BY id
+// でid単位に集約し、1id1行だけを返す(重複がLIMIT枠を消費して件数が不足するのを防ぐ)。
+// MIN(name)はLIKE条件を満たした名前の中からの選択なので、一致した面のいずれかの
+// 名前が返る(一致していない方の名前が紛れ込むことはない)。
+function suggestQuery(likePattern: string, limit: number): CardSuggestion[] {
+  return db
+    .prepare(
+      `SELECT id, MIN(name) as name FROM (${SUGGEST_UNION_SQL}) WHERE name LIKE ? ESCAPE '\\' GROUP BY id ORDER BY name LIMIT ?`,
+    )
+    .all(likePattern, limit) as CardSuggestion[];
+}
+
 export function suggestCardNames(query: string, limit: number): CardSuggestion[] {
   const trimmed = query.trim();
   if (trimmed.length < MIN_QUERY_LENGTH) return [];
@@ -25,18 +48,14 @@ export function suggestCardNames(query: string, limit: number): CardSuggestion[]
   const seenIds = new Set<string>();
   const results: CardSuggestion[] = [];
 
-  const prefixRows = db
-    .prepare("SELECT id, name FROM card_index WHERE name LIKE ? ESCAPE '\\' ORDER BY name LIMIT ?")
-    .all(`${escaped}%`, limit) as CardSuggestion[];
+  const prefixRows = suggestQuery(`${escaped}%`, limit);
   for (const row of prefixRows) {
     seenIds.add(row.id);
     results.push(row);
   }
 
   if (results.length < limit) {
-    const partialRows = db
-      .prepare("SELECT id, name FROM card_index WHERE name LIKE ? ESCAPE '\\' ORDER BY name LIMIT ?")
-      .all(`%${escaped}%`, limit) as CardSuggestion[];
+    const partialRows = suggestQuery(`%${escaped}%`, limit);
     for (const row of partialRows) {
       if (seenIds.has(row.id)) continue;
       seenIds.add(row.id);
@@ -53,6 +72,47 @@ export function upsertCardIndexEntry(id: string, name: string, url: string): voi
     `INSERT INTO card_index (id, name, url, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET name=excluded.name, url=excluded.url, updated_at=excluded.updated_at`,
   ).run(id, name, url, Date.now());
+}
+
+/**
+ * 主要名以外の面の名前(サイキックの裏面等)を登録する。同じidの既存の別名は
+ * 一度全削除してから登録し直す(名前が変わった場合や面の数が減った場合に
+ * 古い別名がゴミとして残らないようにするため)。
+ */
+export function replaceCardIndexAltNames(id: string, names: string[]): void {
+  db.prepare("DELETE FROM card_index_alt_name WHERE id = ?").run(id);
+  if (names.length === 0) return;
+  const insert = db.prepare(
+    "INSERT OR IGNORE INTO card_index_alt_name (id, name, updated_at) VALUES (?, ?, ?)",
+  );
+  const now = Date.now();
+  for (const name of names) {
+    insert.run(id, name, now);
+  }
+}
+
+/**
+ * 主要名(card_index)と別名(card_index_alt_name)の更新を1トランザクションに
+ * まとめる。別々のまま実行すると、別名側の更新で例外・プロセス停止が起きた
+ * 場合に主要名だけが「更新済み」(updated_at更新)になり、通常の差分更新
+ * (30日stale判定)では再実行されずalternateNamesが永久に反映されない不整合が
+ * 起きうるため(billingTransaction.tsと同じBEGIN/COMMIT/ROLLBACKパターン)。
+ */
+export function upsertCardIndexEntryWithAltNames(
+  id: string,
+  name: string,
+  url: string,
+  altNames: string[],
+): void {
+  db.exec("BEGIN");
+  try {
+    upsertCardIndexEntry(id, name, url);
+    replaceCardIndexAltNames(id, altNames);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 export function getCardIndexUpdatedAt(id: string): number | null {

@@ -1,8 +1,8 @@
 # Project Status
 
-Updated: 2026-09-02
+Updated: 2026-09-03
 Owner: Claude Code
-Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行の独立レビューを実施済み)
+Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正の独立レビューを実施済み)
 
 ## Current Goal
 
@@ -12,6 +12,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 2. 有料化の形態(価格・プラン設計)の見直し検討
 3. LINE Bot廃止の残作業(Render環境変数・LINE Developersコンソール側の後始末) — 保留(手動操作)
 4. T002 設計整合性の是正 — 実装・ドキュメント面は完了。残る手動操作項目(RevenueCat実機E2E・Renderダッシュボード確認等)は保留(2026-09-02ユーザー判断)
+5. T004 複数面カード(サイキック/ドラグハート等)の名前サジェスト漏れ修正 — 実装・レビュー対応は完了。本番反映後、Renderシェルからの`--force`全件再構築が残タスク
 
 ## Completed
 
@@ -70,6 +71,15 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
   - Codexレビューを2回実施し、P0 1件(上記の永続ディスク問題)・P1 3件(検索漏れ、過剰マッチ、appliesWhenに例外ケースが混在し誤判定を招く不備)・P2 3件(confidenceの矛盾、出典メタデータの喪失、統計APIのsourceType欠落)・P3 1件(DECISIONS.mdのセクション構造崩れ)を検出・全件修正
   - 検証: `npm run typecheck`・`npm test`(41ファイル/248テスト)PASS、ビルド成果物(`dist/`)からの動作確認済み
   - **未着手(次回以降)**: ルール15(キリコ³系、公認ジャッジ再確認が必要)・ルール16(句点区切りの一般化再確認が必要)・ルール20(公式条文/Q&A特定が必要)の移行
+- **サイキック/ドラグハート等の複数面カードの名前サジェスト漏れ修正(2026-09-03、T004)**: ユーザー報告「サイキック・ドラグハートが検索サジェストから漏れている」を調査。まず本番`GET /api/cards/suggest`の実データ(サイキック全138件・ドラグハート全66件)を確認したところ体系的な欠落はなく(初回チェックで多発したMISSINGは`publicReadRateLimiter`(1分60リクエスト)への連続アクセスによる429の偽陽性だった)、真因はユーザー指摘の通り別にあった: サイキック等は1枚のカードが`.cardDetail`ブロックを複数(表/裏の面)持つが、`cardParser.ts`は名前を最初の面のみ取得しており、もう一方の面の名前が`card_index`に登録されていなかった。
+  - `CardInfo`に`faces: CardFace[]`(面ごとの名前+文明+タイプ+パワー等の属性一式)を追加。`CardNameMatch`に`matchedFace`(実際に入力名と一致した面)を追加し、`retrieveEvidence.ts`が`matchedFace`の属性をEvidenceに使うよう修正(Codexレビュー指摘: 単純に別名を追加しただけだと、裏面名で質問された場合でも表面の文明・パワー等の誤った属性がLLMへ渡ってしまう不具合があった)
+  - `card_index_alt_name`テーブル新設、`suggestCardNames`は`card_index`とのUNION+`GROUP BY id`でどちらの面の名前でもヒットし、かつ重複行を返さないようにした
+  - `card_index`(主要名)と`card_index_alt_name`(別名)の更新を`upsertCardIndexEntryWithAltNames`でBEGIN/COMMIT/ROLLBACKの単一トランザクションにまとめた(片方だけ更新済みになる不整合を防止)
+  - `card_cache`に`faces`列(JSON)を追加、`deriveAlternateNames`共通関数でパース時・キャッシュ復元時の重複除去ロジックを一本化
+  - 正本データのスキーマ変更が既存キャッシュ(card_cache 24hTTL・card_index 30日TTL)には反映されないため、`getOfficialCard`/`runCardIndexBuild`/`buildCardIndex.ts`に`--force`オプションを追加(`node dist/scripts/buildCardIndex.js --force`で全件強制再取得。一部失敗時は非ゼロ終了)
+  - Codexレビューを2回実施し、P1 1件(裏面名一致時の属性誤り)・P2 4件(トランザクション化、テストが実DB動作を検証していない、サジェストの前方一致重複、`--force`部分失敗の終了コード)・P3 1件(キャッシュ往復でのalternateNames不変条件崩れ)を検出・全件修正
+  - 検証: `npm run typecheck`・`npm test`(44ファイル/264テスト)PASS
+  - **残作業(手動操作)**: 本番反映後、Renderのシェルから`node dist/scripts/buildCardIndex.js --force`を実行し、既存カードにもfaces/alternateNamesを反映する
 
 ## In Progress
 
@@ -79,6 +89,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 - **(保留、2026-09-02ユーザー判断)** LINE Bot廃止の残作業(Render環境変数削除・LINE Developersコンソール側の後始末) — 手動操作が必要なため保留
 - **(保留、2026-09-02ユーザー判断)** T002残りの手動操作項目(RevenueCat Restore Behavior確認・購入復元実機E2E・Android Auto Backup実機検証・Renderダッシュボード環境変数確認) — 実装・ドキュメント面は完了、これらのみ保留(`.ai/tasks/T002-design-consistency-remediation.md`参照)
 - T003(検証済み裁定原則移行)の第2弾以降: ルール15・16・20の移行(`.ai/tasks/T003-verified-ruling-principles-migration.md`のOut of Scope参照)
+- **(手動操作、保留ではなく未実施)** T004: 本番反映後、Renderのシェルから`node dist/scripts/buildCardIndex.js --force`を実行し、既存カードのfaces/alternateNamesを反映する(`.ai/tasks/T004-multi-face-card-name-suggest-fix.md`参照)
 
 ## Decided (このセッション)
 
@@ -95,6 +106,12 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 - なし
 
 ## Verification
+
+**T004 複数面カード名サジェスト漏れ修正(2026-09-03、コミット前、HEAD時点)**:
+- `npm run typecheck`: PASS
+- `npm test`: PASS(44ファイル/264テスト)
+- Codexレビュー2回実施し全指摘(P1 1件・P2 4件・P3 1件)に対応(詳細は`.ai/tasks/T004-multi-face-card-name-suggest-fix.md`のReview History参照)
+- 未実施: 本番反映後の`--force`全件強制再構築(手動操作)
 
 **T003 検証済み裁定原則移行 第1弾(2026-09-02、コミット前、HEAD時点)**:
 - `npm run typecheck`: PASS
@@ -221,6 +238,7 @@ Codexによる独立レビューを2回実施。
 
 1. ~~**T002 設計整合性の是正**をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-02、実装・ドキュメント面は完了**。優先順・受入条件は`.ai/tasks/T002-design-consistency-remediation.md`、根拠は`.ai/reviews/2026-09-02-design-consistency-review.md`参照。残る手動操作項目(RevenueCat実機E2E・Renderダッシュボード確認等)はユーザー判断により保留
 1b. ~~**T003 検証済み裁定原則移行 第1弾**(ルール17・18・19)をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-02完了**。詳細は`.ai/tasks/T003-verified-ruling-principles-migration.md`参照。次回以降、ルール15・16・20の移行が残っている(それぞれ公認ジャッジ再確認・一般化再確認・公式条文特定が前提)
+1c. ~~**T004 複数面カード名サジェスト漏れ修正**をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-03、実装・レビュー対応完了**。詳細は`.ai/tasks/T004-multi-face-card-name-suggest-fix.md`参照。**残作業**: 本番反映後、Renderのシェルから`node dist/scripts/buildCardIndex.js --force`を実行して既存カードへ反映する(手動操作)
 2. iOS版v1.7.1(17)・v1.7.2(18)の審査結果をApp Store Connectで確認する(2026-09-02、ログインセッション切れのため未確認・ユーザー指示でスキップ中)
 3. ~~Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード~~ → **2026-09-02検証解消を確認**(上記Completed参照、「Valid credentials」表示)。任意でRevenueCatの「Google developer notifications」(Pub/Subトピック接続)を設定するとよい(保留)
 4. (任意、緊急性は下がった)Pricing案A残り(価格を¥980程度へ引き上げ)の実施要否をユーザーと最終判断。広告非表示は2026-09-01に有料特典として実装済み

@@ -60,9 +60,14 @@ export async function searchOfficialCards(
   return hits.slice(0, maxResults);
 }
 
-export async function getOfficialCard(hit: CardSearchHit): Promise<CardInfo | null> {
-  const cached = getCachedCard(hit.id);
-  if (cached) return cached;
+export async function getOfficialCard(
+  hit: CardSearchHit,
+  options?: { force?: boolean },
+): Promise<CardInfo | null> {
+  if (!options?.force) {
+    const cached = getCachedCard(hit.id);
+    if (cached) return cached;
+  }
 
   const html = await fetchHtml(hit.url);
   const card = parseCardDetailPage(html, hit.id, hit.url);

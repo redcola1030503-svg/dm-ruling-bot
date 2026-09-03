@@ -108,6 +108,19 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_card_index_name ON card_index(name);
 
+  -- サイキック・ドラグハート・ツインパクト等、1枚のカードが複数の面(名前)を
+  -- 持つ場合の、card_index.nameに採用されなかった面の名前。カード名解決の
+  -- サジェスト(suggestCardNames)がこの表と card_index の両方を検索することで、
+  -- どちらの面の名前で入力してもサジェストできるようにする。
+  CREATE TABLE IF NOT EXISTS card_index_alt_name (
+    id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (id, name)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_card_index_alt_name_name ON card_index_alt_name(name);
+
   CREATE TABLE IF NOT EXISTS card_index_meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -212,6 +225,13 @@ db.exec(`
 // 既存DBへのマイグレーション(カラム追加は非冪等なため個別に試行する)。
 try {
   db.exec("ALTER TABLE card_cache ADD COLUMN qa_list_url TEXT");
+} catch {
+  // 既にカラムが存在する場合は無視
+}
+try {
+  // サイキック・ドラグハート等の複数面カードの、全ての面(名前+属性)をJSON配列文字列で保持する。
+  // 1面のみのカードは1件だけの配列になる。
+  db.exec("ALTER TABLE card_cache ADD COLUMN faces TEXT");
 } catch {
   // 既にカラムが存在する場合は無視
 }

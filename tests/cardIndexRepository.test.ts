@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prepareMock = vi.fn();
+const execMock = vi.fn();
 vi.mock("../src/config/db", () => ({
-  db: { prepare: (...args: unknown[]) => prepareMock(...args) },
+  db: {
+    prepare: (...args: unknown[]) => prepareMock(...args),
+    exec: (...args: unknown[]) => execMock(...args),
+  },
 }));
 
 const {
   suggestCardNames,
   upsertCardIndexEntry,
+  replaceCardIndexAltNames,
+  upsertCardIndexEntryWithAltNames,
   getCardIndexUpdatedAt,
   getCardIndexCount,
   getLastKnownTotalCount,
@@ -17,9 +23,22 @@ const {
 describe("cards/cardIndexRepository", () => {
   beforeEach(() => {
     prepareMock.mockReset();
+    execMock.mockReset();
   });
 
   describe("suggestCardNames", () => {
+    it("card_indexとcard_index_alt_nameの両方をUNIONで検索する(片方だけを検索するように壊れていないかの回帰確認)", () => {
+      const all = vi.fn().mockReturnValue([]);
+      prepareMock.mockReturnValue({ all });
+
+      suggestCardNames("アンタッチャブル", 10);
+
+      const sqlArg = prepareMock.mock.calls[0]?.[0] as string;
+      expect(sqlArg).toContain("FROM card_index");
+      expect(sqlArg).toContain("FROM card_index_alt_name");
+      expect(sqlArg).toContain("UNION");
+    });
+
     it("クエリが空文字なら空配列を返しDBを呼ばない", () => {
       const result = suggestCardNames("   ", 10);
 
@@ -99,6 +118,62 @@ describe("cards/cardIndexRepository", () => {
       "https://example.com/card",
       expect.any(Number),
     );
+  });
+
+  it("replaceCardIndexAltNames: 既存の別名を削除してから新しい別名を登録する", () => {
+    const deleteRun = vi.fn();
+    const insertRun = vi.fn();
+    prepareMock.mockReturnValueOnce({ run: deleteRun }).mockReturnValueOnce({ run: insertRun });
+
+    replaceCardIndexAltNames("dm37-021", ["変幻の覚醒者アンタッチャブル・パワード"]);
+
+    expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("DELETE FROM card_index_alt_name"));
+    expect(deleteRun).toHaveBeenCalledWith("dm37-021");
+    expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("INSERT OR IGNORE INTO card_index_alt_name"));
+    expect(insertRun).toHaveBeenCalledWith("dm37-021", "変幻の覚醒者アンタッチャブル・パワード", expect.any(Number));
+  });
+
+  it("replaceCardIndexAltNames: 別名が0件の場合は削除のみでINSERTは呼ばない", () => {
+    const deleteRun = vi.fn();
+    prepareMock.mockReturnValueOnce({ run: deleteRun });
+
+    replaceCardIndexAltNames("dm26ex3-005", []);
+
+    expect(deleteRun).toHaveBeenCalledWith("dm26ex3-005");
+    expect(prepareMock).toHaveBeenCalledTimes(1);
+  });
+
+  describe("upsertCardIndexEntryWithAltNames", () => {
+    it("BEGIN〜COMMITで主要名と別名の両方を1トランザクションとして更新する", () => {
+      const runFn = vi.fn();
+      prepareMock.mockReturnValue({ run: runFn });
+
+      upsertCardIndexEntryWithAltNames("dm37-021", "時空の英雄アンタッチャブル", "https://example.com/a", [
+        "変幻の覚醒者アンタッチャブル・パワード",
+      ]);
+
+      expect(execMock.mock.calls.map((c) => c[0])).toEqual(["BEGIN", "COMMIT"]);
+      expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO card_index "));
+      expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("DELETE FROM card_index_alt_name"));
+      expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("INSERT OR IGNORE INTO card_index_alt_name"));
+    });
+
+    it("別名側の更新で例外が起きたらROLLBACKし、主要名だけ更新済みという不整合を残さない", () => {
+      const runFn = vi.fn();
+      prepareMock
+        .mockReturnValueOnce({ run: runFn }) // upsertCardIndexEntry
+        .mockImplementationOnce(() => {
+          throw new Error("db error");
+        }); // replaceCardIndexAltNamesのDELETEで失敗
+
+      expect(() =>
+        upsertCardIndexEntryWithAltNames("dm37-021", "時空の英雄アンタッチャブル", "https://example.com/a", [
+          "変幻の覚醒者アンタッチャブル・パワード",
+        ]),
+      ).toThrow("db error");
+
+      expect(execMock.mock.calls.map((c) => c[0])).toEqual(["BEGIN", "ROLLBACK"]);
+    });
   });
 
   it("getCardIndexUpdatedAt: 存在すればupdated_atを返す", () => {

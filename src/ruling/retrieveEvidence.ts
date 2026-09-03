@@ -1,4 +1,5 @@
 import { findCardCandidates } from "../cards/cardNameMatcher";
+import type { CardFace, CardInfo } from "../cards/types";
 import { env } from "../config/env";
 import { searchAndRankRuleChanges } from "../rules/ruleChangeRanking";
 import { extractRuleConcepts } from "../rules/ruleConceptDictionary";
@@ -22,6 +23,27 @@ const AMBIGUOUS_CANDIDATE_LIMIT = 3;
 // 冒頭の定義部分のみに切り詰めて渡す。DB上のkeyword_ability.descriptionは全文のまま保持する
 // (URLで元ページを参照できるため、切り詰めても情報は失われない)。
 const KEYWORD_ABILITY_MAX_LENGTH = 1200;
+
+function formatFaceAttributes(face: CardFace): string {
+  return `文明:${face.civilization} 種類:${face.cardType} コスト:${face.cost} パワー:${face.power} 種族:${face.race}`;
+}
+
+/**
+ * サイキック・ドラグハート・ツインパクト等、複数の面を持つカードは、
+ * 質問と一致した面(matchedFace)を先頭に明示しつつ、他の面の属性も
+ * 併記する(能力テキストは既存仕様どおり全面ぶん連結して渡しているため、
+ * どの面の話をしているかLLMが区別できるよう、対応する属性も全面ぶん示す)。
+ */
+function formatCardEvidenceText(card: CardInfo, matchedFace: CardFace): string {
+  if (card.faces.length <= 1) {
+    return `${formatFaceAttributes(matchedFace)}\n${card.cardText}`;
+  }
+  const faceLines = card.faces.map((face) => {
+    const marker = face.name === matchedFace.name ? "(質問の名前と一致した面)" : "(もう一方の面)";
+    return `【${face.name}】${marker} ${formatFaceAttributes(face)}`;
+  });
+  return `${faceLines.join("\n")}\n${card.cardText}`;
+}
 
 function truncateKeywordAbilityText(text: string): string {
   if (text.length <= KEYWORD_ABILITY_MAX_LENGTH) return text;
@@ -60,8 +82,11 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
     if (seenCardIds.has(match.card.id)) return;
     seenCardIds.add(match.card.id);
     cards.push({
-      title: match.card.name,
-      text: `文明:${match.card.civilization} 種類:${match.card.cardType} コスト:${match.card.cost} パワー:${match.card.power} 種族:${match.card.race}\n${match.card.cardText}`,
+      // 入力名が実際に一致した面(matchedFace)の名前・属性を使う。単純に
+      // match.card.name(常に主要面)を使うと、裏面の名前で質問された場合に
+      // 表面の文明・パワー等の誤った属性がLLMへ渡ってしまう(過去の不具合)。
+      title: match.matchedFace.name,
+      text: formatCardEvidenceText(match.card, match.matchedFace),
       url: match.card.url,
       sourceType: "card",
       itemKey: match.card.id,
@@ -100,7 +125,7 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
       // カード名を一意に確定できなかった場合、候補があればユーザーへの確認材料として残す。
       // (裁定生成には使わず、confirmしてもらってから再質問してもらう)
       const candidates = Array.from(
-        new Set(matches.slice(0, AMBIGUOUS_CANDIDATE_LIMIT).map((m) => m.card.name)),
+        new Set(matches.slice(0, AMBIGUOUS_CANDIDATE_LIMIT).map((m) => m.matchedFace.name)),
       );
       if (candidates.length > 0) {
         ambiguousCards.push({ queried, candidates });
