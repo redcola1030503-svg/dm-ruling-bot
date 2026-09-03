@@ -12,7 +12,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 2. 有料化の形態(価格・プラン設計)の見直し検討
 3. LINE Bot廃止の残作業(Render環境変数・LINE Developersコンソール側の後始末) — 保留(手動操作)
 4. T002 設計整合性の是正 — 実装・ドキュメント面は完了。残る手動操作項目(RevenueCat実機E2E・Renderダッシュボード確認等)は保留(2026-09-02ユーザー判断)
-5. T004 複数面カード(サイキック/ドラグハート等)の名前サジェスト漏れ修正 — 実装・レビュー対応は完了。本番反映後、Renderシェルからの`--force`全件再構築が残タスク
+5. ~~T004 複数面カード(サイキック/ドラグハート等)の名前サジェスト漏れ修正~~ → **2026-09-03完了**(`--force`全件再構築・本番動作確認済み)
 
 ## Completed
 
@@ -79,7 +79,8 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
   - 正本データのスキーマ変更が既存キャッシュ(card_cache 24hTTL・card_index 30日TTL)には反映されないため、`getOfficialCard`/`runCardIndexBuild`/`buildCardIndex.ts`に`--force`オプションを追加(`node dist/scripts/buildCardIndex.js --force`で全件強制再取得。一部失敗時は非ゼロ終了)
   - Codexレビューを2回実施し、P1 1件(裏面名一致時の属性誤り)・P2 4件(トランザクション化、テストが実DB動作を検証していない、サジェストの前方一致重複、`--force`部分失敗の終了コード)・P3 1件(キャッシュ往復でのalternateNames不変条件崩れ)を検出・全件修正
   - 検証: `npm run typecheck`・`npm test`(44ファイル/264テスト)PASS
-  - **残作業(手動操作)**: 本番反映後、Renderのシェルから`node dist/scripts/buildCardIndex.js --force`を実行し、既存カードにもfaces/alternateNamesを反映する
+  - **本番`--force`全件再構築(2026-09-03完了)**: Render Web Shellから`nohup node dist/scripts/buildCardIndex.js --force > /app/data/force_reindex_20260903.log 2>&1 &`をバックグラウンド実行(シェル切断後もプロセス継続を別セッションで確認)。結果: 更新11,650件・スキップ0件・失敗1件(一時的な504/タイムアウト、次回差分更新で自動再試行)、card_index総登録数16,373件。本番`GET /api/cards/suggest`に裏面名で問い合わせ正しくサジェストされることを実機確認済み
+  - **副次的な発見(未対応)**: card_index総登録数(16,373件)が実カード数(11,650件)より多い。削除・統合等で現行一覧に無くなった過去のクロール結果が残存している可能性がある(削除ロジックが無いため)。実害は軽微、対応するなら別タスク
 
 ## In Progress
 
@@ -89,7 +90,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 - **(保留、2026-09-02ユーザー判断)** LINE Bot廃止の残作業(Render環境変数削除・LINE Developersコンソール側の後始末) — 手動操作が必要なため保留
 - **(保留、2026-09-02ユーザー判断)** T002残りの手動操作項目(RevenueCat Restore Behavior確認・購入復元実機E2E・Android Auto Backup実機検証・Renderダッシュボード環境変数確認) — 実装・ドキュメント面は完了、これらのみ保留(`.ai/tasks/T002-design-consistency-remediation.md`参照)
 - T003(検証済み裁定原則移行)の第2弾以降: ルール15・16・20の移行(`.ai/tasks/T003-verified-ruling-principles-migration.md`のOut of Scope参照)
-- **(手動操作、保留ではなく未実施)** T004: 本番反映後、Renderのシェルから`node dist/scripts/buildCardIndex.js --force`を実行し、既存カードのfaces/alternateNamesを反映する(`.ai/tasks/T004-multi-face-card-name-suggest-fix.md`参照)
+- (follow-up、緊急性低)T004で発見したcard_indexの残存レコード(実カード数より約4,723件多い)の削除・非アクティブ化を検討する
 
 ## Decided (このセッション)
 
@@ -107,11 +108,11 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 
 ## Verification
 
-**T004 複数面カード名サジェスト漏れ修正(2026-09-03、コミット前、HEAD時点)**:
+**T004 複数面カード名サジェスト漏れ修正(2026-09-03、コミット`e3323fb`、master/originにpush・本番反映済み)**:
 - `npm run typecheck`: PASS
 - `npm test`: PASS(44ファイル/264テスト)
 - Codexレビュー2回実施し全指摘(P1 1件・P2 4件・P3 1件)に対応(詳細は`.ai/tasks/T004-multi-face-card-name-suggest-fix.md`のReview History参照)
-- 未実施: 本番反映後の`--force`全件強制再構築(手動操作)
+- 本番`--force`全件強制再構築: Render Web Shellから実行完了(更新11,650件・失敗1件・card_index総登録数16,373件)。本番`GET /api/cards/suggest`で裏面名によるサジェストを実機確認済み
 
 **T003 検証済み裁定原則移行 第1弾(2026-09-02、コミット前、HEAD時点)**:
 - `npm run typecheck`: PASS
@@ -238,7 +239,7 @@ Codexによる独立レビューを2回実施。
 
 1. ~~**T002 設計整合性の是正**をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-02、実装・ドキュメント面は完了**。優先順・受入条件は`.ai/tasks/T002-design-consistency-remediation.md`、根拠は`.ai/reviews/2026-09-02-design-consistency-review.md`参照。残る手動操作項目(RevenueCat実機E2E・Renderダッシュボード確認等)はユーザー判断により保留
 1b. ~~**T003 検証済み裁定原則移行 第1弾**(ルール17・18・19)をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-02完了**。詳細は`.ai/tasks/T003-verified-ruling-principles-migration.md`参照。次回以降、ルール15・16・20の移行が残っている(それぞれ公認ジャッジ再確認・一般化再確認・公式条文特定が前提)
-1c. ~~**T004 複数面カード名サジェスト漏れ修正**をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-03、実装・レビュー対応完了**。詳細は`.ai/tasks/T004-multi-face-card-name-suggest-fix.md`参照。**残作業**: 本番反映後、Renderのシェルから`node dist/scripts/buildCardIndex.js --force`を実行して既存カードへ反映する(手動操作)
+1c. ~~**T004 複数面カード名サジェスト漏れ修正**をClaudeが実装し、Codexが独立再レビューする~~ → **2026-09-03完了**(実装・レビュー対応・本番`--force`全件再構築・動作確認まで完了)。詳細は`.ai/tasks/T004-multi-face-card-name-suggest-fix.md`参照
 2. iOS版v1.7.1(17)・v1.7.2(18)の審査結果をApp Store Connectで確認する(2026-09-02、ログインセッション切れのため未確認・ユーザー指示でスキップ中)
 3. ~~Android側のService Account Credentials JSON(Google Cloud)の作成・アップロード~~ → **2026-09-02検証解消を確認**(上記Completed参照、「Valid credentials」表示)。任意でRevenueCatの「Google developer notifications」(Pub/Subトピック接続)を設定するとよい(保留)
 4. (任意、緊急性は下がった)Pricing案A残り(価格を¥980程度へ引き上げ)の実施要否をユーザーと最終判断。広告非表示は2026-09-01に有料特典として実装済み
