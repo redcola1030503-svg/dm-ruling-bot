@@ -13,7 +13,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 3. LINE Bot廃止の残作業(Render環境変数・LINE Developersコンソール側の後始末) — 保留(手動操作)
 4. T002 設計整合性の是正 — 実装・ドキュメント面は完了。残る手動操作項目(RevenueCat実機E2E・Renderダッシュボード確認等)は保留(2026-09-02ユーザー判断)
 5. ~~T004 複数面カード(サイキック/ドラグハート等)の名前サジェスト漏れ修正~~ → **2026-09-03完了**(`--force`全件再構築・本番動作確認済み)
-6. T005 全件クロールから漏れる特殊サブIDカード(DCR/spd等)への対応 — **On Hold**(対応案の検討段階でCodexレビューにより問題認識自体の誤りが判明。詳細は`.ai/tasks/T005-missing-special-subid-cards.md`参照)
+6. ~~T005 全件クロールから漏れる特殊サブIDカード(DCR/spd等)への対応~~ → **2026-09-03、再調査の結果、対応見送りと判断しClosed**(実害はごく限定的と判明。詳細は`.ai/tasks/T005-missing-special-subid-cards.md`参照)
 
 ## Completed
 
@@ -91,7 +91,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 - **(保留、2026-09-02ユーザー判断)** LINE Bot廃止の残作業(Render環境変数削除・LINE Developersコンソール側の後始末) — 手動操作が必要なため保留
 - **(保留、2026-09-02ユーザー判断)** T002残りの手動操作項目(RevenueCat Restore Behavior確認・購入復元実機E2E・Android Auto Backup実機検証・Renderダッシュボード環境変数確認) — 実装・ドキュメント面は完了、これらのみ保留(`.ai/tasks/T002-design-consistency-remediation.md`参照)
 - T003(検証済み裁定原則移行)の第2弾以降: ルール15・16・20の移行(`.ai/tasks/T003-verified-ruling-principles-migration.md`のOut of Scope参照)
-- **(On Hold、2026-09-03)** T005: T004で発見したcard_indexの残存4,723件(DCR/spd等の特殊サブIDカード)への対応。対応案をCodexに2回レビューさせた結果、最重要指摘(「サジェストに出ない」という前提)が本番確認で誤りと判明したため着手を保留。再開時はまず複数面カードの裏面名補完漏れがどれだけあるか再調査してから優先度を判断する(`.ai/tasks/T005-missing-special-subid-cards.md`参照)
+- ~~T005: T004で発見したcard_indexの残存4,723件(DCR/spd等の特殊サブIDカード)への対応~~ → **2026-09-03 Closed**。ランダム30件サンプリング調査の結果、複数面カードは約6.7%(推定300件程度)のみで、確認できた実例では同名の代替版が既にサジェストをカバーしており「裏面名で検索しても一切候補が出ない」という直接的な実害の実例は見つからなかった。対応の優先度は非常に低いと判断し見送り(`.ai/tasks/T005-missing-special-subid-cards.md`参照)
 
 ## Decided (このセッション)
 
