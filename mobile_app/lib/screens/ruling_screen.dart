@@ -235,6 +235,8 @@ class _RulingScreenState extends State<RulingScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            const LoadingBannerAd(),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -274,25 +276,18 @@ class _RulingScreenState extends State<RulingScreen> {
               if (!latestJob.isFinished)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text('公式情報の検索とLLMによる裁定生成を行っています(最大数分程度)…'),
-                          ),
-                        ],
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                      SizedBox(height: 12),
-                      LoadingBannerAd(),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text('公式情報の検索とLLMによる裁定生成を行っています(最大数分程度)…'),
+                      ),
                     ],
                   ),
                 )
