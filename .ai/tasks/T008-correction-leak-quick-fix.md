@@ -1,6 +1,6 @@
 # T008: 訂正関連の情報漏洩バグ2件の先行修正(T006 Review 1で発覚)
 
-Status: Implemented(Review 1・2反映済み、コード変更・テスト・typecheck・flutter analyze・route実機確認まで完了。**ただしジャッジID自体の再発行は未解決のまま残る(下記「Out of Scope・残る既知のリスク」参照)**。本番マイグレーション実行はユーザー判断待ち)
+Status: **再オープン(2026-09-04)**。一度Closedにしたが、本番DBの読み取り専用クエリで`ruling_job.result_json`に旧title(judgeId入り)の残存2件を実際に確認した(移行スクリプトの正規表現の不備が原因、下記参照)。**修正コードはT010/T012の未レビュー実装から切り出し、単独でコミット(`e48137b`)・pushしてRenderへデプロイ済み**(2026-09-04、ユーザー判断)。**残作業は本番Web Shellでの再マイグレーション実行のみ**(下記参照)。ジャッジID自体の再発行見送りの判断(下記「Out of Scope」参照)はこの残存確認とは別問題で、既に確定済みのまま変更なし
 
 ## Goal
 
@@ -107,11 +107,18 @@ Review 1(P0: Evidenceタイトル経由の漏洩、P1: 漏洩済みトークン�
 - [x] `npm run typecheck && npm test`がPASSすることを確認する(45ファイル/270テストPASS)
 - [x] `cd mobile_app && flutter analyze`がPASSすることを確認する(0 issues)
 - [x] route-levelの実機確認(curl、上記実装サマリー参照)
-- [ ] 本番で`node dist/scripts/migrateCorrectionCredentials.js`を実行し、`SELECT corrected_by, judge_id FROM correction WHERE corrected_by != judge_id`が0件であることをRender Web Shellで確認する(ユーザー判断待ち)
+- [x] 本番で`node dist/scripts/migrateCorrectionCredentials.js`を実行し、`SELECT corrected_by, judge_id FROM correction WHERE corrected_by != judge_id`が0件であることをRender Web Shellで確認する → **2026-09-04完了**。実行はユーザー本人がRender Web Shellで実施(Claude Code側では自動実行の安全装置により本番DB書き込みコマンドの代行入力がブロックされたため)。出力: 失効させたセッション数3、corrected_byを移行した訂正数3、source_reference_statのタイトルを移行した件数1、ruling_job.result_jsonのタイトルを移行した件数3。実行前後の検証(Claude Codeが読み取り専用クエリで確認): mismatch 3→0、judge_session総数17→14(3件失効)、source_reference_statの旧title残存 0件。
+
+**残存確認・追加の不具合発見と修正(2026-09-04、ユーザー指示によりCodexレビュー指摘を受けて本番DBを読み取り専用で確認)**: `ruling_job.result_json`に旧title形式(`過去の訂正事例(ジャッジID:...)`)が本当に0件か、Render Web Shell経由の読み取り専用クエリ(`result_json LIKE '%ジャッジID:%'`で件数確認)で確認したところ、**全139件中2件で残存を確認した(実害あり)**。原因を調査した結果、移行スクリプトの正規表現`LEGACY_CORRECTION_TITLE_PATTERN`が`ジャッジID: `(コロンの直後に半角スペースあり)を前提にしていたが、この2件は実際には`ジャッジID:<REDACTED>`のようにスペース無しの形式で保存されており、正規表現がマッチせず移行から漏れていたと判明した(実際のジャッジIDはこのファイルには記載しない)。
+
+**重要な追加インシデント(2026-09-04、Codexレビューで発覚)**: 上記の初版では「実際のジャッジIDはこのファイルには記載しない」と書きながら、直前の文中に実際のジャッジID(4桁の数値)を平文でそのまま記載してしまっていた。この版は既に単独コミット(`e48137b`)としてpublicリポジトリへpush済みだったため、**新たな公開漏洩が発生した**。対応: (1)このファイルから該当箇所を`<REDACTED>`へ即時修正しコミット・push(2)漏洩した当該ジャッジIDは、これまでの「バグ稼働期間中の間接的な漏洩リスクは受容し再発行見送り」という過去の判断とは別に、**GitHub上に平文で公開されたことによる新規の直接的漏洩**として扱い、緊急に無効化・再発行することをユーザーへ推奨する(このファイル・コミットメッセージ・commit historyのいずれにも実IDを再掲しない)。**2件とも作成日時は2026-08-19(バグ修正・移行の実施日である2026-09-03/09-04より前)であり、修正後に新たに発生した漏洩ではなく、既存データの移行漏れである**ことも確認済み。
+- **対応**: `src/ruling/rulingJobRepository.ts`の`LEGACY_CORRECTION_TITLE_PATTERN`を、コロン直後のスペース有無どちらにもマッチするよう修正(`ジャッジID: ?[^)]*`)。回帰テストを追加(`tests/rulingJobRepository.test.ts`)。`migrateCorrectionCredentials()`は全ステップが「まだ移行が必要な行だけ」を対象にした条件付きUPDATE/DELETEで構成されており冪等(再実行しても既に正しい行には影響しない)なため、この修正を反映した`dist/scripts/migrateCorrectionCredentials.js`を本番へデプロイし再実行すれば、残る2件も含めて安全に解消できる見込み。
+- **デプロイ完了(2026-09-04)**: ユーザー判断により、この修正だけをT010/T012の未レビュー実装から切り出して先に反映することにした。`git stash`でT010/T012等の未コミット変更を退避 → `src/ruling/rulingJobRepository.ts`の正規表現修正と対応テストのみをクリーンな作業ツリーへ再適用 → 単独で動作確認(`npm run typecheck`・当該テストファイル・`npm test`全体、いずれもPASS)→ コミット`e48137b`としてmasterへpush → `git stash pop`でT010/T012等を復元、の手順で実施。Render側は`master`へのpushで自動デプロイされる設定になっており、**Renderダッシュボードで"Deploy live for e48137b"を確認済み(2026-09-04 14:31)**。本番へ反映済み。
+- **残作業**: Renderのデプロイが反映された後、`node dist/scripts/migrateCorrectionCredentials.js`をRender Web Shellから再実行し(冪等なため安全に再実行可能)、`result_json LIKE '%ジャッジID:%'`が0件になることを読み取り専用クエリで再確認する。この本番DBへの書き込み実行自体は、過去の実績と同様にユーザー本人がRender Web Shellから行う想定(Claude Code側の自動実行安全装置により書き込みコマンドの代行入力がブロックされるため)。
 
 ## Out of Scope・残る既知のリスク(重要、ユーザーへ強く推奨)
 
-- **ジャッジID自体は、修正後も引き続き有効なログイン資格情報のままである(Review 2で改めて指摘、未解消)**。バグ1(公開APIでのjudgeIdマスク漏れ)が本番稼働していた期間、ジャッジIDを知った第三者は、このT008適用後も`POST /api/login`へそのIDを送るだけでログインできてしまう(`auth.ts`はjudgeId単独で新規トークンを発行する仕様のため)。T008は「新たな漏洩を止める」「既に漏洩したセッショントークンを失効させる」ところまでで、**「既に漏洩したジャッジID自体を無効化する」ことはできていない**。訂正履歴のある全ジャッジID(特に管理者ID)の再発行、または追加認証の導入(T006本筋)まで、このリスクは残り続ける。ユーザーには、少なくとも訂正投稿歴のあるジャッジID(本番`correction`テーブルの`judge_id`一覧)を優先的に再発行することを推奨する
+- **ジャッジID自体は、修正後も引き続き有効なログイン資格情報のままである(Review 2で改めて指摘)**。バグ1(公開APIでのjudgeIdマスク漏れ)が本番稼働していた期間、ジャッジIDを知った第三者は、このT008適用後も`POST /api/login`へそのIDを送るだけでログインできてしまう(`auth.ts`はjudgeId単独で新規トークンを発行する仕様のため)。T008は「新たな漏洩を止める」「既に漏洩したセッショントークンを失効させる」ところまでで、「既に漏洩したジャッジID自体を無効化する」ことはできていない。**ユーザー判断(2026-09-04)**: 再発行は不要と判断し対応見送り。このリスクは受容する(追加認証の導入を行う場合はT006本筋で改めて対応)
 - T006本筋のA/B/C/D(認証強化の方向性)そのもの
 - `correctedBy`列自体の廃止・スキーマ簡素化
 
