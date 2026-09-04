@@ -224,9 +224,15 @@ export async function retrieveEvidence(parsed: ParsedQuestion): Promise<RulingEv
   // cardDerivedConcepts(関連カードのテキストから抽出した概念語)まで含めると、
   // 質問の論点と無関係でも「そのカードがブレイカー能力を持つ」というだけで
   // 原則が注入されてしまい、hasAnyEvidence判定やconfidenceにも意図せず影響する。
+  // ただしカード名自体は固有名詞であり誤注入のリスクが低いため別途含める
+  // (2026-09-04追加。特定カードの組み合わせが絡む相互作用は、質問文が
+  // 「無視する」等の一般語を使わずカード名だけで表現されることが多く、
+  // ruleConcepts/keywordsだけでは初回の質問で検索漏れが起きていた)。
+  const resolvedCardNames = cards.map((card) => card.title);
   const verifiedRulingPrincipleResults = searchVerifiedRulingPrinciples({
     ruleConcepts: parsed.ruleConcepts,
     keywords: parsed.keywords,
+    cardNames: resolvedCardNames,
   });
   const verifiedRulingPrinciples: EvidenceSource[] = verifiedRulingPrincipleResults.map((principle) => {
     const verificationLabel =

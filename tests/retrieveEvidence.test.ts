@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardInfo } from "../src/cards/types";
 import type { CardNameMatch } from "../src/cards/cardNameMatcher";
 import { extractRuleConcepts } from "../src/rules/ruleConceptDictionary";
@@ -23,6 +23,16 @@ vi.mock("../src/cards/cardNameMatcher", () => ({
 }));
 
 const { retrieveEvidence } = await import("../src/ruling/retrieveEvidence");
+
+// findCardCandidatesはmockResolvedValueOnceの積み上げキューで各テストの返り値を
+// 用意しているが、cardNamesが空の質問(この呼び出し自体が発生しない)テストでも
+// 律儀にmockResolvedValueOnceを積んでいるものがあり、リセットが無いと後続の
+// テスト(cardNamesが非空)がその「使われなかった前のテストの分」を誤って
+// 消費してしまう(2026-09-04、新規テスト追加時に発覚した既存の分離不備)。
+// 各テスト開始時にリセットし、キューの持ち越しを防ぐ。
+beforeEach(() => {
+  findCardCandidates.mockReset();
+});
 
 function makeCard(overrides: Partial<CardInfo>): CardInfo {
   const base = {
@@ -300,6 +310,61 @@ describe("retrieveEvidence の検証済み裁定原則(D-006)の検索", () => {
     );
     expect(principle).toBeDefined();
     expect(principle?.text).toContain("取り除かれた場合");
+  });
+
+  it("正例(2026-09-04追加): 質問文に「無視する」等の一般語が無くても、カード名の一致で「能力を無視する」原則が注入される", async () => {
+    // モルトDREAM×エモーショナル・ハードコアの相互作用を1ターン目の質問(「選択した時」
+    // としか書いておらず「無視する」とは書いていない)から拾えるようにする回帰テスト。
+    findCardCandidates
+      .mockResolvedValueOnce([
+        makeMatch(makeCard({ id: "a", name: "夢双龍覇 モルトDREAM" }), "exact", 1),
+      ])
+      .mockResolvedValueOnce([
+        makeMatch(makeCard({ id: "b", name: "神聖龍 エモーショナル・ハードコア" }), "exact", 1),
+      ]);
+
+    // ruleConceptsは空のまま(実際の質問文には「無視する」という語が無いケースを再現)。
+    const evidence = await retrieveEvidence(
+      makeParsedQuestion(["夢双龍覇 モルトDREAM", "神聖龍 エモーショナル・ハードコア"], [], []),
+    );
+
+    expect(evidence.verifiedRulingPrinciples.map((p) => p.itemKey)).toContain(
+      "ignore-ability-does-not-cancel-already-waiting-triggered-ability",
+    );
+  });
+
+  it("負例(2026-09-04追加): 2枚のうち片方のカード名しか一致しない場合は「能力を無視する」原則は注入されない(AND条件、OR条件ではない)", async () => {
+    findCardCandidates.mockResolvedValueOnce([
+      makeMatch(makeCard({ id: "a", name: "夢双龍覇 モルトDREAM" }), "exact", 1),
+    ]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion(["夢双龍覇 モルトDREAM"], [], []));
+
+    expect(evidence.verifiedRulingPrinciples.map((p) => p.itemKey)).not.toContain(
+      "ignore-ability-does-not-cancel-already-waiting-triggered-ability",
+    );
+  });
+
+  it("負例(2026-09-04追加、Codexレビュー指摘): 「無視する」という語だけでは、カードの組み合わせと無関係な質問には注入されない(汎用語による過剰取得の防止)", async () => {
+    findCardCandidates.mockResolvedValueOnce([]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion([], [], ["無視する"]));
+
+    expect(evidence.verifiedRulingPrinciples.map((p) => p.itemKey)).not.toContain(
+      "ignore-ability-does-not-cancel-already-waiting-triggered-ability",
+    );
+  });
+
+  it("負例(2026-09-04追加): カード名が1枚も一致しなければ「能力を無視する」原則は注入されない", async () => {
+    findCardCandidates.mockResolvedValueOnce([
+      makeMatch(makeCard({ id: "c", name: "無関係なカード" }), "exact", 1),
+    ]);
+
+    const evidence = await retrieveEvidence(makeParsedQuestion(["無関係なカード"], [], []));
+
+    expect(evidence.verifiedRulingPrinciples.map((p) => p.itemKey)).not.toContain(
+      "ignore-ability-does-not-cancel-already-waiting-triggered-ability",
+    );
   });
 
   it("カードテキスト由来の概念(cardDerivedConcepts)だけでは検証済み裁定原則を注入しない(質問の論点と無関係な過剰取得の防止)", async () => {
