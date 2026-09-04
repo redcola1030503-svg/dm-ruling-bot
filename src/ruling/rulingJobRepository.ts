@@ -83,7 +83,11 @@ export function pruneOldJobs(retentionMs: number): void {
   ).run(threshold);
 }
 
-const LEGACY_CORRECTION_TITLE_PATTERN = /過去の訂正事例\(ジャッジID: [^)]*\)/g;
+// 「ジャッジID: 」(半角スペースあり)を前提にしていたが、実際の本番データには
+// スペース無し(「ジャッジID:01074」形式)の行も存在し、当初のパターンでは
+// マッチせず移行漏れが発生していた(2026-09-04、本番DBの読み取り専用クエリで
+// 確認・判明)。コロン直後のスペースは無くても許容する。
+const LEGACY_CORRECTION_TITLE_PATTERN = /過去の訂正事例\(ジャッジID: ?[^)]*\)/g;
 const CORRECTION_TITLE_WITHOUT_JUDGE_ID = "過去の訂正事例(公認ジャッジによる記録)";
 
 /**

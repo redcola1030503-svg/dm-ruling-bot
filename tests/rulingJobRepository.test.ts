@@ -78,6 +78,26 @@ describe("rulingJobRepository", () => {
       expect(runFn.mock.calls[0][0]).not.toContain("J001");
     });
 
+    it("コロン直後にスペースが無い旧title形式(本番で実際に確認された形式)も置き換える", () => {
+      // 2026-09-04、本番DBの読み取り専用クエリでこの形式(スペース無し)の
+      // 移行漏れを確認・修正した回帰テスト(実際のjudgeIdはここには記載しない)。
+      const legacyResultJson = JSON.stringify({
+        conclusion: "結論",
+        sources: [{ title: "過去の訂正事例(ジャッジID:J001)", url: "" }],
+      });
+      const allFn = vi.fn().mockReturnValue([{ id: "job-1", result_json: legacyResultJson }]);
+      const runFn = vi.fn();
+      prepareMock.mockImplementation((sql: string) => {
+        if (sql.includes("SELECT id, result_json")) return { all: allFn };
+        return { run: runFn };
+      });
+
+      const migrated = migrateLegacyCorrectionTitlesInResultJson();
+
+      expect(migrated).toBe(1);
+      expect(runFn.mock.calls[0][0]).not.toContain("J001");
+    });
+
     it("旧title形式を含まないジョブは対象外(SELECT自体が絞り込む)なので、そのままUPDATEを呼ばない", () => {
       // WHERE result_json LIKE '%ジャッジID:%'で絞り込み済みの想定のため、
       // SELECTが0件を返せばUPDATEは一切呼ばれない。
