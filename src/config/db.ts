@@ -245,6 +245,36 @@ try {
 } catch {
   // 既にカラムが存在する場合は無視
 }
+try {
+  // T010: 消費した無料枠のmonthKey(消費していない場合はNULL)。ジョブ確定時、
+  // このカラムの値をもとに返金対象か・どのdevice_id+monthKeyへ返金するかを判定する。
+  db.exec("ALTER TABLE ruling_job ADD COLUMN usage_month_key TEXT");
+} catch {
+  // 既にカラムが存在する場合は無視
+}
+try {
+  // T010: 返金済みならその時刻。finalizeRulingJob()が原子的な状態遷移
+  // (status IN ('pending','running')条件でのUPDATE)と組み合わせて二重返金を防ぐ。
+  db.exec("ALTER TABLE ruling_job ADD COLUMN refunded_at INTEGER");
+} catch {
+  // 既にカラムが存在する場合は無視
+}
+try {
+  // T012 Review 8: このジョブを現在担当しているプロセスを識別するID(起動ごとにランダム生成)。
+  // デプロイでプロセスが入れ替わっても、旧プロセスが担当していたジョブをDB上で判別できるようにする。
+  db.exec("ALTER TABLE ruling_job ADD COLUMN worker_id TEXT");
+} catch {
+  // 既にカラムが存在する場合は無視
+}
+try {
+  // T012 Review 8: 担当プロセスが最後に生存確認を更新した時刻。孤立ジョブ回収は
+  // プロセス内メモリ(runningJobIds)ではなくこの値の鮮度で「担当プロセスが死んでいるか」を
+  // 判定するため、デプロイによる新旧プロセスの入れ替わりをまたいでも正しく判定できる
+  // (詳細はsrc/ruling/orphanedJobSweep.ts参照)。
+  db.exec("ALTER TABLE ruling_job ADD COLUMN heartbeat_at INTEGER");
+} catch {
+  // 既にカラムが存在する場合は無視
+}
 // thread_idカラムの追加(CREATE TABLE時点、または直前のALTER TABLE)より後でないと
 // 既存DBでカラム不在エラーになるため、インデックス作成はここに置く。
 db.exec("CREATE INDEX IF NOT EXISTS idx_ruling_job_thread ON ruling_job(thread_id, created_at)");

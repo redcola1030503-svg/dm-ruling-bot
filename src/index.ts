@@ -11,6 +11,8 @@ import { correctionsRouter } from "./routes/corrections";
 import { cardsRouter } from "./routes/cards";
 import { statsRouter } from "./routes/stats";
 import { billingRouter } from "./routes/billing";
+import { startOrphanedJobSweep } from "./ruling/orphanedJobSweep";
+import { startHeartbeatRenewal } from "./ruling/rulingJob";
 import { logger } from "./utils/logger";
 
 const app = express();
@@ -55,6 +57,15 @@ if (env.NODE_ENV === "production" && !env.REVENUECAT_API_KEY) {
     detail: "REVENUECAT_API_KEY未設定のため、/api/billing/syncは常に失敗します。",
   });
 }
+
+// T012(A): status IN ('pending','running')のまま長時間経過したジョブ
+// (孤立ジョブ)を起動時+定期的に回収する。running判定はDBのheartbeat_atの
+// 鮮度で行うため、デプロイによるプロセスの入れ替わりをまたいでも正しく動作する
+// (T012 Review 8対応、詳細はsrc/ruling/orphanedJobSweep.ts参照)。
+startOrphanedJobSweep();
+// このプロセスが担当中のジョブのheartbeat_atを定期的に更新し、上記の孤立ジョブ
+// 回収(このプロセス・他プロセス問わず)から生存中のジョブを除外できるようにする。
+startHeartbeatRenewal();
 
 app.listen(env.PORT, () => {
   logger.info("server_started", { port: env.PORT });

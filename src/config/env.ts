@@ -64,17 +64,6 @@ const envSchema = z.object({
   // たびに機会的に削除する(Renderは単一インスタンスでcron等を持ち込む規模ではないため)。
   RULING_JOB_RETENTION_DAYS: z.coerce.number().default(3),
 
-  // モバイルアプリの非同期裁定ジョブ(rulingJob.ts)経由の裁定生成のうち、非購読ユーザーの
-  // ジョブのみ、Anthropic Message Batches APIを使う(入出力とも50%割引)。購読者は
-  // 優先処理特典として常に通常APIを使う(src/routes/rulingJobs.tsのuseBatchApi算出を参照)。
-  // LINE Bot・同期API(/api/ruling)は廃止済み(2026-09-02)。
-  // バッチは「ほとんど1時間以内に完了」だが保証はなく最大24時間かかりうるため、
-  // レイテンシ悪化が許容できない場合はfalseに戻すだけで即座に通常APIへ復帰できる。
-  RULING_USE_BATCH_API: z
-    .string()
-    .default("false")
-    .transform((value) => value === "true"),
-
   // 無料で利用できる月間の質問数。これを超えるとサブスクリプションが必須になる。
   RULING_FREE_MONTHLY_LIMIT: z.coerce.number().default(10),
 

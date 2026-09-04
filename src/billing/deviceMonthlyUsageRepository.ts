@@ -1,6 +1,8 @@
 import { db } from "../config/db";
 
-function monthKeyFor(nowMs: number): string {
+// T010: ジョブ作成時に消費したmonthKeyをruling_job.usage_month_keyへそのまま
+// 保存するため、呼び出し元(billingTransaction.ts)からも参照できるようexportする。
+export function monthKeyFor(nowMs: number): string {
   const now = new Date(nowMs);
   const month = String(now.getUTCMonth() + 1).padStart(2, "0");
   return `${now.getUTCFullYear()}-${month}`;
@@ -15,6 +17,16 @@ export function incrementMonthlyUsage(deviceId: string, nowMs: number): void {
     `INSERT INTO device_monthly_usage (device_id, month_key, count)
      VALUES (?, ?, 1)
      ON CONFLICT(device_id, month_key) DO UPDATE SET count = count + 1`,
+  ).run(deviceId, monthKey);
+}
+
+// T010: 裁定生成がシステム側都合で失敗した場合の無料枠返金。monthKeyは
+// ruling_job.usage_month_key(消費時点で記録済みの値)を呼び出し元が渡す
+// (現在時刻から再計算すると、月をまたいだ場合に誤った月のカウンタを
+// 減算してしまうため)。0未満にはならないようガードする。
+export function decrementMonthlyUsage(deviceId: string, monthKey: string): void {
+  db.prepare(
+    "UPDATE device_monthly_usage SET count = MAX(count - 1, 0) WHERE device_id = ? AND month_key = ?",
   ).run(deviceId, monthKey);
 }
 

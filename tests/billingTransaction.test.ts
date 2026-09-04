@@ -52,6 +52,44 @@ describe("createJobTransactionally", () => {
     },
   );
 
+  it("consumeFreeQuota=trueの場合、usage_month_keyを算出してINSERT INTO ruling_jobへ渡す(T010)", () => {
+    const jobRunFn = vi.fn();
+    prepareMock.mockImplementation((sql: string) => {
+      if (sql.includes("INSERT INTO ruling_job")) return { run: jobRunFn };
+      return { run: vi.fn() };
+    });
+
+    createJobTransactionally({
+      jobId: "job-1",
+      question: "質問",
+      deviceId: "device-1",
+      threadId: null,
+      consumeFreeQuota: true,
+      nowMs: Date.UTC(2026, 8, 15, 12, 0, 0), // 2026-09-15
+    });
+
+    expect(jobRunFn).toHaveBeenCalledWith("job-1", "device-1", "質問", null, "2026-09", expect.any(Number));
+  });
+
+  it("consumeFreeQuota=falseの場合、usage_month_keyはnullでINSERTする(購読中は無料枠を消費しない)", () => {
+    const jobRunFn = vi.fn();
+    prepareMock.mockImplementation((sql: string) => {
+      if (sql.includes("INSERT INTO ruling_job")) return { run: jobRunFn };
+      return { run: vi.fn() };
+    });
+
+    createJobTransactionally({
+      jobId: "job-1",
+      question: "質問",
+      deviceId: "device-1",
+      threadId: null,
+      consumeFreeQuota: false,
+      nowMs: Date.UTC(2026, 8, 15, 12, 0, 0),
+    });
+
+    expect(jobRunFn).toHaveBeenCalledWith("job-1", "device-1", "質問", null, null, expect.any(Number));
+  });
+
   it("consumeFreeQuota=falseの場合、無料枠カウンタは加算せずCOMMITする(購読中は無料枠を消費しない)", () => {
     createJobTransactionally({
       jobId: "job-2",

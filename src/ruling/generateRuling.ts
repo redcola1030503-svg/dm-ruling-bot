@@ -205,11 +205,7 @@ export function applyCautionNote(explanation: string, confidence: Confidence): s
   return note ? `${explanation}\n\n${note}` : explanation;
 }
 
-export async function generateRuling(
-  parsed: ParsedQuestion,
-  evidence: RulingEvidence,
-  options?: { useBatchApi?: boolean },
-): Promise<RulingResult> {
+export async function generateRuling(parsed: ParsedQuestion, evidence: RulingEvidence): Promise<RulingResult> {
   const hasAnyEvidence =
     evidence.cards.length > 0 ||
     evidence.qa.length > 0 ||
@@ -234,7 +230,6 @@ export async function generateRuling(
     system: RULING_SYSTEM_PROMPT,
     userMessage,
     maxTokens: 4096,
-    useBatchApi: options?.useBatchApi,
     label: "generate_ruling",
   });
   const validated = llmOutputSchema.parse(JSON.parse(extractJsonBlock(raw)));

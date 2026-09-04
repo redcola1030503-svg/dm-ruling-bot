@@ -307,7 +307,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '無料枠を超えて質問し放題・広告非表示・優先処理(高速回答)が有効です。',
+              '無料枠を超えて質問し放題・広告非表示が有効です。',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),

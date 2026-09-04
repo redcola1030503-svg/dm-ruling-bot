@@ -86,3 +86,9 @@ T012(Batch API全廃+汎用孤立ジョブ回収)のCodexレビューで、T010�
 ### Review 5 — 2026-09-04(実装完了後の差分レビュー、T012実装レビューに同梱)
 
 - P1: 処理中ジョブが載ったスレッドを削除した際に返金する実装(実装中にT010 Review 4の指摘を踏まえて追加)が、バックグラウンドの`produceRuling`自体を停止できないため、意図的な連続作成・即時削除で無料枠を消費せずに外部APIコストだけを発生させる悪用経路になっていた → **この返金処理を取り消した**。T010の対象を「システム側都合の失敗」に明確に限定し、ユーザー起因の削除は対象外とする(上記Acceptance Criteria参照)
+
+### Review 6 — 2026-09-04(T012 Review 8のP2指摘を反映、T017実装レビューに同梱)
+
+T017(検証済み裁定原則の修正)の差分レビュー時、他の未コミット差分と共に埋め込まれていた`finalizeRulingJob`(T010関連)についても指摘を受けた。
+
+- P2: `finalizeRulingJob`の`outcomeStatus`が`string`型のため、将来`ProduceRulingOutcome`に新しい正常系ステータス(例: `partial_success`)が追加された場合、`isRefundableOutcome`の判定(`!(outcome==="done" && outcomeStatus==="ok")`)により自動的に返金対象になってしまう → `ProduceRulingOutcome["status"]`相当のunion型へ絞り込むと安全。**対応は次回以降に持ち越し**(現時点では`ProduceRulingOutcome`が返す正常系ステータスは`ok`のみのため実害は無いが、T010を今後変更する際・またはT012の`ProduceRulingOutcome`拡張時に併せて反映する)

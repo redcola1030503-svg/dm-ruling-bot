@@ -91,6 +91,11 @@ rulingThreadsRouter.delete("/api/ruling/threads/:threadId", (req, res) => {
     return;
   }
 
+  // 処理中(pending/running)のジョブが残ったまま削除された場合、無料枠は
+  // 返金しない(あえてT010のスコープ外とする)。バックグラウンドの
+  // produceRuling自体を止める手段が無いため、ここで返金してしまうと
+  // 「質問作成→即座にスレッド削除」を繰り返すことで無料枠を消費せずに
+  // 外部APIコストだけを発生させられてしまう(Codexレビュー指摘)。
   deleteJobsByThread(thread.id);
   deleteThread(thread.id);
   res.status(204).send();

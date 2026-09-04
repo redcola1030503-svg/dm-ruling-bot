@@ -250,7 +250,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(
               subscription.isSubscribed
                   ? 'サブスクリプションの管理'
-                  : '無料枠(月10問)超過・広告非表示・優先処理(高速回答)',
+                  : '無料枠(月10問)超過・広告非表示',
             ),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(

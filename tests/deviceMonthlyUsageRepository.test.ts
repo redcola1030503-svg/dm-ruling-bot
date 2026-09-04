@@ -5,7 +5,7 @@ vi.mock("../src/config/db", () => ({
   db: { prepare: (...args: unknown[]) => prepareMock(...args) },
 }));
 
-const { incrementMonthlyUsage, getMonthlyUsageCount } = await import(
+const { incrementMonthlyUsage, getMonthlyUsageCount, decrementMonthlyUsage, monthKeyFor } = await import(
   "../src/billing/deviceMonthlyUsageRepository"
 );
 
@@ -44,5 +44,19 @@ describe("deviceMonthlyUsageRepository", () => {
 
     const now = Date.UTC(2026, 7, 15, 12, 0, 0);
     expect(getMonthlyUsageCount("device-unknown", now)).toBe(0);
+  });
+
+  it("decrementMonthlyUsage(T010): device_id・monthKeyで絞り込み0未満にならないようMAXでガードする", () => {
+    const runFn = vi.fn();
+    prepareMock.mockReturnValue({ run: runFn });
+
+    decrementMonthlyUsage("device-1", "2026-08");
+
+    expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining("MAX(count - 1, 0)"));
+    expect(runFn).toHaveBeenCalledWith("device-1", "2026-08");
+  });
+
+  it("monthKeyFor: UTCの年月からYYYY-MM形式を返す", () => {
+    expect(monthKeyFor(Date.UTC(2026, 7, 15, 12, 0, 0))).toBe("2026-08");
   });
 });
