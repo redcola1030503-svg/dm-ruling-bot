@@ -6,6 +6,7 @@ import {
   getCardIndexBuildStatus,
   startCardIndexBuildInBackground,
 } from "../cards/cardIndexBuildJob";
+import { fetchTotalCardCount } from "../cards/cardSearch";
 import { requireAdminSession } from "../judges/authMiddleware";
 import { rulingRateLimiter } from "../utils/rateLimit";
 import { logger } from "../utils/logger";
@@ -32,8 +33,17 @@ cardsRouter.get("/api/cards/suggest", rulingRateLimiter, (req, res) => {
 // card_index(サジェスト用インデックス)の再構築。管理者限定。バックグラウンドで
 // 実行され、この呼び出し自体は即座に返る(完了を待たない)。進捗は
 // GET /api/cards/reindex/status でポーリングする。
-cardsRouter.post("/api/cards/reindex", requireAdminSession, (_req, res) => {
-  const started = startCardIndexBuildInBackground();
+cardsRouter.post("/api/cards/reindex", requireAdminSession, async (_req, res) => {
+  // 管理画面の「全件再構築」ボタンからの呼び出しのため、30日以内に更新済みの
+  // カードもスキップせず全件再取得する(Codexレビュー指摘: 従来はforceRefresh
+  // を渡しておらず、実質的に差分更新にとどまっていた)。
+  // あわせて、公式サイトの最新総数を先に取得しexpectedTotalとして渡す
+  // (Codexレビュー指摘: これを渡さないと、判定基準がcard_indexのDB行数
+  // 〈残存行を含み実際より多い〉ベースの緩い閾値のままになり、大幅な欠落を
+  // 見逃しうる)。取得自体に失敗しても全件再構築の実行は妨げない(その場合は
+  // 既知の記録値/DB行数ベースの従来通りの判定にフォールバックする)。
+  const expectedTotal = await fetchTotalCardCount().catch(() => null);
+  const started = startCardIndexBuildInBackground({ forceRefresh: true, expectedTotal });
   if (!started) {
     res.status(409).json({ error: "already_running", current: getCardIndexBuildStatus() });
     return;
