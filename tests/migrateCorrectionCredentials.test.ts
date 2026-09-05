@@ -9,9 +9,12 @@ vi.mock("../src/config/db", () => ({
   },
 }));
 
-const migrateLegacyCorrectionTitlesInResultJson = vi.fn().mockReturnValue(0);
+const migrateLegacyCorrectionTitlesInResultJson = vi
+  .fn()
+  .mockReturnValue({ migrated: 0, unresolvedMarkerCount: 0, invalidJsonCount: 0, possibleKnownIdCollisionCount: 0 });
 vi.mock("../src/ruling/rulingJobRepository", () => ({
-  migrateLegacyCorrectionTitlesInResultJson: () => migrateLegacyCorrectionTitlesInResultJson(),
+  migrateLegacyCorrectionTitlesInResultJson: (knownJudgeIds: readonly string[]) =>
+    migrateLegacyCorrectionTitlesInResultJson(knownJudgeIds),
 }));
 
 const { migrateCorrectionCredentials } = await import("../src/corrections/repository");
@@ -20,11 +23,20 @@ function stubStatement(sql: string, changes: number) {
   return { run: vi.fn().mockReturnValue({ changes }) };
 }
 
+function stubKnownJudgeIdsQuery(sql: string, judgeIds: string[]) {
+  if (sql.includes("SELECT id AS judge_id FROM judge UNION")) {
+    return { all: vi.fn().mockReturnValue(judgeIds.map((judge_id) => ({ judge_id }))) };
+  }
+  return null;
+}
+
 describe("migrateCorrectionCredentials", () => {
   beforeEach(() => {
     prepareMock.mockReset();
     execMock.mockReset();
-    migrateLegacyCorrectionTitlesInResultJson.mockReset().mockReturnValue(0);
+    migrateLegacyCorrectionTitlesInResultJson
+      .mockReset()
+      .mockReturnValue({ migrated: 0, unresolvedMarkerCount: 0, invalidJsonCount: 0, possibleKnownIdCollisionCount: 0 });
   });
 
   it(
@@ -35,9 +47,16 @@ describe("migrateCorrectionCredentials", () => {
         if (sql.includes("DELETE FROM judge_session")) return stubStatement(sql, 2);
         if (sql.includes("UPDATE correction SET corrected_by")) return stubStatement(sql, 3);
         if (sql.includes("UPDATE source_reference_stat")) return stubStatement(sql, 1);
+        const knownJudgeIdsStmt = stubKnownJudgeIdsQuery(sql, ["J001"]);
+        if (knownJudgeIdsStmt) return knownJudgeIdsStmt;
         throw new Error(`unexpected sql: ${sql}`);
       });
-      migrateLegacyCorrectionTitlesInResultJson.mockReturnValue(4);
+      migrateLegacyCorrectionTitlesInResultJson.mockReturnValue({
+        migrated: 4,
+        unresolvedMarkerCount: 0,
+        invalidJsonCount: 0,
+        possibleKnownIdCollisionCount: 0,
+      });
 
       const summary = migrateCorrectionCredentials();
 
@@ -47,7 +66,13 @@ describe("migrateCorrectionCredentials", () => {
         migratedCorrections: 3,
         migratedSourceReferenceStats: 1,
         migratedRulingJobResultJson: 4,
+        unresolvedRulingJobResultJsonMarkerCount: 0,
+        invalidRulingJobResultJsonCount: 0,
+        possibleKnownIdCollisionRulingJobResultJsonCount: 0,
       });
+      // ラベルの表記揺れに依存しない監査のため、judge/correctionから集めた
+      // 既知のジャッジID値が正しく引き渡されること(Codexレビュー指摘、2026-09-04)。
+      expect(migrateLegacyCorrectionTitlesInResultJson).toHaveBeenCalledWith(["J001"]);
       // 失効(judge_sessionの削除)がcorrected_byの上書きより先に実行されること
       // (先に上書きすると、漏洩トークンとcorrected_byの対応が取れず失効できなくなる)。
       const sqls = prepareMock.mock.calls.map(([sql]) => sql as string);
@@ -57,6 +82,29 @@ describe("migrateCorrectionCredentials", () => {
       expect(updateIndex).toBeGreaterThan(deleteIndex);
     },
   );
+
+  it("ruling_job.result_jsonの未解決件数(マーカー残存・解析失敗)をそれぞれ別カウントでsummaryへ伝播する(呼び出し元が黙って成功扱いにしないため)", () => {
+    prepareMock.mockImplementation((sql: string) => {
+      if (sql.includes("DELETE FROM judge_session")) return stubStatement(sql, 0);
+      if (sql.includes("UPDATE correction SET corrected_by")) return stubStatement(sql, 0);
+      if (sql.includes("UPDATE source_reference_stat")) return stubStatement(sql, 0);
+      const knownJudgeIdsStmt = stubKnownJudgeIdsQuery(sql, []);
+      if (knownJudgeIdsStmt) return knownJudgeIdsStmt;
+      throw new Error(`unexpected sql: ${sql}`);
+    });
+    migrateLegacyCorrectionTitlesInResultJson.mockReturnValue({
+      migrated: 0,
+      unresolvedMarkerCount: 1,
+      invalidJsonCount: 2,
+      possibleKnownIdCollisionCount: 3,
+    });
+
+    const summary = migrateCorrectionCredentials();
+
+    expect(summary.unresolvedRulingJobResultJsonMarkerCount).toBe(1);
+    expect(summary.invalidRulingJobResultJsonCount).toBe(2);
+    expect(summary.possibleKnownIdCollisionRulingJobResultJsonCount).toBe(3);
+  });
 
   it("途中で失敗した場合はROLLBACKし、エラーを再送出する", () => {
     prepareMock.mockImplementation((sql: string) => {

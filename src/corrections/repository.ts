@@ -86,7 +86,38 @@ export type CorrectionCredentialMigrationSummary = {
   migratedCorrections: number;
   migratedSourceReferenceStats: number;
   migratedRulingJobResultJson: number;
+  // ruling_job.result_jsonへの置換を試みても「ジャッジID」相当の文字列がまだ残って
+  // いる(=既知の正規表現が対応していない未知の表記揺れ)行の件数。jobIdそのものは
+  // 意図的に含めない(migrateLegacyCorrectionTitlesInResultJsonのコメント参照:
+  // 認証不要のGET /api/ruling/jobs/:jobIdから直接内容を取得できる開示経路になるため)。
+  unresolvedRulingJobResultJsonMarkerCount: number;
+  // result_jsonがJSONとして解析できなかった行の件数(内容不明のため、表記揺れとは
+  // 別カウントで報告する)。
+  invalidRulingJobResultJsonCount: number;
+  // 既知のジャッジID値そのものと一致した(ラベルは検出されなかった)行の件数。
+  // 短い数値ID等はルール番号・年・URL等に偶然含まれやすく誤検知が多いため、
+  // 確定した表記揺れ残存(上記2件)とは別カウントで報告するが、過去のインシデントで
+  // 実際に漏洩したIDが4桁数値だった実績があるため、誤検知の可能性を理由に無条件で
+  // 完了扱いにはしない。1件以上あれば呼び出し元は非ゼロ終了・要手動確認とする
+  // (Codexレビュー指摘、2026-09-04)。
+  possibleKnownIdCollisionRulingJobResultJsonCount: number;
 };
+
+// ラベルの表記揺れに依存しない監査のため、現在・過去に実在したジャッジIDの値
+// そのものを集める(judgeテーブル: 現存するID、correction.judge_id: 削除済み
+// ジャッジによる訂正にも残る過去のID)。値そのものはこの関数の外へは出さない
+// (呼び出し元も、この戻り値を個々の値ごとログ・出力へ出してはならない)。
+// migrateCorrectionCredentials()と、本番残存の個別復旧用スクリプト
+// (src/scripts/repairEmbeddedLegacyCorrectionTitle.ts)の両方から使う。
+export function getKnownJudgeIdsForLegacyTitleAudit(): string[] {
+  return (
+    db.prepare("SELECT id AS judge_id FROM judge UNION SELECT judge_id FROM correction").all() as {
+      judge_id: string | null;
+    }[]
+  )
+    .map((row) => row.judge_id)
+    .filter((id): id is string => Boolean(id));
+}
 
 /**
  * T008: 過去に`corrected_by`へ保存されてしまった生のセッショントークンをjudgeIdへ
@@ -133,10 +164,25 @@ export function migrateCorrectionCredentials(): CorrectionCredentialMigrationSum
         .run().changes,
     );
 
-    const migratedRulingJobResultJson = migrateLegacyCorrectionTitlesInResultJson();
+    const knownJudgeIds = getKnownJudgeIdsForLegacyTitleAudit();
+
+    const {
+      migrated: migratedRulingJobResultJson,
+      unresolvedMarkerCount: unresolvedRulingJobResultJsonMarkerCount,
+      invalidJsonCount: invalidRulingJobResultJsonCount,
+      possibleKnownIdCollisionCount: possibleKnownIdCollisionRulingJobResultJsonCount,
+    } = migrateLegacyCorrectionTitlesInResultJson(knownJudgeIds);
 
     db.exec("COMMIT");
-    return { revokedSessions, migratedCorrections, migratedSourceReferenceStats, migratedRulingJobResultJson };
+    return {
+      revokedSessions,
+      migratedCorrections,
+      migratedSourceReferenceStats,
+      migratedRulingJobResultJson,
+      unresolvedRulingJobResultJsonMarkerCount,
+      invalidRulingJobResultJsonCount,
+      possibleKnownIdCollisionRulingJobResultJsonCount,
+    };
   } catch (error) {
     db.exec("ROLLBACK");
     throw error;
