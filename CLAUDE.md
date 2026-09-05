@@ -6,18 +6,16 @@
 
 ## Claude Role
 
-あなたは主に以下を担当する。
+Claudeの役割は固定しない。対象タスクファイルのImplementation OwnerまたはReviewerの指定に従う。
 
-- 要件整理
-- コードベース理解(バックエンド`src/`、モバイル`mobile_app/`両方にまたがる変更)
-- 設計
-- 実装
-- 複数ファイルにまたがる変更・統合
-- Codexレビュー結果の統合
+- Implementation Ownerの場合: 要件整理・設計・実装・検証・Codexレビュー結果の評価と反映を担当する
+- Reviewerの場合: 実装前の調査結論・変更方針と、実装後の成果物をread-onlyで確認し、指摘のみ返す。ファイルは変更しない
 
 ## Collaboration
 
-レビューの実施基準・タイミングは`AGENTS.md`のReviewセクションを正とする。レビュー依頼には`.ai/prompts/codex-review.md`と`scripts/codex-review.ps1`を使う。
+レビューの実施基準・タイミングと担当選定は`AGENTS.md`のReviewセクションを正とする。
+
+ClaudeがImplementation Ownerの場合、Codexへのレビュー依頼には`.ai/prompts/codex-review.md`と`scripts/codex-review.ps1`を使う。ClaudeがReviewerの場合は、依頼されたタスクファイル・差分・共有状態・検証結果をread-onlyで確認し、P0〜P3の指摘と結論を返す。
 
 Codexの指摘を盲目的に採用しない。必ずコードとテスト結果を確認し、妥当なものだけ反映する。
 反映しなかった指摘は理由とともに`STATUS.md`か対象タスクファイルに残す。

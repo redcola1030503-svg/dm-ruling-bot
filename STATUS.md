@@ -1,8 +1,8 @@
 # Project Status
 
-Updated: 2026-09-04
-Owner: Claude Code
-Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正・D-004認証強化の対応案の独立レビューを実施済み)、Claude Code(T007共同環境修正をレビュー済み)
+Updated: 2026-09-06
+Owner: タスクごとに指定(T018: Codex)
+Reviewer: タスクごとにImplementation Ownerと異なる側を指定(T018: Claude Code。過去実績: CodexはPR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正・D-004認証強化の対応案、Claude CodeはT007共同環境修正をレビュー済み)
 
 ## 引継ぎ(2026-09-04、ユーザー指示によりT008作業を中断)
 
@@ -43,6 +43,7 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 
 ## Completed
 
+- **T018 Claude/Codexの役割可変型共同体制へ移行(2026-09-06)**: ユーザー指示により、Claudeを実装・Codexをレビューへ固定する運用を、タスクごとにImplementation OwnerとReviewerを選ぶ方式へ変更。どちらが実装担当でも、作業前に方針をタスクファイルへ記録してもう一方がread-onlyレビューし、作業後も同じReviewerが成果物をread-onlyレビューする。担当選定基準、Reviewer未確保時の停止、適用対象、ユーザー指示による更新の由来明記も`AGENTS.md`へ統合し、`CLAUDE.md`を実装担当・レビュアー両対応へ更新。Codexが作成・実装し、Claude Codeの実装前レビュー3回と実装後レビュー2回を実施(最終P0/P1/P2なし、重大な問題なし、完了可)。`git diff --check` PASS。ドキュメントのみの変更のためtypecheck/test/flutter analyzeは未実行。詳細は`.ai/tasks/T018-role-flexible-collaboration-policy.md`参照
 - サブスクリプション課金機能(無料枠月10問+月額300円、RevenueCat経由)を実装し `subscription-billing` ブランチとしてPR化(`https://github.com/redcola1030503-svg/dm-ruling-bot/pull/1`)
 - Claude Code × Codex 協働環境の初期構築(このファイル一式)
 - **iOS App Store配信設定(価格・配信地域)**(2026-09-04): App Store Connectで「価格および配信状況」を設定。基準地域を日本(JPY)、価格を¥0.00(無料)、配信地域を日本のみに設定(ユーザー指示)。反映まで最大24時間
@@ -152,11 +153,13 @@ Reviewer: Codex(PR #1・LINE Bot廃止・設計整合性・検証済み裁定原
 - 残るP1(無料枠上限判定の原子性)とP2(ジョブ失敗時のスレッドロールバック)は今回のPRのスコープ外とし、`actions/dm-ruling-bot_残作業リスト.md`(Vault側)へfollow-upとして切り出した(2026-08-31、ユーザー判断)。理由: 現状のRender starterプラン(単一インスタンス)かつハンドラー内に`await`が無いため実害が低いと判断
 - PR #1はマージ判断へ進んでよい状態
 - **今後の開発は原則として共同体制(Claude実装→Codex独立レビュー→Claude修正→再検証)で行う**(2026-09-02、ユーザー方針)。従来「重要な変更のときだけ」だった`AGENTS.md`のReviewセクションを、これを標準の流れとする内容へ更新済み。レビューは`scripts/codex-review.ps1`を使う
+- **上記2026-09-02の役割固定を変更し、タスクごとにClaude/CodexのImplementation OwnerとReviewerを選ぶ役割可変型共同体制とする**(2026-09-06、ユーザー方針)。どちらが実装担当でも、実装前の方針レビューと実装後の成果物レビューをもう一方がread-onlyで行う。Claude実装時は`scripts/codex-review.ps1`、Codex実装時はCodexから`claude -p --permission-mode plan --tools "" --no-session-persistence`を直接実行する(T018で実証済み)。詳細は`AGENTS.md`のReviewセクションと`.ai/tasks/T018-role-flexible-collaboration-policy.md`参照
 - LINE Bot版は告知無しで即時廃止する(2026-09-02、ユーザー最終判断。詳細は`DECISIONS.md`のD-002参照)
 - 公認ジャッジによる訂正は、本プロジェクト上の「公式参考情報」として扱う。タカラトミー公開物である「公式一次情報」と用語を区別するが、論点が明確に一致する場合は直接の裁定根拠・`high` confidenceの材料にできる(2026-09-02、ユーザー判断。詳細は`DECISIONS.md`のD-004参照)
 - Androidの`deviceId`は永続的な端末/ユーザーIDではなくインストール単位IDとして扱う。アプリデータ削除・再インストールによる無料枠リセットは既知の限界として受容し、購入復元はRevenueCatの`Transfer to new App User ID`と`restorePurchases()`へ分離する案Aを採用する(2026-09-02、ユーザー判断。詳細は`DECISIONS.md`のD-005参照)
 - 個別裁定知識のハードコードを「検証済み裁定原則」データへ段階的に移行する。出典・適用条件・確認日を持つデータへ移し、関連する質問にのみ取得・注入する。原則ヒットは機械的confidence推定でhighへ自動昇格させない(2026-09-02、ユーザー判断・提案採用。詳細は`DECISIONS.md`のD-006参照)
 - Codexがユーザーの明示指示に基づいてプロジェクトファイルを更新する場合、Claudeへのレビュー依頼・引き継ぎの冒頭で、ユーザー指示による更新であること・指示の要旨・対象ファイルを明記する(2026-09-03、ユーザー方針)。由来の明記は独立レビューを免除しない。正本は`AGENTS.md`のReviewセクション
+- 上記2026-09-03の由来明記ルールは、2026-09-06以降、ユーザーが特定のエージェントへプロジェクト内ファイルの更新を明示的に依頼した場合に、Claude/CodexのどちらがImplementation Ownerでも適用する
 
 ## Blocked
 
