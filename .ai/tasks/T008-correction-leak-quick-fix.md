@@ -1,10 +1,8 @@
 # T008: 訂正関連の情報漏洩バグ2件の先行修正(T006 Review 1で発覚)
 
-Status: **再オープン継続中(2026-09-05)**。`ruling_job.result_json`に旧title(judgeId入り)が残存している問題に対し、通常移行(`migrateLegacyCorrectionTitlesInResultJson`)は「フィールド値全体が旧title形式と完全一致する場合のみ自動置換する」設計(`buildLegacyTitles`、`Set<string>`による完全一致比較)で安全側に収束済み(round14で確定、round17でSet<string>化、詳細はReview History参照)だが、**まだ本番へデプロイ・再実行していない**。
+Status: **Closed(2026-09-05)**。`ruling_job.result_json`に旧title(judgeId入り)が残存していた問題は、通常移行(`migrateLegacyCorrectionTitlesInResultJson`、完全一致方式)のデプロイ・再実行と、既知の残存1件(explanation文中への全角括弧embedded形式)への手動対応により解消した。詳細は下記「本番実行結果・完了(round24、2026-09-05)」参照。
 
-この完全一致方式では自動解消されない既知の残存1件(explanation文中への全角括弧embedded形式)について、round18〜21では自動修復までを行う専用スクリプト(部分置換→フィールド値全体の非表示化→検証トークンによるTOCTOU対策、と設計を重ねた)を構築したが、**round22(2026-09-05)でユーザー判断により撤回した**。この1件が守る実害(過去の裁定結果1行への埋め込み)に対し、自動化の安全性コストが見合わないと判断したため。**現行方針**: 診断(対象jobIdの特定、読み取り専用スクリプト`src/scripts/findUnresolvedLegacyCorrectionTitleJobIds.ts`)と修復(運用者がRender Web Shellから対象jobIdへ直接UPDATE)を分離する。詳細・手動対応手順は下記「方針の再検討・撤回(round22)」参照。
-
-**完了条件**: 本番デプロイ後に通常移行を再実行し、上記の既知残存1件を手動対応した上で、`unresolvedRulingJobResultJsonMarkerCount`・`invalidRulingJobResultJsonCount`・`possibleKnownIdCollisionRulingJobResultJsonCount`のいずれも0件になることを確認する。`possibleKnownIdCollisionRulingJobResultJsonCount`のみ非ゼロの場合は、手動確認の上で誤検知(数字の偶然の一致)と判断できれば例外的に完了として扱ってよい。この「0件」は取得可能な既知ID一覧・既知ラベルパターンに基づく限定的な保証であり、削除済みIDが未知の言い回しへ言い換えられているケースまでは検出できない(無条件の保証ではない、下記Out of Scope参照)。
+**完了条件を満たした内容**: 本番デプロイ後に通常移行(`migrateCorrectionCredentials.js`)を再実行し、既知残存1件を診断スクリプト(`findUnresolvedLegacyCorrectionTitleJobIds.js`)で特定した上でRender Web Shellから手動UPDATEし、`unresolvedRulingJobResultJsonMarkerCount`・`invalidRulingJobResultJsonCount`はいずれも0件を達成した。`possibleKnownIdCollisionRulingJobResultJsonCount`のみ51件残ったが、ユーザー判断により**保留とし、この状態でClosedとした**(理由は下記「本番実行結果・完了」参照)。
 
 **過去のインシデント(対応済み)**: このタスクの記録中に実際のジャッジIDを誤って平文でファイルへ記載する事故が2回発生したが、いずれも伏字修正・当該ジャッジIDの無効化(DB削除+`VALID_JUDGE_IDS`からの除外)まで完了済み(下記Review History・実装サマリー参照)。ジャッジID自体の再発行見送りの判断(下記「Out of Scope」参照、この追加インシデントとは別の一般的なリスク受容の話)は既に確定済みのまま変更なし。
 
@@ -386,3 +384,22 @@ round18〜21で構築した専用復旧スクリプト(部分置換→フィー�
 3. `node dist/scripts/migrateCorrectionCredentials.js`を再実行し、`unresolvedRulingJobResultJsonMarkerCount`・`invalidRulingJobResultJsonCount`・`possibleKnownIdCollisionRulingJobResultJsonCount`の3種類すべてが0になったことを確認する(完了条件は上記Status・Out of Scope参照。`possibleKnownIdCollisionRulingJobResultJsonCount`のみ非ゼロの場合に限り、手動確認の上で誤検知と判断できれば例外的に完了として扱ってよい)。
 
 このシンプル化された実装を、次のCodexレビュー(round22)へ出す。
+
+## 本番実行結果・完了(round24、2026-09-05)
+
+コミット`a64463d`(CLAUDE.md分離)・`983f633`(T008本体)をmasterへpush、Renderへ自動デプロイ(2026-09-05 12:08:08 JST、デプロイID`983f633`、正常完了)。デプロイ後、以下を本番のRender Web Shellから実行した。
+
+1. `node dist/scripts/findUnresolvedLegacyCorrectionTitleJobIds.js` → 対象行数1件(想定通り)。
+2. 対象jobIdについて、手順通りBEGIN IMMEDIATE→SELECT再確認→UPDATE→`changes()`確認→COMMITを実行。**CJK(日本語)入力がRender Web Shellの`type`操作でドロップされる問題を実機で再現した**(`const phrase='...'`の日本語部分が空文字列になった)ため、`String.fromCharCode(コードポイント...)`で日本語文字列を数値配列から構築する方式に切り替え、ASCII文字のみでコマンドを構成することで回避した(SELECT時の目視確認で、result_json長1734文字・`RulingResult`スキーマに合致するキー構成・explanation長460文字であることを確認済み)。UPDATE結果は`CHANGES: 1`・`COMMITTED`で正常終了。
+3. 再度`findUnresolvedLegacyCorrectionTitleJobIds.js`を実行し、対象行数0件を確認(embedded1件の解消を確認)。
+4. `node dist/scripts/migrateCorrectionCredentials.js`を再実行し、以下を確認: `unresolvedRulingJobResultJsonMarkerCount=0`・`invalidRulingJobResultJsonCount=0`(完了)。`possibleKnownIdCollisionRulingJobResultJsonCount=51`(想定外に多い)。
+
+**51件の既知ID衝突についてのユーザー判断(2026-09-05)**: この監査は「`judge`・`correction`テーブルに存在した既知のジャッジID値そのものが、`ruling_job.result_json`のどこかに部分文字列として偶然含まれていないか」を機械的に検出するものであり、「ジャッジID」というラベルの有無とは無関係。ジャッジIDは短い数値であること(過去のインシデントで実際に漏洩したIDが4桁数値だった実績から推測)を踏まえると、デュエルマスターズの総合ルール番号・カードのパワー値等との偶然の一致である可能性が高い。
+
+一方で、ユーザーへの確認により、**ジャッジID自体は「ジャッジ本人には知らされているが一般公開はされていない、知っていれば使えるレベルの情報」(パスワード相当の弱い秘密)であり、漏洩しても致命的な実害(金銭的損害・個人情報流出等)には直結しないというリスク許容度である**ことを確認した(このリスク受容自体は、Out of Scopeに記載済みの「ジャッジID自体の再発行見送り」判断と同じ考え方に基づく)。51件全件を本番DBで個別に目視確認するコストは、この実害の大きさに見合わないと判断し、**この51件は保留のままT008をClosedとする**(ユーザー判断、2026-09-05)。
+
+**引き継ぎ事項(T006、または将来のセキュリティ強化タスクへ)**:
+- `possibleKnownIdCollisionRulingJobResultJsonCount=51`は未調査のまま残っている。個別に本番DBを確認すれば、真の残存漏洩と偶然の一致を仕分けられる可能性があるが、このタスクでは着手しなかった。
+- ジャッジIDがパスワード無しの単独認証情報である設計自体(T006 D-004の検討対象)を見直すことになれば、この既知ID衝突カウントの重要性(=ジャッジIDが漏洩した場合の実害の大きさ)も合わせて再評価するとよい。
+
+**検証**: `npm run typecheck`・`npm test`(49ファイル/365テスト、コミット前に実施)PASS。本番での実機確認は上記1〜4の通り。
