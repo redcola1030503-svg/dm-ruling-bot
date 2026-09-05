@@ -28,14 +28,27 @@ const SUGGEST_UNION_SQL = `
 `;
 
 // 主要名(card_index)と別名(card_index_alt_name)の両方に、同じidが別々のnameで
-// 一致することがある(例: 表/裏どちらも同じ文字で始まるサイキック等)。GROUP BY id
-// でid単位に集約し、1id1行だけを返す(重複がLIMIT枠を消費して件数が不足するのを防ぐ)。
-// MIN(name)はLIKE条件を満たした名前の中からの選択なので、一致した面のいずれかの
-// 名前が返る(一致していない方の名前が紛れ込むことはない)。
+// 一致することがある(例: 表/裏どちらも同じ文字で始まるサイキック等)。内側の
+// GROUP BY idでid単位に集約し、1id1行だけを返す(重複がLIMIT枠を消費して件数が
+// 不足するのを防ぐ)。MIN(name)はLIKE条件を満たした名前の中からの選択なので、
+// 一致した面のいずれかの名前が返る(一致していない方の名前が紛れ込むことはない)。
+//
+// T009: 異なるidが同じカード名を持つ場合(公式の同名再録カード)、上記のid単位
+// 集約だけでは同じ表示テキストが複数行として残ってしまう(モバイル側はidを
+// 表示・送信せず名前のみを挿入するため、ユーザーには見た目が同じ候補が複数
+// 並ぶだけの不具合に見える)。外側でさらにGROUP BY nameし、name単位でも1行に
+// まとめる。LIMITは外側(name単位集約後)に適用する: 内側集約の直後にLIMITを
+// 適用すると、同名再録がLIMIT枠を先に専有し、他の(本来表示されるべき)別名
+// 候補がその陰に隠れて返されなくなってしまう(Codexレビュー指摘、2026-09-05)。
+// 代表idはMIN(id)で決定的に選ぶ(正確には「内側のid単位集約後に残った候補の
+// 中でのMIN(id)」。実行のたびに異なるidが返る非決定性を避ける。現状idは
+// 後段で利用されないため、どちらの版のidが選ばれても実害は無い)。
 function suggestQuery(likePattern: string, limit: number): CardSuggestion[] {
   return db
     .prepare(
-      `SELECT id, MIN(name) as name FROM (${SUGGEST_UNION_SQL}) WHERE name LIKE ? ESCAPE '\\' GROUP BY id ORDER BY name LIMIT ?`,
+      `SELECT MIN(id) as id, name FROM (
+         SELECT id, MIN(name) as name FROM (${SUGGEST_UNION_SQL}) WHERE name LIKE ? ESCAPE '\\' GROUP BY id
+       ) GROUP BY name ORDER BY name LIMIT ?`,
     )
     .all(likePattern, limit) as CardSuggestion[];
 }
@@ -45,20 +58,37 @@ export function suggestCardNames(query: string, limit: number): CardSuggestion[]
   if (trimmed.length < MIN_QUERY_LENGTH) return [];
 
   const escaped = escapeLikePattern(trimmed);
+  // T009(Codexレビュー指摘、2026-09-05): 前方一致・部分一致は対象集合が異なるため、
+  // 内側のMIN(name)が同じidに対して異なる面名を選ぶことがある(例: 同一idに
+  // 「ZooFront」「AZooBack」の2面があり「Zoo」で検索すると、前方一致は
+  // 「ZooFront」、部分一致は辞書順の小さい「AZooBack」を選ぶ)。seenNamesだけで
+  // 重複排除すると、この場合に同一idが2回返ってしまう。seenIds(id単位、従来の
+  // 保証)とseenNames(name単位、今回追加する保証)の両方で重複排除する。
   const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
   const results: CardSuggestion[] = [];
 
   const prefixRows = suggestQuery(`${escaped}%`, limit);
   for (const row of prefixRows) {
     seenIds.add(row.id);
+    seenNames.add(row.name);
     results.push(row);
   }
 
   if (results.length < limit) {
-    const partialRows = suggestQuery(`%${escaped}%`, limit);
+    // T009(Codexレビュー指摘、2026-09-05): seenIds・seenNamesの二重の重複排除
+    // により、前方一致の1件が部分一致側で最大2行(id重複の行・name重複の行、
+    // 上記コメントのZooFront/AZooBack例のように別々の行になりうる)を除外しうる。
+    // 部分一致を`limit`件しか取得しないと、除外分だけ新規候補が不足し、
+    // 実際には十分な候補が存在するのにlimitへ届かないことがある。前方一致の
+    // 件数をkとすると、除外されうる行は最大2k、必要な新規行はlimit-kのため、
+    // limit+k件取得すれば必ず充足できる。
+    const partialLimit = limit + prefixRows.length;
+    const partialRows = suggestQuery(`%${escaped}%`, partialLimit);
     for (const row of partialRows) {
-      if (seenIds.has(row.id)) continue;
+      if (seenIds.has(row.id) || seenNames.has(row.name)) continue;
       seenIds.add(row.id);
+      seenNames.add(row.name);
       results.push(row);
       if (results.length >= limit) break;
     }

@@ -90,7 +90,8 @@ describe("cards/cardIndexRepository", () => {
         { id: "a", name: "ボルシャック・ドラゴン" },
         { id: "b", name: "ネオ・ボルシャック・ドラゴン" },
       ]);
-      expect(partialAll).toHaveBeenCalledWith("%ボルシャック%", 5);
+      // T009: 部分一致の取得件数はlimit + prefixRows.length(除外されうる分の余裕)
+      expect(partialAll).toHaveBeenCalledWith("%ボルシャック%", 6);
     });
 
     it("前後の空白はtrimしてから検索する", () => {
@@ -101,6 +102,92 @@ describe("cards/cardIndexRepository", () => {
       suggestCardNames("  ボルシャック  ", 5);
 
       expect(prefixAll).toHaveBeenCalledWith("ボルシャック%", 5);
+    });
+
+    it("T009: SQLはid単位集約(内側)の後にさらにname単位集約(外側)を行い、LIMITは外側に適用する(同名再録カードの重複排除がLIMIT前に行われることの回帰確認)", () => {
+      const all = vi.fn().mockReturnValue([]);
+      prepareMock.mockReturnValue({ all });
+
+      suggestCardNames("輝きは", 10);
+
+      const sqlArg = prepareMock.mock.calls[0]?.[0] as string;
+      // 内側: id単位のGROUP BY(T004由来、表/裏面の重複排除)を維持している
+      expect(sqlArg).toMatch(/GROUP BY id/);
+      // 外側: name単位のGROUP BY(T009、同名再録カードの重複排除)を追加している
+      expect(sqlArg).toMatch(/GROUP BY name/);
+      // LIMITはname単位集約後の外側クエリに書かれている(内側の直後ではない)
+      const groupByNameIndex = sqlArg.indexOf("GROUP BY name");
+      const limitIndex = sqlArg.indexOf("LIMIT");
+      expect(groupByNameIndex).toBeGreaterThan(-1);
+      expect(limitIndex).toBeGreaterThan(groupByNameIndex);
+    });
+
+    it("T009: 同名だが異なるidの行がDB結果に含まれる場合、name単位で1件にまとめる(SQL側のGROUP BY nameが正しく動作した状況を模したモック結果)", () => {
+      // 実際のSQLiteではGROUP BY nameにより同名行は既に1行に集約されて返るため、
+      // ここではSQLが正しく集約した後の結果(1行)を模擬してJS側の受け口を検証する。
+      const prefixAll = vi.fn().mockReturnValue([{ id: "dm25ex3-002", name: "〜輝きは奇跡そのもの〜" }]);
+      const partialAll = vi.fn().mockReturnValue([]);
+      prepareMock.mockReturnValueOnce({ all: prefixAll }).mockReturnValueOnce({ all: partialAll });
+
+      const result = suggestCardNames("輝きは", 10);
+
+      expect(result).toEqual([{ id: "dm25ex3-002", name: "〜輝きは奇跡そのもの〜" }]);
+    });
+
+    it("T009: 同一idが前方一致・部分一致で異なる面名を返す場合でも、そのidは1件だけ返す(seenIdsとseenNames併用の回帰確認、Codexレビュー指摘)", () => {
+      // 前方一致では「ZooFront」、部分一致では同じidの別面名「AZooBack」が
+      // 選ばれる状況を模擬する(内側のMIN(name)が対象集合の違いで異なる名前を
+      // 選ぶケース)。seenNamesだけで重複排除すると誤って2件返ってしまう。
+      const prefixAll = vi.fn().mockReturnValue([{ id: "shared-id", name: "ZooFront" }]);
+      const partialAll = vi.fn().mockReturnValue([{ id: "shared-id", name: "AZooBack" }]);
+      prepareMock.mockReturnValueOnce({ all: prefixAll }).mockReturnValueOnce({ all: partialAll });
+
+      const result = suggestCardNames("Zoo", 5);
+
+      expect(result).toEqual([{ id: "shared-id", name: "ZooFront" }]);
+    });
+
+    it("T009: 別idの同名行は部分一致側でも重複排除される(前方一致で既に登場した名前は部分一致から除外)", () => {
+      const prefixAll = vi.fn().mockReturnValue([{ id: "dm25ex3-002", name: "〜輝きは奇跡そのもの〜" }]);
+      const partialAll = vi.fn().mockReturnValue([
+        { id: "dm25rp3-012", name: "〜輝きは奇跡そのもの〜" }, // 別id・同名、除外される
+        { id: "dm26-999", name: "輝きはじける未来" }, // 別名、残る
+      ]);
+      prepareMock.mockReturnValueOnce({ all: prefixAll }).mockReturnValueOnce({ all: partialAll });
+
+      const result = suggestCardNames("輝きは", 5);
+
+      expect(result).toEqual([
+        { id: "dm25ex3-002", name: "〜輝きは奇跡そのもの〜" },
+        { id: "dm26-999", name: "輝きはじける未来" },
+      ]);
+    });
+
+    it("T009: 前方一致1件がid重複・name重複の2行を部分一致側で除外しても、他の新規候補でlimitまで満たす(Codexレビュー指摘、2026-09-05: 部分一致の取得件数をlimitのままにすると、除外分だけ新規候補が不足しうる)", () => {
+      const prefixAll = vi.fn().mockReturnValue([{ id: "a", name: "ZooFront" }]);
+      const partialAll = vi.fn().mockReturnValue([
+        { id: "a", name: "AZooBack" }, // 前方一致と同じid(別面名)、seenIdsで除外
+        { id: "b", name: "ZooFront" }, // 前方一致と同じname(別id)、seenNamesで除外
+        { id: "c", name: "ZooC" },
+        { id: "d", name: "ZooD" },
+        { id: "e", name: "ZooE" },
+        { id: "f", name: "ZooF" }, // limit(5)を満たすのに必要な6件目
+      ]);
+      prepareMock.mockReturnValueOnce({ all: prefixAll }).mockReturnValueOnce({ all: partialAll });
+
+      const result = suggestCardNames("Zoo", 5);
+
+      // 前方一致1件(a) + 新規4件(c,d,e,f) = 5件(limit)。2件(id重複・name重複)を
+      // 除外してもなお必要な新規件数を確保できていることを確認する。
+      expect(result).toEqual([
+        { id: "a", name: "ZooFront" },
+        { id: "c", name: "ZooC" },
+        { id: "d", name: "ZooD" },
+        { id: "e", name: "ZooE" },
+        { id: "f", name: "ZooF" },
+      ]);
+      // 前方一致1件のため、部分一致はlimit(5) + prefixRows.length(1) = 6件取得する
+      expect(partialAll).toHaveBeenCalledWith("%Zoo%", 6);
     });
   });
 
