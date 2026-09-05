@@ -6,6 +6,7 @@ import '../models/ruling_job.dart';
 import '../state/auth_provider.dart';
 import '../state/ruling_jobs_provider.dart';
 import '../widgets/inline_card_suggest_field.dart';
+import '../widgets/loading_banner_ad.dart';
 import '../widgets/ruling_turn_view.dart';
 import 'correction_dialog.dart';
 import 'paywall_screen.dart';
@@ -176,6 +177,9 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
                         job: job,
                         isLoggedIn: auth.isLoggedIn,
                         onCorrect: () => _openCorrectionDialog(job),
+                        // T013: この画面は追加質問欄の下に常時表示の広告を
+                        // 別途持つため、処理中広告との二重表示を避ける。
+                        showLoadingBannerAd: false,
                       );
                     },
                   ),
@@ -203,7 +207,7 @@ class _RulingThreadDetailScreenState extends State<RulingThreadDetailScreen> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const LoadingBannerAd(collapsedHeight: 8),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(

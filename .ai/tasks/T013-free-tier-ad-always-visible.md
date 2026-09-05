@@ -1,6 +1,6 @@
 # T013: 無償版のバナー広告を常時表示に変更し、表示位置を質問入力欄の直後へ移動
 
-Status: 実装済み・Codexコードレビュー3回実施済み(P1 4件・P2 1件検出・全件反映済み)。未確定事項はユーザー判断待ち
+Status: 実装済み・Codexコードレビュー7回実施済み(全指摘反映済み、Review 7で「重大な問題なし」)。未確定事項はユーザー判断済み・反映済み。残るは実機/エミュレータでの視覚確認のみ
 
 ## Goal
 
@@ -31,18 +31,51 @@ Status: 実装済み・Codexコードレビュー3回実施済み(P1 4件・P2 1
 
 検証: `flutter analyze` 0 issues。
 
-## 未確定・要検討事項(将来のfollow-up候補、今回は対応せず)
+## 未確定・要検討事項(2026-09-05、ユーザー確認済み)
 
-- `ruling_thread_detail_screen.dart`(スレッド内追加質問、ボタン文言「送信」)にも同様の常時表示化を適用するか
-- `RulingJobDetailScreen`(`ruling_turn_view.dart`経由)にも常時表示の広告を追加するか(現状は処理中のみ表示のまま)
-- T012(Batch API全廃)実施後は裁定生成が数十秒〜数分で完了する見込みのため、「処理中のみ表示」だった従来設計では表示時間がさらに短くなり広告収益への影響が大きかった可能性がある(常時表示化の動機の一つと推測されるが、ユーザーへの確認はしていない)
+- `ruling_thread_detail_screen.dart`(スレッド内追加質問、ボタン文言「送信」)にも同様の常時表示化を適用するか → **ユーザー判断「はい、同様に適用する」**。実装完了(下記「追加実装」参照)
+- `RulingJobDetailScreen`(`ruling_turn_view.dart`経由)にも常時表示の広告を追加するか(現状は処理中のみ表示のまま) → **ユーザー判断「いいえ、現状のまま(処理中のみ表示)」**。変更なし
+- T012(Batch API全廃)実施後は裁定生成が数十秒〜数分で完了する見込みのため、「処理中のみ表示」だった従来設計では表示時間がさらに短くなり広告収益への影響が大きかった可能性がある(常時表示化の動機の一つと推測されるが、ユーザーへの確認はしていない、対応不要)
+
+## 追加実装(2026-09-05、ユーザー確認への回答を反映)
+
+- `ruling_thread_detail_screen.dart`: 追加質問欄(`InlineCardSuggestField`)と「送信」ボタンの間に`LoadingBannerAd()`を追加(常時表示)。
+- `ruling_turn_view.dart`(`RulingTurnView`、`RulingThreadDetailScreen`・`RulingJobDetailScreen`で共用): 処理中広告(`!job.isFinished`時の`LoadingBannerAd()`)の表示可否を制御する`showLoadingBannerAd`プロパティ(既定`true`)を追加。`RulingThreadDetailScreen`は追加質問欄の下に常時広告を別途持つため、二重表示を避けるためこの画面からの呼び出しでは`showLoadingBannerAd: false`を指定。`RulingJobDetailScreen`は既定の`true`のまま変更なし(ユーザー判断により他に広告が無いこの画面の表示機会を維持)。
+- `loading_banner_ad.dart`: Review 4のP2指摘(購読へ切り替わった際、`BannerAd`インスタンスがdisposeされないままリソースが解放されない不備)に対応。`didChangeDependencies()`をオーバーライドし、購読状態が変わるたびに購読中と判明していれば保持中の広告をdisposeするよう修正。
+
+**検証**: `flutter analyze` 0 issues。
+
+### Review 5 — 2026-09-05(追加実装へのコードレビュー、Codex)
+
+P0なし。P1 1件・P2 1件を検出・反映済み。
+
+- P1: `didChangeDependencies()`が購読開始時に`_bannerAd`をdisposeするだけで、その後非購読へ戻った場合(購読期限切れ・アカウント切替等)の再読み込み処理が無く、「無償版では常時表示」を満たせなくなる → 購読中に転じた際`_loadRequested`もfalseへリセットし、次回`build()`で`_maybeLoadAd`が再度広告を読み込めるようにした。あわせて、リセット後の再読み込みで「前のリクエストの非同期コールバックが後から返ってきて現在の状態を上書きする」競合を避けるため、リクエストごとに`_loadGeneration`(世代番号)を発行し、コールバック側で最新の世代かどうかを確認してから状態を更新するよう修正
+- P2: `ruling_thread_detail_screen.dart`で`LoadingBannerAd`の前後に`SizedBox(height: 8)`を配置しており、購読中(広告非表示)でも両方の余白が残り従来の8pxから16pxへ変わってしまう。**同じパターンが`ruling_screen.dart`(元のReview 1〜3の実装)にも存在していた** → `LoadingBannerAd`自体が上下の余白(`verticalMargin`、既定8・`ruling_screen.dart`は12を指定)を内包する設計に変更し、呼び出し側(`ruling_screen.dart`・`ruling_thread_detail_screen.dart`・`ruling_turn_view.dart`)の前後の明示的な`SizedBox`を削除。購読中は`LoadingBannerAd`全体が`SizedBox.shrink()`になるため、完全に0サイズになり間隔の変化が起こらない
+
+**再検証**: `flutter analyze` 0 issues。
+
+### Review 6 — 2026-09-05(Review 5対応後の再レビュー、Codex)
+
+P0なし。P1 2件を検出・反映済み。
+
+- P1: 世代チェック(`_loadGeneration`)を`onAdLoaded`にしか追加しておらず、`onAdFailedToLoad`には無かった。旧世代の失敗コールバックが遅れて到着すると`_loadRequested`を誤って`false`へ戻し、重複リクエストや正常な結果の破棄を招きうる → `onAdFailedToLoad`にも同じ世代チェックを追加し、世代が一致する場合のみ`_loadRequested`を`false`に戻すよう修正(失敗時の再試行を許可する設計に統一)
+- P1: `LoadingBannerAd`が余白を内包する設計(Review 5)で、購読中は単純に高さ0(`SizedBox.shrink()`)へ倒していたが、呼び出し元が元々持っていた`SizedBox`は「広告のための余白」だけでなく「フォームの入力欄とボタンの最低限の間隔」も兼ねていた。購読中に間隔まで消えてしまい、入力欄とボタンが密着してしまう不備 → `collapsedHeight`パラメータを追加し、広告非表示時に維持する高さを呼び出し側で指定できるようにした(`ruling_screen.dart`は`collapsedHeight: 12`、`ruling_thread_detail_screen.dart`は`collapsedHeight: 8`。`ruling_turn_view.dart`はフォーム間隔ではなく「処理中テキストの後に続く広告」という位置づけのため既定値0のまま)
+
+**再検証**: `flutter analyze` 0 issues。
 
 ## Acceptance Criteria(現段階)
 
-- [x] 実装に着手する(`flutter analyze`) → **2026-09-04、`flutter analyze`はPASS**。実機/エミュレータでの視覚確認は未実施のまま(下記参照)
-- [x] AGENTS.mdの運用に従いCodexへ実装のコードレビューを依頼する → **2026-09-04、3回実施・全指摘反映済み(下記Review History参照)**
-- [ ] 上記「未確定・要検討事項」への対応要否をユーザーへ確認する
-- [ ] 実機/エミュレータでの視覚確認(常時表示・購読中非表示・レイアウトずれ無し)は未実施のまま残っている
+- [x] 実装に着手する(`flutter analyze`) → **2026-09-04、`flutter analyze`はPASS**
+- [x] AGENTS.mdの運用に従いCodexへ実装のコードレビューを依頼する → **2026-09-04〜05、7回実施・全指摘反映済み、Review 7で「重大な問題なし」(下記Review History参照)**
+- [x] 上記「未確定・要検討事項」への対応要否をユーザーへ確認する → **完了、上記「追加実装」参照**
+- [x] 実機/エミュレータでの視覚確認 → **2026-09-05完了(下記「実機確認結果」参照)**
+
+## 実機確認結果(2026-09-05、Androidエミュレータ`emulator-5554`)
+
+- `ruling_screen.dart`: 質問送信前(処理中でない状態)でも、質問入力欄と「質問する」ボタンの間に常時テスト広告が表示されることを確認。レイアウト崩れ無し
+- `ruling_thread_detail_screen.dart`: 実際に質問を送信しスレッド詳細画面へ遷移した上で、追加質問欄(「追加で質問する」)と「送信」ボタンの間に常時テスト広告が表示されることを確認。レイアウト崩れ無し
+- 購読中の表示(広告が消え`collapsedHeight`分の間隔のみ残ること)は、このエミュレータ(Google Play非対応システムイメージ)ではRevenueCatの`Billing is not available in this device`エラーにより購読状態を作れず、視覚的な確認はできなかった(既知の制約、過去のセッションでも同様の記録あり)。ロジック自体はCodexレビュー(Review 5〜7)で確認済み
+- ビルド時の留意点: `JAVA_HOME`が未設定だと`assembleDebug`が失敗する(`Android Studio`同梱の`jbr`ディレクトリを指定する必要がある)。また、既存インストール済みアプリと署名が異なる場合`INSTALL_FAILED_UPDATE_INCOMPATIBLE`が発生するが、`flutter run`が自動的にアンインストール後に再インストールする
 
 ## Implementation Owner
 

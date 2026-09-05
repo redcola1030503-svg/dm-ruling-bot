@@ -13,6 +13,11 @@ class RulingTurnView extends StatelessWidget {
   final bool showQuestion;
   final bool isLoggedIn;
   final VoidCallback? onCorrect;
+  // T013: RulingThreadDetailScreenは追加質問欄の下に常時表示の広告を別途
+  // 持つため、同じ画面内での二重表示を避けるためこちらの処理中広告を
+  // 無効化できるようにする(既定true、RulingJobDetailScreenは他に広告が
+  // 無いため既定のまま処理中広告を維持する)。
+  final bool showLoadingBannerAd;
 
   const RulingTurnView({
     super.key,
@@ -20,6 +25,7 @@ class RulingTurnView extends StatelessWidget {
     this.showQuestion = true,
     required this.isLoggedIn,
     this.onCorrect,
+    this.showLoadingBannerAd = true,
   });
 
   @override
@@ -35,8 +41,7 @@ class RulingTurnView extends StatelessWidget {
           const Center(child: CircularProgressIndicator()),
           const SizedBox(height: 8),
           const Center(child: Text('裁定を生成しています…')),
-          const SizedBox(height: 8),
-          const LoadingBannerAd(),
+          if (showLoadingBannerAd) const LoadingBannerAd(),
         ] else if (job.status == RulingJobStatus.failed)
           Text(
             job.error ?? '裁定生成中にエラーが発生しました。',

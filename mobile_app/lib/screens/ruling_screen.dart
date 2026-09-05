@@ -234,9 +234,7 @@ class _RulingScreenState extends State<RulingScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
-            const LoadingBannerAd(),
-            const SizedBox(height: 12),
+            const LoadingBannerAd(verticalMargin: 12, collapsedHeight: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
