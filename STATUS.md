@@ -1,8 +1,8 @@
 # Project Status
 
 Updated: 2026-09-06
-Owner: タスクごとに指定(T019: Codex)
-Reviewer: タスクごとにImplementation Ownerと異なる側を指定(T019: Claude Code。過去実績: CodexはPR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正・D-004認証強化の対応案、Claude CodeはT007・T018をレビュー済み)
+Owner: タスクごとに指定(T016 Play Console実確認: Codex)
+Reviewer: タスクごとにImplementation Ownerと異なる側を指定(T016 Play Console実確認: Claude Code。過去実績: CodexはPR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正・D-004認証強化の対応案、Claude CodeはT007・T018・T019をレビュー済み)
 
 ## 引継ぎ(2026-09-04、ユーザー指示によりT008作業を中断)
 
@@ -43,6 +43,7 @@ Reviewer: タスクごとにImplementation Ownerと異なる側を指定(T019: C
 
 ## Completed
 
+- **T016 Google Play「Android デベロッパーの確認」対応完了(2026-09-06)**: Google Play Consoleをread-onlyで確認し、対象アプリ名とパッケージ名`com.dmrulingbot.aiteacher`の一致、および「Android デベロッパーの確認」一覧で対象パッケージが明確に**「登録済み」**であることを確認した。2026年9月30日の要件に対する追加登録、コード変更、署名設定変更は不要。IDタブには追加対応要求は無かったが、「本人確認済み」等の明示文言も無かったため、開発者アカウント本人確認状態そのものは断定していない。Codexが実確認し、Claude Codeが実施前・実施後にread-onlyレビュー(最終P0/P1なし、「重大な問題なし。完了可」)。設定変更、登録・送信、鍵/証明書操作、公開状態変更は行っていない。詳細は`.ai/tasks/T016-android-developer-verification.md`参照
 - **T019 本番デプロイ状況とタスク記録の整合(2026-09-06)**: Renderのデプロイ一覧をread-onlyで確認し、最新Live成功デプロイが`master`の`de8ed26`(2026-09-06 01:57:51 JST)であることを確認。Git祖先判定でT009(`31a4a9d`)・T010/T012(`d117242`)・T013(`64f7fdf`)・T017(`be0c536`)がすべてライブコミットに含まれることを確認し、各タスクファイルと本ファイルの古い「未コミット」「本番未反映」表記を訂正した。本番コードへの包含と実データ上の動作確認を区別し、T009の重複解消・T010の返金挙動・T012の既存孤立ジョブ回収は本番実データで未確認、T013は購読中表示の実機確認とストア配信が未実施であることを維持した。Codexが実施し、Claude Codeの実施前レビュー1回・実施後レビュー2回を実施(最終P0/P1/P2なし、「重大な問題なし。完了可」)。`git diff --check` PASS。アプリコード・Render設定・ストア・DBは変更していないためtypecheck/test/flutter analyzeは未実行。詳細は`.ai/tasks/T019-deployment-task-status-reconciliation.md`参照
 - **T018 Claude/Codexの役割可変型共同体制へ移行(2026-09-06)**: ユーザー指示により、Claudeを実装・Codexをレビューへ固定する運用を、タスクごとにImplementation OwnerとReviewerを選ぶ方式へ変更。どちらが実装担当でも、作業前に方針をタスクファイルへ記録してもう一方がread-onlyレビューし、作業後も同じReviewerが成果物をread-onlyレビューする。担当選定基準、Reviewer未確保時の停止、適用対象、ユーザー指示による更新の由来明記も`AGENTS.md`へ統合し、`CLAUDE.md`を実装担当・レビュアー両対応へ更新。Codexが作成・実装し、Claude Codeの実装前レビュー3回と実装後レビュー2回を実施(最終P0/P1/P2なし、重大な問題なし、完了可)。`git diff --check` PASS。ドキュメントのみの変更のためtypecheck/test/flutter analyzeは未実行。詳細は`.ai/tasks/T018-role-flexible-collaboration-policy.md`参照
 - サブスクリプション課金機能(無料枠月10問+月額300円、RevenueCat経由)を実装し `subscription-billing` ブランチとしてPR化(`https://github.com/redcola1030503-svg/dm-ruling-bot/pull/1`)
@@ -118,7 +119,6 @@ Reviewer: タスクごとにImplementation Ownerと異なる側を指定(T019: C
 ## In Progress
 
 - **T017(新規、2026-09-04起票、調査・実装・Codexレビュー・実LLM検証完了、コミット`be0c536`)**: ユーザーからスレッド内フォローアップで裁定結論が「0枚→1枚→4枚」と矛盾する形で変化する不具合報告(モルトDREAM×エモーショナル・ハードコアの相互作用)。原因を実データで特定: (1)`threadContext.ts`が前ターンの結論の一文しか引き継がず理由・根拠が失われる (2)`retrieveEvidence.ts`がフォローアップのたびに公式Q&A・総合ルールを独立に再検索しており、質問の言い回しで検索結果が丸ごと変わる(実証済み、3ターンで上位5件の総合ルールが完全に別物だった)。対応: D-006検証済み裁定原則の仕組みを使い、この相互作用を一般化した新原則を追加。`searchVerifiedRulingPrinciples`にカード名の組み合わせ(AND条件、`requiredCardNameGroups`)を検索対象として新設し、質問文が「無視する」等の一般語を使わなくても1ターン目から正しい根拠を拾えるようにした。Codexレビューで、当初案が抱えていた自己矛盾(appliesWhen/doesNotApplyWhenが同じ条件を指し原則が発火しても除外されうる不備)・過剰取得(カード1枚だけでも発火する設計だった)を検出・修正。実データ検証で1ターン目の質問文から新原則が正しく取得されることを確認し、**実際のLLM呼び出し(`produceRuling`)でもターン1から最終結論が正しく「4枚装備可能」に変わることを実機確認済み**(元のターン3の回答より、処理順序への依存まで正しく言及する精緻な回答になった)。副次的にT012の`src/llm/client.ts`(LLM呼び出しタイムアウトがSDK既定の再試行で実質倍増しうる不備)も同レビューで検出・修正。**Codexレビュー2回目**で、`triggerKeywords`に残していた汎用語「無視する」が単独でも(カード名不一致でも)原則を発火させ`hasAnyEvidence`を誤ってtrueにしうる過剰取得だった不備を検出・`triggerKeywords`を空配列化し`requiredCardNameGroups`のAND一致のみに一本化(否定テスト追加)。あわせて、他の未コミット差分と共にレビュープロンプトへ埋め込まれた`.ai/tasks/T008-correction-leak-quick-fix.md`の記述中に**2件目のジャッジID平文記載(実際の値はここには記載しない。T008で1件目のIDを無効化した後にVALID_JUDGE_IDSへ残っていた既存ID)がCodex API呼び出し経由で外部送信されていたことが判明**(コミット前に発覚・即座に伏字修正、gitコミット履歴には一度も含まれず、GitHubへの公開はしていない)。**2件目のIDも無効化済み(2026-09-04、ユーザー判断「無効化して」)**: 対応の結果VALID_JUDGE_IDSは空になったが、ユーザーが管理者アカウント経由の管理APIで新しいジャッジを`judge`テーブルへ直接追加し、ログイン機能は正常化済み(詳細は`.ai/tasks/T008-correction-leak-quick-fix.md`の「2件目のインシデント」参照)。`npm run typecheck`・`npm test`(47ファイル/318テスト)PASS。詳細は`.ai/tasks/T017-thread-followup-evidence-drift.md`・`.ai/tasks/T008-correction-leak-quick-fix.md`参照。**push済みで、本番のライブコミット`de8ed26`に含まれることを2026-09-06に確認**
-- **T016(新規、2026-09-04起票、調査完了・Codexレビューで実質的な指摘なし)**: Google Playから届いた「Androidデベロッパーの確認」最終リマインダーメールを受け、パッケージ名(`com.dmrulingbot.aiteacher`、一致確認済み)・Google Play App Signingの利用蓋然性・ローカルkeystore設定・Google Play以外での配布や別署名鍵使用の形跡を調査。コード・署名設定の変更は不要、**Google Play Console上の確認だけ必要**と結論(Play App Signing利用アプリは自動登録対象のため)。詳細・Play Console確認手順は`.ai/tasks/T016-android-developer-verification.md`参照。**Play Console実機での登録ステータス確認はユーザー確認待ち**
 - **iOS版v1.7.1(17)・v1.7.2(18)のTestFlightベータ審査は通過済み**(2026-09-04、App Store Connectで実機確認。両ビルドとも「テスト中」ステータス、招待数8・インストール数はそれぞれ2・4)。通過後、実機でプッシュ通知・広告非表示・能動的アップグレード導線が正しく動作するか確認するとよい(「優先処理」特典はT012によりコピーから削除済みのため確認対象から除外)
 - **iOS本番App Store公開(正式リリース)の準備はほぼ未着手と判明**(2026-09-04確認)。アプリ全体のステータスは「iOS 1.0 提出準備中」で、TestFlightのベータ審査とは別に、一般公開用の製品ページ(スクリーンショット0/10・プレビュー0/3・概要/プロモーション用テキスト/キーワード未入力・App Review向け情報未確認・審査対象ビルド未選定)がまったく作られていない。価格(無料)・配信地域(日本のみ)はこの日にClaudeが設定済み(ユーザー指示に基づく)。残りはスクリーンショット・説明文の作成、審査ビルドの選定、審査提出
 - RevenueCatの「Google developer notifications」(Pub/Subトピック接続)が未設定(上記Completed参照)
