@@ -1,6 +1,6 @@
 # T012: Batch API全廃+汎用的な孤立ジョブ回収の実装
 
-Status: 実装済み・Codexコードレビュー完了(Review 9まで実施)。Review 8で指摘されたプロセス内メモリ(`runningJobIds`)の限界(デプロイ時の新旧プロセス並存問題)を、DBベースのworker_id/heartbeatリース方式で解消済み(Review 9参照)。実機での動作確認(ローカルdevサーバー・実SQLiteでの検証スクリプト)も完了。本番デプロイは未実施。T008の残存確認をユーザーへ確認依頼中
+Status: 実装・Codexコードレビュー・commit/push完了(コミット`d117242`)。Review 8で指摘されたプロセス内メモリ(`runningJobIds`)の限界(デプロイ時の新旧プロセス並存問題)を、DBベースのworker_id/heartbeatリース方式で解消済み(Review 9参照)。実機での動作確認(ローカルdevサーバー・実SQLiteでの検証スクリプト)も完了。本番のライブコミット`de8ed26`に含まれることを2026-09-06に確認。ただし既存孤立ジョブの回収結果は本タスクでは本番DBを確認していないため未確認
 
 ## Goal
 
@@ -108,7 +108,7 @@ Codex Review 1で「Batch API全廃だけでは孤立ジョブ問題は根本解
 
 - [x] 本改訂版の方針(A・B両方、およびT010との統合設計)についてAGENTS.mdの運用に従いCodexへ再レビューを依頼する(Review 2) → **2026-09-04完了、P1 3件・P2 2件を反映済み(下記Review History参照)**
 - [x] STATUS.mdをT012の内容で更新する → **2026-09-04完了**
-- [x] 有料特典コピーの見直し方針をユーザーへ確認してから該当箇所を修正する → **2026-09-04完了**(「文言を削除」で確定、`paywall_screen.dart`・`settings_screen.dart`・`docs/mobile-app-privacy-policy.html`の3箇所から「優先処理(高速回答)」を削除済み。未コミット)
+- [x] 有料特典コピーの見直し方針をユーザーへ確認してから該当箇所を修正する → **2026-09-04完了**(「文言を削除」で確定、`paywall_screen.dart`・`settings_screen.dart`・`docs/mobile-app-privacy-policy.html`の3箇所から「優先処理(高速回答)」を削除済み。コミット`d117242`としてpush済み)
 - [x] (A)の実装前に、モバイル側が`GET /api/ruling/jobs/:jobId`で`status='failed'`を受け取った際の挙動を確認する → **2026-09-04完了。`ruling_screen.dart`・`ruling_turn_view.dart`とも`isFinished`(done/failedの両方を含む)でポーリングを停止し、`status==failed`時は`job.error`を赤字表示、質問入力欄(`ruling_screen.dart`)・追加質問欄(`ruling_thread_detail_screen.dart`、`canSubmit`が`isFinished`で再度trueになる)は常に表示されたままのため再送も可能。返金されたことを明示するUI要素は無いが、既存の「無料枠残数」表示を次回確認すれば間接的にわかるため、今回は追加UI無しで十分と判断し、モバイル側の変更はスコープに含めない**
 - [x] (A)(B)の実装に着手する → **2026-09-04完了(下記参照)**。`ruling_job`への`usage_month_key`/`refunded_at`列追加、`finalizeRulingJob`(T010)実装、`src/ruling/orphanedJobSweep.ts`新設(起動時+5分間隔の定期走査)、`src/index.ts`での起動、`src/llm/client.ts`へのLLM呼び出しタイムアウト(3分)、Batch API関連コード(`completeJsonViaBatch`・`RULING_USE_BATCH_API`・`useBatchApi`の全経路)を削除。**実行中ジョブ判定は当初`runningJobIds`集合(プロセス内メモリ)で行っていたが、デプロイ時の新旧プロセス並存に対応できない不備が判明し、`worker_id`/`heartbeat_at`によるDBベースのリース方式へ変更済み(最新の設計・実装はReview 9参照、以降このタスクファイル内で`runningJobIds`に言及している箇所は方針決定当時の議論の記録であり、現在の実装はheartbeatベースに置き換わっている)**
 - [x] T011は(A)の実装完了をもってClosedにする → **2026-09-04、`.ai/tasks/T011-orphaned-batch-job-on-restart.md`をSupersededからClosedへ更新**
