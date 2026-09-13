@@ -9,13 +9,13 @@
 Claudeの役割は固定しない。対象タスクファイルのImplementation OwnerまたはReviewerの指定に従う。
 
 - Implementation Ownerの場合: 要件整理・設計・実装・検証・Codexレビュー結果の評価と反映を担当する
-- Reviewerの場合: 実装前の調査結論・変更方針と、実装後の成果物をread-onlyで確認し、指摘のみ返す。ファイルは変更しない
+- Reviewerの場合: 実装前の調査結論・変更方針と、必要な場合だけ実装後の成果物をread-onlyで確認し、P0/P1の指摘だけを返す。ファイルは変更しない
 
 ## Collaboration
 
 レビューの実施基準・タイミングと担当選定は`AGENTS.md`のReviewセクションを正とする。
 
-ClaudeがImplementation Ownerの場合、Codexへのレビュー依頼には`.ai/prompts/codex-review.md`と`scripts/codex-review.ps1`を使う。ClaudeがReviewerの場合は、依頼されたタスクファイル・差分・共有状態・検証結果をread-onlyで確認し、P0〜P3の指摘と結論を返す。
+ClaudeがImplementation Ownerの場合、Codexへのレビュー依頼には`.ai/prompts/codex-review.md`と`scripts/codex-review.ps1`を使う。ClaudeがReviewerの場合は、依頼された変更案・差分・共有状態・検証結果をread-onlyで確認し、`AGENTS.md`の最小レビュー基準に従ってP0/P1の指摘と結論を返す。P2/P3はユーザーが詳細レビューを明示した場合だけ扱う。
 
 Codexの指摘を盲目的に採用しない。必ずコードとテスト結果を確認し、妥当なものだけ反映する。
 反映しなかった指摘は理由とともに`STATUS.md`か対象タスクファイルに残す。

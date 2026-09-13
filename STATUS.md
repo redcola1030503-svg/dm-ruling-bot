@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-09-06
+Updated: 2026-09-13
 Owner: タスクごとに指定(T016 Play Console実確認: Codex)
 Reviewer: タスクごとにImplementation Ownerと異なる側を指定(T016 Play Console実確認: Claude Code。過去実績: CodexはPR #1・LINE Bot廃止・設計整合性・検証済み裁定原則移行・複数面カード名サジェスト修正・D-004認証強化の対応案、Claude CodeはT007・T018・T019をレビュー済み)
 
@@ -42,6 +42,15 @@ Reviewer: タスクごとにImplementation Ownerと異なる側を指定(T016 Pl
 7. T006 D-004ジャッジ認証強化の対応案 — 方針決定段階でCodex Review 1完了、ユーザー判断待ち(下記Completed/Next参照)
 
 ## Completed
+
+- **T012 Review 8残課題の対応+`scripts/codex-review.ps1`の改修(2026-09-13)**: Vault(`actions/dm-ruling-bot_残作業リスト.md`)側の記録が古く「T009/T010が未実装」と誤って記載されていたが、実際は既に本番反映・確認済み(上記T020参照)と判明。改めて残作業を洗い出し、Claude単独で進められる2件に対応した。
+  - **T012 Review 8の型絞り込み**: `finalizeRulingJob`の`FinalizeRulingJobParams`の`outcomeStatus`を`string`から`ProduceRulingOutcome["status"]`へ絞り込み、将来`ProduceRulingOutcome`に新しい正常系ステータスを追加した際に`isRefundableOutcome`の判定漏れで誤って返金対象になることを型レベルで防ぐようにした。動作変更なしの型安全性強化のためCodexレビューは省略(T021最小レビュー方針に基づく判断)。`npm run typecheck`・`npm test`(373件)PASS。
+  - **`scripts/codex-review.ps1`の改修**: STATUS.md記載の3つのfollow-up(`-Base`指定時に未コミット変更が漏れる、未追跡ディレクトリ配下のファイルが列挙されない、`.ai/tasks/T*.md`を無条件に全件埋め込む)に対応。`-Base`指定の有無に関わらず常に作業ツリーの差分も対象にし、`--untracked-files=all`で新規ディレクトリ配下のファイルを個別列挙し、新設`-Task`パラメータで指定したタスクIDのファイルのみ埋め込むようにした(未指定時は埋め込まず`Write-Warning`で案内)。4件目のfollow-up(新しい分岐への自動テスト)は、既存のテスト基盤が無い内部スクリプトへの新規フレームワーク導入という大きめの追加になるため見送った。
+  - **Codexレビュー(計4ラウンド)で発見・対応した問題**: (1) `--untracked-files=all`化により、新規ディレクトリ配下の`credentials/service-account.json`等が拡張子ベースの秘密情報フィルタをすり抜けて内容ごと送信されうる不備を発見。判定ロジックを`scripts/codexReviewUntrackedFileGuard.ps1`(パス名パターン`Test-IsSecretUntrackedPath`+JSON/PEM内容パターン`Test-IsSecretFileContent`)へ切り出し、Pester(Windows PowerShell 5.1同梱、3.4.0)で15件のユニットテストを追加。(2) 新設ファイル名に"secret"を含めていたため`.gitignore`の`*secret*`ルールに一致しgit管理対象から除外される実装バグを発見・リネームで解消。(3) ファイル名からは秘密情報と判別できないケース(このリポジトリで実際に使っているサービスアカウントJSONと同じランダムな命名パターン)への対策として内容ベースの検査を追加。(4) 秘密情報検査が未追跡ファイルにしか適用されておらず`git add`済み・追跡済み差分は無検査だった不備を発見・`committedDiff`/`workingTreeDiff`にも同じ検査を適用しfail-closedで停止するよう修正。(5) Pesterテストのフィクスチャ自体が検出対象文字列を含み、レビュー実行時にテストファイルの内容が自己検閲されて独立レビュアーが確認できなくなる問題を発見・文字列分割による実行時連結で解消(修正後も自己参照が残る再発を1回起こし、原因〈説明コメント自体に検出文字列を連続して書いていた〉を特定して再修正)。
+  - **4ラウンド目で新たに指摘され、対応せず記録のみとした残課題(P1、P0なし)**: (a) 検出パターンが`LINE_CHANNEL_ACCESS_TOKEN=`・`REVENUECAT_API_KEY=`・`refresh_token`・`Authorization: Bearer`等の認証情報形式を捕捉しない(パターンベースの検知に本質的な網羅性の限界がある領域、既存のプロンプトインジェクション対策と同様「完全な網羅は目指さない」方針で受容)。(b) `AGENTS.md`/`STATUS.md`/`DECISIONS.md`/タスクファイルには秘密情報検査を適用していない(既存のコミット済みプロジェクト資料であり、優先度は低いと判断)。(c) `git status --porcelain`が空白を含む未追跡パスを引用符付きで返すため、`Substring(3)`によるパース処理ではそのファイルの内容がレビュー対象から脱落しうる(セキュリティリスクではなく網羅性の不備)。3件とも次回この領域を触るタイミングでの対応候補として記録するに留め、これ以上のレビュー反復は行わなかった(T021最小レビュー方針の趣旨に基づく判断)。
+  - `npm run typecheck`・`npm test`(373件)・Pester(15件)すべてPASS。コミットは未実施(ユーザーへのpush確認待ち)。
+
+- **T021 最小レビュー方針への変更(2026-09-10)**: Codexレビューの対象を、具体的な要件違反・現実的な不具合/回帰/競合/security/data-loss・必要テスト欠落のP0/P1だけへ限定。P2/P3、スタイル、任意改善、根拠の薄い将来仮定、スコープ外はユーザーが詳細レビューを明示しない限り報告・改修しない。実装前レビューは1回、コードの実装後レビューは1回、P0/P1対応後の再レビューは最大1回とした。方針変更・ドキュメント修正は編集前のClaude Codeレビューを必須化。Claude Codeの実装後確認はP0/P1なし・完了可。`git diff --check` PASS。詳細は`.ai/tasks/T021-minimum-review-policy.md`参照
 
 - **T020 本番動作確認完了（2026-09-06）**: CodexがT009/T010/T012/T013の未確認事項を、Claude Codeの実行前read-onlyレビュー2回後に確認した。T009は本番サジェストで対象名が1件だけとなり重複解消を単発確認。T010は合成deviceId・質問1件だけで`done`/`needs_clarification`と完了後の無料枠10件を確認。消費直後の9件は未観測のため、本番確認単独では返金と消費なしを区別できないが、202応答前に同期消費する実装と整合する結果。T012は個別ID・deviceId・質問・回答を取得しないread-only集計で、2026-09-01の既存孤立ジョブ1件が`failed`・完了時刻ありへ回収済みと確認した。旧ジョブは`usage_month_key`がなく自動返金されておらず、当時の消費有無と手動返金要否は残作業。T013はリポジトリと記録済みリリース履歴上、現行`1.7.2+18`より実装コミットが後で未配信と判定（ストアコンソール自体は今回未確認）。次回ストアリリース後の購読中実機確認を残す。Claude Codeの実行後レビューではT010の断定表現にP1が1件あり修正し、最終再レビューでP0/P1/P2/P3なし・重大な問題なし・完了可。詳細は`.ai/tasks/T020-production-behavior-verification.md`参照
 - **T016 Google Play「Android デベロッパーの確認」対応完了(2026-09-06)**: Google Play Consoleをread-onlyで確認し、対象アプリ名とパッケージ名`com.dmrulingbot.aiteacher`の一致、および「Android デベロッパーの確認」一覧で対象パッケージが明確に**「登録済み」**であることを確認した。2026年9月30日の要件に対する追加登録、コード変更、署名設定変更は不要。IDタブには追加対応要求は無かったが、「本人確認済み」等の明示文言も無かったため、開発者アカウント本人確認状態そのものは断定していない。Codexが実確認し、Claude Codeが実施前・実施後にread-onlyレビュー(最終P0/P1なし、「重大な問題なし。完了可」)。設定変更、登録・送信、鍵/証明書操作、公開状態変更は行っていない。詳細は`.ai/tasks/T016-android-developer-verification.md`参照
@@ -156,6 +165,7 @@ Reviewer: タスクごとにImplementation Ownerと異なる側を指定(T016 Pl
 - PR #1はマージ判断へ進んでよい状態
 - **今後の開発は原則として共同体制(Claude実装→Codex独立レビュー→Claude修正→再検証)で行う**(2026-09-02、ユーザー方針)。従来「重要な変更のときだけ」だった`AGENTS.md`のReviewセクションを、これを標準の流れとする内容へ更新済み。レビューは`scripts/codex-review.ps1`を使う
 - **上記2026-09-02の役割固定を変更し、タスクごとにClaude/CodexのImplementation OwnerとReviewerを選ぶ役割可変型共同体制とする**(2026-09-06、ユーザー方針)。どちらが実装担当でも、実装前の方針レビューと実装後の成果物レビューをもう一方がread-onlyで行う。Claude実装時は`scripts/codex-review.ps1`、Codex実装時はCodexから`claude -p --permission-mode plan --tools "" --no-session-persistence`を直接実行する(T018で実証済み)。詳細は`AGENTS.md`のReviewセクションと`.ai/tasks/T018-role-flexible-collaboration-policy.md`参照
+- **共同レビューを最小レビューへ変更する**(2026-09-10、ユーザー方針)。標準レビューはP0/P1だけを扱い、実装前1回・コード実装後1回、再レビューはP0/P1対応で挙動またはリスクが変わった場合の最大1回とする。P2/P3、スタイル、任意改善、根拠の薄い将来仮定、スコープ外は詳細レビューの明示がない限り扱わない。方針変更・ドキュメント修正は編集前にClaude Codeのread-onlyレビューを受ける。詳細は`AGENTS.md`と`.ai/tasks/T021-minimum-review-policy.md`参照
 - LINE Bot版は告知無しで即時廃止する(2026-09-02、ユーザー最終判断。詳細は`DECISIONS.md`のD-002参照)
 - 公認ジャッジによる訂正は、本プロジェクト上の「公式参考情報」として扱う。タカラトミー公開物である「公式一次情報」と用語を区別するが、論点が明確に一致する場合は直接の裁定根拠・`high` confidenceの材料にできる(2026-09-02、ユーザー判断。詳細は`DECISIONS.md`のD-004参照)
 - Androidの`deviceId`は永続的な端末/ユーザーIDではなくインストール単位IDとして扱う。アプリデータ削除・再インストールによる無料枠リセットは既知の限界として受容し、購入復元はRevenueCatの`Transfer to new App User ID`と`restorePurchases()`へ分離する案Aを採用する(2026-09-02、ユーザー判断。詳細は`DECISIONS.md`のD-005参照)
