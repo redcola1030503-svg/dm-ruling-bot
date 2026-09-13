@@ -91,13 +91,31 @@ $workingTreeDiff = $workingTreeDiffLines -join "`n"
 # ファイルを個別に列挙させるため(既定のnormalモードだと新規ディレクトリ自体が
 # 1行にまとまり、配下のファイル群がレビュー対象から漏れる、STATUS.md記載の
 # follow-up、2026-09-13修正)。
-$untrackedLines = @(git -c core.quotepath=false status --porcelain --untracked-files=all)
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "git status --porcelain に失敗しました。"
-    exit 1
+#
+# -z(NUL区切り出力)を使う: -z無しの`git status --porcelain`は、空白を含む
+# パスを`"review notes.md"`のようにダブルクォートで囲んで返す。単純な
+# Substring(3)ではこの引用符込みの文字列をそのままパスとして扱ってしまい、
+# 実際には存在しないパスとして後続のTest-Path等が失敗し、当該ファイルが
+# レビュー対象から静かに脱落する(Codexレビュー指摘、2026-09-13。実機で
+# 空白を含むファイル名を使って再現・確認済み)。-zは引用符処理を行わず、
+# 各エントリをNUL文字(`0)区切りの生パスで返すため、この問題が起きない。
+# PowerShellのネイティブコマンド出力リダイレクト(`>`)は既定でBOM付き
+# UTF-8として書き込むため、後続でBOM文字(U+FEFF)を明示的に除去する。
+$untrackedRawPath = [System.IO.Path]::GetTempFileName()
+try {
+    & git -c core.quotepath=false status --porcelain -z --untracked-files=all > $untrackedRawPath
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "git status --porcelain に失敗しました。"
+        exit 1
+    }
+    $untrackedRawBytes = [System.IO.File]::ReadAllBytes($untrackedRawPath)
+} finally {
+    Remove-Item -LiteralPath $untrackedRawPath -Force -ErrorAction SilentlyContinue
 }
+$untrackedRawText = [System.Text.Encoding]::UTF8.GetString($untrackedRawBytes).TrimStart([char]0xFEFF)
+$untrackedEntries = @($untrackedRawText -split "`0" | Where-Object { $_ -ne "" })
 $untrackedPaths = @(
-    $untrackedLines | Where-Object { $_ -match '^\?\? ' } | ForEach-Object { $_.Substring(3) }
+    $untrackedEntries | Where-Object { $_.StartsWith("?? ") } | ForEach-Object { $_.Substring(3) }
 )
 
 if ((-not $committedDiff) -and (-not $workingTreeDiff) -and ($untrackedPaths.Count -eq 0)) {
@@ -146,6 +164,13 @@ function Get-FileBlock {
         # システムのANSIコードページ(Shift-JIS)として誤読し文字化けするため、
         # -Encoding UTF8を必ず明示する(feedback_vault_encoding_pitfallと同種の罠)。
         $content = Get-Content -Raw -Encoding UTF8 -LiteralPath $Path
+        # AGENTS.md/STATUS.md/DECISIONS.md/タスクファイルはこれまで秘密情報検査の
+        # 対象外だった(Codexレビュー指摘、2026-09-13)。既にコミット済みの資料とはいえ、
+        # 過去にタスクファイルへ実ジャッジIDを誤記載した事故(T008参照)もあるため、
+        # 未追跡ファイル・diffと同じ検査をここにも適用する。
+        if (Test-IsSecretFileContent -Content $content) {
+            return "$header`n`n(内容が秘密情報の可能性が高いと判定したため内容は送信していません。手動で確認してください)"
+        }
         return "$header`n`n$content"
     }
     return "$header`n`n(ファイルが存在しません)"

@@ -93,6 +93,27 @@ Describe "Test-IsSecretFileContent" {
             $content = "対象: `n$pemBegin`nMIIExample...`n$pemEnd"
             Test-IsSecretFileContent -Content $content | Should Be $true
         }
+
+        It "LINE連携の環境変数代入形式(2026-09-13の4回目レビューで追加した回帰対象、タイトル文言も自己検閲を避けるため実際の変数名を連続して書いていない)" {
+            $envLine = 'LINE_CHANNEL_ACCESS' + '_TOKEN' + '=abcdefGHIJKL1234567890'
+            Test-IsSecretFileContent -Content $envLine | Should Be $true
+        }
+
+        It "RevenueCat連携の環境変数代入形式" {
+            $envLine = 'REVENUECAT_API' + '_KEY' + '=sk_abcdefGHIJKL1234567890'
+            Test-IsSecretFileContent -Content $envLine | Should Be $true
+        }
+
+        It "HTTP認証ヘッダーでのベアラートークン提示形式" {
+            $header = 'Authorization:' + ' Bearer ' + 'abcdefGHIJKL1234567890'
+            Test-IsSecretFileContent -Content $header | Should Be $true
+        }
+
+        It "OAuthのリフレッシュ用トークンを表す典型的なフィールド名" {
+            $field = 'refresh' + '_token'
+            $content = '{"' + $field + '":"1//abcdefGHIJKL1234567890"}'
+            Test-IsSecretFileContent -Content $content | Should Be $true
+        }
     }
 
     Context "通常のファイル内容はfalseと判定する" {
@@ -103,6 +124,12 @@ Describe "Test-IsSecretFileContent" {
 
         It "通常のMarkdown本文" {
             Test-IsSecretFileContent -Content "# タスク概要`n方針を記録する。" | Should Be $false
+        }
+
+        It "環境変数名への言及だけで実際の値の代入が無い場合(誤検知しないことの確認)" {
+            $envName = 'REVENUECAT_API' + '_KEY'
+            $content = "Renderダッシュボードで ``$envName`` を設定してください。"
+            Test-IsSecretFileContent -Content $content | Should Be $false
         }
     }
 }

@@ -39,7 +39,33 @@ function Test-IsSecretUntrackedPath {
 # 2026-09-13)。そのため、JSON/テキストファイルの内容そのものに、サービスアカウント鍵・
 # OAuthクライアントシークレット・PEM形式の秘密鍵に典型的なマーカーが含まれていないかを
 # 追加でチェックする。
-$script:SecretContentPattern = '"private_key"\s*:|"type"\s*:\s*"service_account"|"client_secret"\s*:|-----BEGIN (RSA )?PRIVATE KEY-----'
+#
+# 2026-09-13の4回目のCodexレビューで、大文字のスネークケース環境変数名+代入記号+値
+# という形式(例えばLINE・RevenueCat連携で使う各種トークン/キー系の環境変数)、
+# HTTP認証ヘッダーでの提示形式、OAuthのリフレッシュ用トークンを表す典型的な
+# フィールド名を検出できていない不備を指摘され、パターンを追加した(このコメント
+# 自体は自己検閲を避けるため、検出対象そのものの文字列を連続して書かないよう
+# 意図的に抽象的な言い方にしている。具体的なパターンは下のSecretContentPattern
+# 定義・および対応するPesterテストのフィクスチャを参照)。これらはあくまで既知の
+# 形式に対するヒューリスティックであり、すべての秘密情報を網羅できるわけではない
+# (このプロジェクトの既存のプロンプトインジェクション対策と同様、完全な網羅では
+# なく多層防御の一部と位置づける)。
+# OAuthのリフレッシュ用トークンを表す語は、素の単語のままだとメタ文字を伴わず、
+# この定義自体のソースコード中に単語がそのまま出現してしまい自己参照しうる
+# (単語の直後に正規表現のメタ文字が続かないと、パターン文字列自身が
+# マッチ対象になってしまう。Codexレビュー指摘の自己検閲問題と同根)。
+# JSONのキーとして書かれた形に絞ることで、この定義自体との自己参照を避けつつ、
+# より実際の秘密情報らしい文脈に判定を限定している。大文字スネークケースの
+# 環境変数として書かれる同種のケースは、直後のTOKEN/KEY/SECRETパターンで
+# 別途捕捉する。
+$script:SecretContentPattern =
+    '"private_key"\s*:' +
+    '|"type"\s*:\s*"service_account"' +
+    '|"client_secret"\s*:' +
+    '|"refresh_token"\s*:' +
+    '|-----BEGIN (RSA )?PRIVATE KEY-----' +
+    '|[A-Z][A-Z0-9_]*_(TOKEN|KEY|SECRET)\s*=\s*\S' +
+    '|Authorization:\s*Bearer\s+\S+'
 
 function Test-IsSecretFileContent {
     <#
