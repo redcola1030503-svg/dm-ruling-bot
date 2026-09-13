@@ -1,6 +1,7 @@
 import type { SQLInputValue } from "node:sqlite";
 import { db } from "../config/db";
 import type { RulingResult } from "./types";
+import type { ProduceRulingOutcome } from "./produceRuling";
 import { decrementMonthlyUsage } from "../billing/deviceMonthlyUsageRepository";
 import { logger } from "../utils/logger";
 
@@ -72,8 +73,11 @@ function isRefundableOutcome(params: FinalizeRulingJobParams): boolean {
   return !(params.outcome === "done" && params.outcomeStatus === "ok");
 }
 
+// outcomeStatusはProduceRulingOutcome["status"]に絞り込んでいる(string型のままだと、
+// 将来ProduceRulingOutcomeへ新しい正常系ステータスを追加した際に、isRefundableOutcomeの
+// `!== "ok"`判定が更新されないまま誤って返金対象になりうる、Codexレビュー指摘T012 Review 8)。
 export type FinalizeRulingJobParams =
-  | { outcome: "done"; outcomeStatus: string; result: RulingResult }
+  | { outcome: "done"; outcomeStatus: ProduceRulingOutcome["status"]; result: RulingResult }
   | { outcome: "failed"; error: string };
 
 export type FinalizeRulingJobResult =
